@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Booking;
 use App\Http\Controllers\BookingController;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\ProfileController;
