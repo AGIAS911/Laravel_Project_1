@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Booking;
 use App\Http\Controllers\BookingController;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\ProfileController;
@@ -27,3 +28,5 @@ Route::middleware('auth')->group(function () {
 });
 
 Auth::routes();
+
+Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
