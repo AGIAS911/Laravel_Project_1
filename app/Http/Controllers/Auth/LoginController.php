@@ -3,8 +3,9 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Foundation\Auth\AuthenticatesUsers;
 use Illuminate\Http\Request;
+use Illuminate\Foundation\Auth\AuthenticatesUsers;
+use Illuminate\Support\Facades\Auth;
 
 class LoginController extends Controller
 {
@@ -39,18 +40,24 @@ class LoginController extends Controller
         $this->middleware('auth')->only('logout');
     }
 
+
     protected function authenticated(Request $request, $user)
     {
-        if (! $user->is_active) {
-            $this->guard()->logout();
-            $request->session()->invalidate();
-            $request->session()->regenerateToken();
-
-            return redirect()->route('login')->withErrors([
-                'email' => 'Your account is pending approval or has been disabled.',
+        if (!$user->is_active) {
+            Auth::logout();
+            return redirect('/login')->withErrors([
+                'email' => 'Your account is pending admin approval or inactive.',
             ]);
         }
 
-        return null;
+        if ($user->role === 'admin') {
+            return redirect('/admin/dashboard');
+        }
+
+        if ($user->role === 'driver') {
+            return redirect('/driver/dashboard');
+        }
+
+        return redirect('/home');
     }
 }
