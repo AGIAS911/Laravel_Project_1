@@ -15,8 +15,8 @@ return new class extends Migration
             $table->string('name', 150);
             $table->string('plate_number', 30)->unique();
             $table->string('image')->nullable();
-            $table->decimal('capacity_kg', 10, 2);
-            $table->decimal('capacity_m3', 10, 2);
+            $table->enum('capacity_kg', ['small', 'medium', 'large']);
+            $table->enum('capacity_m3', ['small', 'medium', 'large']);
             $table->decimal('base_price', 10, 3);
             $table->decimal('price_per_km', 10, 3);
             $table->string('status', 20)->default('active');
