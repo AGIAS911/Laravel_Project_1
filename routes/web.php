@@ -2,6 +2,8 @@
 
 use App\Models\Booking;
 use App\Http\Controllers\BookingController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\UserController;
 use App\Http\Controllers\VehicleController;
 use App\Http\Controllers\VehicleTypeController;
 use Illuminate\Support\Facades\Auth;
@@ -19,12 +21,10 @@ Route::get('/dashboard', function () {
     return view('dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
 
-Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
-
-
 Route::resource('vehicles', VehicleController::class);
 Route::resource('vehicle-types', VehicleTypeController::class);
 Route::resource('booking', BookingController::class);
+
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
@@ -36,18 +36,22 @@ Route::middleware('auth')->group(function () {
         ->name('notifications.read');
 });
 
-Route::middleware(['auth', 'role:admin'])
-    ->prefix('admin')
-    ->name('admin.')
-    ->group(function () {
-        Route::resource('users', UserController::class)
-            ->only(['index', 'store', 'update', 'destroy']);
 Route::middleware(['auth', 'active', 'role:driver'])->prefix('driver')->name('driver.')->group(function () {
+    Route::get('/dashboard', [DriverController::class, 'show'])->name('dashboard');
     Route::get('/profile', [DriverController::class, 'show'])->name('profile.show');
     Route::get('/profile/edit', [DriverController::class, 'edit'])->name('profile.edit');
     Route::put('/profile', [DriverController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [DriverController::class, 'destroy'])->name('profile.destroy');
 });
+
+Route::middleware(['auth', 'active', 'role:admin'])
+    ->prefix('admin')
+    ->name('admin.')
+    ->group(function () {
+        Route::get('/dashboard', [UserController::class, 'index'])->name('dashboard');
+        Route::resource('users', UserController::class)
+            ->only(['index', 'store', 'update', 'destroy']);
+    });
 
 Auth::routes();
 
