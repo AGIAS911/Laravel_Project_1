@@ -1,13 +1,13 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="en" dir="ltr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>@yield('title', 'أنواع المركبات')</title>
+    <title>@yield('title', 'Vehicle Types')</title>
     <style>
         body { margin: 0; background: #f3f4f6; color: #1f2937; font: 16px/1.6 Arial, sans-serif; }
         header { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 16px 24px; }
-        header a { color: #1d4ed8; margin-left: 16px; text-decoration: none; }
+        header a { color: #1d4ed8; margin-right: 16px; text-decoration: none; }
         main { max-width: 1000px; margin: 28px auto; padding: 0 16px; }
         .panel { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin-bottom: 16px; }
         .actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
@@ -18,7 +18,7 @@
         input[type="text"], input[type="number"], input[type="file"], select, textarea { box-sizing: border-box; width: 100%; padding: 9px; border: 1px solid #9ca3af; border-radius: 5px; font: inherit; }
         textarea { min-height: 110px; }
         table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 10px; text-align: right; border-bottom: 1px solid #e5e7eb; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #e5e7eb; }
         .message { padding: 10px 14px; border-radius: 5px; margin-bottom: 14px; background: #dcfce7; }
         .message.error, .field-error { color: #b91c1c; }
         .field-error { margin: 4px 0; }
@@ -28,10 +28,10 @@
 </head>
 <body>
     <header>
-        <a href="{{ route('vehicles.index') }}">المركبات</a>
-        <a href="{{ route('vehicles.create') }}">إضافة مركبة</a>
-        <a href="{{ route('vehicle-types.index') }}">أنواع المركبات</a>
-        <a href="{{ route('vehicle-types.create') }}">إضافة نوع</a>
+        <a href="{{ route('vehicles.index') }}">Vehicles</a>
+        <a href="{{ route('vehicles.create') }}">Add Vehicle</a>
+        <a href="{{ route('vehicle-types.index') }}">Vehicle Types</a>
+        <a href="{{ route('vehicle-types.create') }}">Add Vehicle Type</a>
     </header>
     <main>
         @if (session('success'))
