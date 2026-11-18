@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ServiceController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\DriverController;
 
 
 Route::get('/', function () {
@@ -41,6 +42,11 @@ Route::middleware(['auth', 'role:admin'])
     ->group(function () {
         Route::resource('users', UserController::class)
             ->only(['index', 'store', 'update', 'destroy']);
+Route::middleware(['auth', 'active', 'role:driver'])->prefix('driver')->name('driver.')->group(function () {
+    Route::get('/profile', [DriverController::class, 'show'])->name('profile.show');
+    Route::get('/profile/edit', [DriverController::class, 'edit'])->name('profile.edit');
+    Route::put('/profile', [DriverController::class, 'update'])->name('profile.update');
+    Route::delete('/profile', [DriverController::class, 'destroy'])->name('profile.destroy');
 });
 
 Auth::routes();
