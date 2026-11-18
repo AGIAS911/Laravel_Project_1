@@ -7,6 +7,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ServiceController;
 use Illuminate\Support\Facades\Route;
 
+
 Route::get('/', function () {
     return view('welcome');
 });
@@ -25,6 +26,17 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
     
     Route::resource('services', ServiceController::class);
+
+    Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead'])
+        ->name('notifications.read');
+});
+
+Route::middleware(['auth', 'role:admin'])
+    ->prefix('admin')
+    ->name('admin.')
+    ->group(function () {
+        Route::resource('users', UserController::class)
+            ->only(['index', 'store', 'update', 'destroy']);
 });
 
 Auth::routes();

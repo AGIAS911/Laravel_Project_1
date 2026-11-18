@@ -2,6 +2,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Notifications\DriverApprovedNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -40,20 +41,29 @@ class UserController extends Controller
     public function update(Request $request, User $user)
     {
         if ($request->has('approve_driver')) {
-            $user->update([
-                'is_active' => true
+            $request->validate([
+                'approve_driver' => ['accepted'],
             ]);
-            
+
+            abort_unless($user->role === 'driver', 404);
+
+            if (! $user->is_active) {
+                $user->update([
+                    'is_active' => true,
+                ]);
+
+                $user->notify(new DriverApprovedNotification());
+            }
+
             return redirect()->back()->with('success', 'Driver approved.');
         }
 
         $validatedData = $request->validate([
-            'name' => 'required|string|max:255',
-            'phone' => 'required|string|max:20',
+            'name' => 'required|string|max:150',
         ]);
-        
+
         $user->update($validatedData);
-        
+
         return redirect()->back()->with('success', 'User updated successfully.');
     }
 
