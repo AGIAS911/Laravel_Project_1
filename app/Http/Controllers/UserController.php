@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use App\Models\User;
@@ -10,8 +11,8 @@ class UserController extends Controller
 {
     public function index()
     {
-        $pendingDrivers = User::where('role', 'driver')->where('is_active', false)->get();
-        $activeDrivers = User::where('role', 'driver')->where('is_active', true)->get();
+        $pendingDrivers = User::with('driverProfile')->where('role', 'driver')->where('is_active', false)->get();
+        $activeDrivers = User::with('driverProfile')->where('role', 'driver')->where('is_active', true)->get();
         $customers = User::where('role', 'customer')->get();
 
         return view('admin.users.index', compact('pendingDrivers', 'activeDrivers', 'customers'));
@@ -31,7 +32,7 @@ class UserController extends Controller
             'email' => $validatedData['email'],
             'password' => Hash::make($validatedData['password']),
             'role' => $validatedData['role'],
-            'is_active' => true, 
+            'is_active' => true,
         ]);
 
         return redirect()->back()->with('success', 'User added successfully.');
@@ -40,20 +41,21 @@ class UserController extends Controller
     public function update(Request $request, User $user)
     {
         if ($request->has('approve_driver')) {
-            $user->update([
-                'is_active' => true
-            ]);
-            
+            $user->update(['is_active' => true]);
+
+            if ($user->driverProfile) {
+                $user->driverProfile->update(['status' => 'approved']);
+            }
+
             return redirect()->back()->with('success', 'Driver approved.');
         }
-
         $validatedData = $request->validate([
             'name' => 'required|string|max:255',
             'phone' => 'required|string|max:20',
         ]);
-        
+
         $user->update($validatedData);
-        
+
         return redirect()->back()->with('success', 'User updated successfully.');
     }
 
