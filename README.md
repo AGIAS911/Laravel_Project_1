@@ -1,5 +1,25 @@
 
 
+## MoveIt Blade layouts
+
+- Use `layouts.app` for public pages and `layouts.auth` for authentication pages.
+- Use `layouts.customer`, `layouts.driver`, or `layouts.admin` for dashboard pages. The dashboard layouts share the same sidebar and page header.
+- Place each feature's views in its own folder, such as `resources/views/customer/bookings`, `resources/views/driver/vehicles`, or `resources/views/admin/payments`. Protect each feature's routes with the appropriate authentication and role authorization.
+- Shared styles live in `public/css/moveit.css`. Use `@push('styles')` and `@push('scripts')` for page-specific assets, and flash `success` or `error` for shared alerts.
+
+```blade
+@extends('layouts.customer')
+
+@section('title', __('Bookings'))
+@section('page-title', __('Bookings'))
+
+@section('content')
+    {{-- Add feature markup here. --}}
+@endsection
+```
+
+Add feature links in the `sidebar` section once their named routes exist. Use `moveit-sidebar-link` on each link and set `aria-current="page"` for the active route. Use the `actions` section for buttons beside the page title.
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
