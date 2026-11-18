@@ -33,7 +33,7 @@ class VehicleTypeController extends Controller
 
         VehicleType::create($validatedData);
 
-        return redirect()->route('vehicle-types.index')->with('success', 'تمت إضافة نوع المركبة بنجاح.');
+        return redirect()->route('vehicle-types.index')->with('success', 'Vehicle type has been added.');
     }
 
     public function show(VehicleType $vehicleType)
@@ -61,20 +61,20 @@ class VehicleTypeController extends Controller
 
         $vehicleType->update($validatedData);
 
-        return redirect()->route('vehicle-types.index')->with('success', 'تم تحديث نوع المركبة بنجاح.');
+        return redirect()->route('vehicle-types.index')->with('success', 'Vehicle type has been updated.');
     }
 
     public function destroy(VehicleType $vehicleType)
     {
         if ($vehicleType->vehicles()->exists()) {
             return redirect()->route('vehicle-types.index')
-                ->with('error', 'لا يمكن حذف نوع مركبة مرتبط بمركبات.');
+                ->with('error', 'A vehicle type linked to vehicles cannot be deleted.');
         }
 
         $this->deleteImage($vehicleType->image);
         $vehicleType->delete();
 
-        return redirect()->route('vehicle-types.index')->with('success', 'تم حذف نوع المركبة بنجاح.');
+        return redirect()->route('vehicle-types.index')->with('success', 'Vehicle type has been deleted.');
     }
 
     private function validationRules(?VehicleType $vehicleType = null): array

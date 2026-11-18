@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\DriverProfile;
+use App\Models\Booking;
 use App\Models\User;
 use App\Models\Vehicle;
 use App\Models\VehicleType;
@@ -67,6 +68,21 @@ class VehicleCrudTest extends TestCase
             ->assertRedirect(route('vehicles.index'));
 
         $this->assertDatabaseMissing('vehicles', ['id' => $vehicle->id]);
+    }
+
+    public function test_vehicle_with_bookings_cannot_be_deleted(): void
+    {
+        [$vehicle] = $this->createVehicle();
+        Booking::create([
+            'customer_id' => User::factory()->create()->id,
+            'vehicle_id' => $vehicle->id,
+        ]);
+
+        $this->delete(route('vehicles.destroy', $vehicle))
+            ->assertRedirect(route('vehicles.index'))
+            ->assertSessionHas('error');
+
+        $this->assertDatabaseHas('vehicles', ['id' => $vehicle->id]);
     }
 
     private function createVehicle(): array

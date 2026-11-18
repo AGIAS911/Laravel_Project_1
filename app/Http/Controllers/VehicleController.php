@@ -17,7 +17,10 @@ class VehicleController extends Controller
      */
     public function index()
     {
-        $vehicles = Vehicle::with(['vehicleType', 'driver'])->latest()->paginate(10);
+        $vehicles = Vehicle::with(['vehicleType', 'driver'])
+            ->withCount('bookings')
+            ->latest()
+            ->paginate(10);
 
         return view('vehicles.index', compact('vehicles'));
     }
@@ -58,7 +61,7 @@ class VehicleController extends Controller
 
         Vehicle::create($validatedData);
 
-        return redirect()->route('vehicles.index')->with('success', 'vehicle has added');
+        return redirect()->route('vehicles.index')->with('success', 'Vehicle has been added.');
     }
 
     /**
@@ -110,7 +113,7 @@ class VehicleController extends Controller
 
         $vehicle->update($validatedData);
 
-        return redirect()->route('vehicles.index')->with('success', 'vehicle has been updated');
+        return redirect()->route('vehicles.index')->with('success', 'Vehicle has been updated.');
     }
 
     /**
@@ -118,10 +121,15 @@ class VehicleController extends Controller
      */
     public function destroy(Vehicle $vehicle)
     {
+        if ($vehicle->bookings()->exists()) {
+            return redirect()->route('vehicles.index')
+                ->with('error', 'A vehicle linked to bookings cannot be deleted.');
+        }
+
         $this->deleteImage($vehicle->image);
         $vehicle->delete();
 
-        return redirect()->route('vehicles.index')->with('success', 'vehicle has been deleted');
+        return redirect()->route('vehicles.index')->with('success', 'Vehicle has been deleted.');
     }
     
     private function storeImage(UploadedFile $image): string

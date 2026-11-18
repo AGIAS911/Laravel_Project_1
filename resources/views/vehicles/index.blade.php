@@ -1,25 +1,25 @@
 @extends('vehicle-types.layout')
 
-@section('title', 'إدارة المركبات')
+@section('title', 'Vehicles')
 
 @section('content')
     <section class="panel">
         <div class="actions" style="justify-content: space-between">
-            <h1>المركبات</h1>
-            <a class="button" href="{{ route('vehicles.create') }}">إضافة مركبة</a>
+            <h1>Vehicles</h1>
+            <a class="button" href="{{ route('vehicles.create') }}">Add Vehicle</a>
         </div>
 
         <div class="table-wrap">
             <table>
                 <thead>
                     <tr>
-                        <th>المركبة</th>
-                        <th>رقم اللوحة</th>
-                        <th>النوع</th>
-                        <th>السائق</th>
-                        <th>الحالة</th>
-                        <th>الصورة</th>
-                        <th>الإجراءات</th>
+                        <th>Vehicle</th>
+                        <th>License Plate</th>
+                        <th>Type</th>
+                        <th>Driver License</th>
+                        <th>Status</th>
+                        <th>Image</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -31,33 +31,37 @@
                             <td>{{ $vehicle->driver?->license_number ?? '—' }}</td>
                             <td>
                                 @switch($vehicle->status)
-                                    @case('active') نشطة @break
-                                    @case('inactive') غير نشطة @break
-                                    @case('maintenance') تحت الصيانة @break
+                                    @case('active') Active @break
+                                    @case('inactive') Inactive @break
+                                    @case('maintenance') Maintenance @break
                                     @default {{ $vehicle->status }}
                                 @endswitch
                             </td>
                             <td>
                                 @if ($vehicle->image)
-                                    <img class="thumbnail" src="{{ asset($vehicle->image) }}" alt="صورة {{ $vehicle->name }}">
+                                    <img class="thumbnail" src="{{ asset($vehicle->image) }}" alt="Image of {{ $vehicle->name }}">
                                 @else
                                     —
                                 @endif
                             </td>
                             <td>
                                 <div class="actions">
-                                    <a class="button secondary" href="{{ route('vehicles.show', $vehicle) }}">عرض</a>
-                                    <a class="button" href="{{ route('vehicles.edit', $vehicle) }}">تعديل</a>
-                                    <form method="POST" action="{{ route('vehicles.destroy', $vehicle) }}" onsubmit="return confirm('هل تريد حذف المركبة؟')">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button class="button danger" type="submit">حذف</button>
-                                    </form>
+                                    <a class="button secondary" href="{{ route('vehicles.show', $vehicle) }}">View</a>
+                                    <a class="button" href="{{ route('vehicles.edit', $vehicle) }}">Edit</a>
+                                    @if ($vehicle->bookings_count === 0)
+                                        <form method="POST" action="{{ route('vehicles.destroy', $vehicle) }}" onsubmit="return confirm('Delete this vehicle?')">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button class="button danger" type="submit">Delete</button>
+                                        </form>
+                                    @else
+                                        <span class="field-error">Linked to bookings</span>
+                                    @endif
                                 </div>
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="7">لا توجد مركبات حتى الآن.</td></tr>
+                        <tr><td colspan="7">No vehicles found.</td></tr>
                     @endforelse
                 </tbody>
             </table>
