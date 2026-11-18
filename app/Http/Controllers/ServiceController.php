@@ -22,6 +22,7 @@ class ServiceController extends Controller
     public function create()
     {
         return view('services.create');
+    
     }
 
     /**
@@ -42,7 +43,8 @@ class ServiceController extends Controller
         Service::create($validated);
 
         return redirect()->route('services.index')
-        ->with('success', 'The service has been created successfully.');    }
+        ->with('success', 'The service has been created successfully.');   
+         }
 
     /**
      * Display the specified resource.
