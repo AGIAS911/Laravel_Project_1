@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\DriverController;
+use App\Http\Controllers\UserController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -17,14 +18,15 @@ Route::get('/dashboard', function () {
     return view('dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
 
-Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
 
-
+//------------------------------------------------------------------------------
 Route::resource('vehicles', VehicleController::class);
 Route::resource('vehicle-types', VehicleTypeController::class);
 Route::resource('booking', BookingController::class);
+
 Route::resource('booking-services', \App\Http\Controllers\BookingServiceController::class)
     ->middleware('auth');
+
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
@@ -32,13 +34,22 @@ Route::middleware('auth')->group(function () {
 });
 
 
+//--------------------------------------------------------
 Route::middleware(['auth', 'active', 'role:driver'])->prefix('driver')->name('driver.')->group(function () {
+    Route::get('/dashboard', [DriverController::class, 'show'])->name('dashboard');
     Route::get('/profile', [DriverController::class, 'show'])->name('profile.show');
     Route::get('/profile/edit', [DriverController::class, 'edit'])->name('profile.edit');
     Route::put('/profile', [DriverController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [DriverController::class, 'destroy'])->name('profile.destroy');
 });
 
+//----------------------------------------------
+Route::middleware(['auth', 'active', 'role:admin'])->group(function () {
+    Route::get('/admin/dashboard', [UserController::class, 'index'])->name('admin.dashboard');
+    Route::resource('users', UserController::class)->only(['index', 'store', 'update', 'destroy']);
+});
+
+//------------------------------------------------------
 Auth::routes();
 
 Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
