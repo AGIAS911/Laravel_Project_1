@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\DriverProfile;
 use App\Models\User;
 use Illuminate\Foundation\Auth\RegistersUsers;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
@@ -55,7 +56,6 @@ class RegisterController extends Controller
         $rules = [
             'name' => ['required', 'string', 'max:150'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
-            'phone' => ['required', 'string', 'max:30'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'account_type' => ['required', 'in:customer,driver'],
         ];
@@ -71,14 +71,13 @@ class RegisterController extends Controller
     protected function create(array $data)
     {
         return DB::transaction(function () use ($data) {
-            $isActive = ($data['account_type'] === 'customer') ? 1 : 0;
+            $isActive = $data['account_type'] === 'customer';
 
             $user = User::create([
                 'name' => $data['name'],
                 'email' => $data['email'],
-                'phone' => $data['phone'],
                 'role' => $data['account_type'],
-                'is_active' => $isActive,
+                'is_active' => (bool) $isActive,
                 'password' => Hash::make($data['password']),
             ]);
 
@@ -95,5 +94,20 @@ class RegisterController extends Controller
 
             return $user;
         });
+    }
+
+    protected function registered(Request $request, $user)
+    {
+        if ($user->is_active) {
+            return null;
+        }
+
+        $this->guard()->logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect()->route('login')->withErrors([
+            'email' => 'Driver registration received. You can sign in after admin approval.',
+        ]);
     }
 }
