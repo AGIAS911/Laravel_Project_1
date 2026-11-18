@@ -41,16 +41,16 @@ class LoginController extends Controller
 
     protected function authenticated(Request $request, $user)
     {
-        if ($user->is_active) {
-            return null;
+        if (! $user->is_active) {
+            $this->guard()->logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return redirect()->route('login')->withErrors([
+                'email' => 'Your account is pending approval or has been disabled.',
+            ]);
         }
 
-        $this->guard()->logout();
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
-
-        return redirect()->route('login')->withErrors([
-            'email' => 'Your account is pending approval or has been disabled.',
-        ]);
+        return null;
     }
 }
