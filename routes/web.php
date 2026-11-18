@@ -11,6 +11,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ServiceController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\DriverController;
+use App\Http\Controllers\UserController;
 
 
 Route::get('/', function () {
@@ -21,9 +22,14 @@ Route::get('/dashboard', function () {
     return view('dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
 
+
+//------------------------------------------------------------------------------
 Route::resource('vehicles', VehicleController::class);
 Route::resource('vehicle-types', VehicleTypeController::class);
 Route::resource('booking', BookingController::class);
+
+Route::resource('booking-services', \App\Http\Controllers\BookingServiceController::class)
+    ->middleware('auth');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -36,6 +42,7 @@ Route::middleware('auth')->group(function () {
         ->name('notifications.read');
 });
 
+//--------------------------------------------------------
 Route::middleware(['auth', 'active', 'role:driver'])->prefix('driver')->name('driver.')->group(function () {
     Route::get('/dashboard', [DriverController::class, 'show'])->name('dashboard');
     Route::get('/profile', [DriverController::class, 'show'])->name('profile.show');
@@ -53,6 +60,13 @@ Route::middleware(['auth', 'active', 'role:admin'])
             ->only(['index', 'store', 'update', 'destroy']);
     });
 
+//----------------------------------------------
+Route::middleware(['auth', 'active', 'role:admin'])->group(function () {
+    Route::get('/admin/dashboard', [UserController::class, 'index'])->name('admin.dashboard');
+    Route::resource('users', UserController::class)->only(['index', 'store', 'update', 'destroy']);
+});
+
+//------------------------------------------------------
 Auth::routes();
 
 Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
