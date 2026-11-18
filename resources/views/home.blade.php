@@ -1,12 +1,23 @@
-@extends($dashboardLayout)
-
-@section('title', __('Dashboard'))
-@section('page-title', __('Dashboard'))
+@extends('layouts.app')
 
 @section('content')
-    @if (session('status'))
-        <div class="alert alert-success" role="status">{{ session('status') }}</div>
-    @endif
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">{{ __('Dashboard') }}</div>
 
-    <p>{{ __('Welcome, :name.', ['name' => auth()->user()->name]) }}</p>
+                <div class="card-body">
+                    @if (session('status'))
+                        <div class="alert alert-success" role="alert">
+                            {{ session('status') }}
+                        </div>
+                    @endif
+
+                    {{ __('You are logged in!') }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 @endsection
