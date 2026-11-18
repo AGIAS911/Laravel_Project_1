@@ -2,6 +2,8 @@
 
 use App\Models\Booking;
 use App\Http\Controllers\BookingController;
+use App\Http\Controllers\VehicleController;
+use App\Http\Controllers\VehicleTypeController;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ServiceController;
@@ -19,6 +21,8 @@ Route::get('/dashboard', function () {
 Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
 
 
+Route::resource('vehicles', VehicleController::class);
+Route::resource('vehicle-types', VehicleTypeController::class);
 Route::resource('booking', BookingController::class);
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
