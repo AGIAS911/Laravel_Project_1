@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Contracts\Support\Renderable;
+use Illuminate\Http\Request;
 
 class HomeController extends Controller
 {
@@ -19,17 +19,10 @@ class HomeController extends Controller
     /**
      * Show the application dashboard.
      *
-     * @return Renderable
+     * @return \Illuminate\Contracts\Support\Renderable
      */
     public function index()
     {
-        $dashboardLayout = match (auth()->user()->role) {
-            'customer' => 'layouts.customer',
-            'driver' => 'layouts.driver',
-            'admin' => 'layouts.admin',
-            default => 'layouts.dashboard',
-        };
-
-        return view('home', compact('dashboardLayout'));
+        return view('home');
     }
 }
