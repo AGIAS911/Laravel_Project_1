@@ -9,6 +9,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Service extends Model
 {
+    public const TYPE_TRANSPORT = 'transport';
+    public const TYPE_WORKERS = 'workers';
+    public const TYPE_PACKING = 'packing';
+    public const TYPE_BOXES = 'boxes';
+    public const TYPE_ASSEMBLY = 'assembly';
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
