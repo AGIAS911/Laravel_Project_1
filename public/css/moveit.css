@@ -1,0 +1,96 @@
+:root {
+    --moveit-ink: #162c2a;
+    --moveit-paper: #f5f6ef;
+    --moveit-accent: #a9dfbd;
+    --moveit-action: #225c49;
+    --moveit-border: #ccd5ca;
+    --bs-body-color: var(--moveit-ink);
+    --bs-body-bg: var(--moveit-paper);
+    --bs-body-font-family: "Trebuchet MS", Tahoma, system-ui, sans-serif;
+    --bs-link-color: var(--moveit-action);
+    --bs-link-hover-color: #123d31;
+}
+
+.moveit-header {
+    background: var(--moveit-ink);
+    color: white;
+}
+
+.moveit-brand {
+    color: white;
+    font-size: 1.65rem;
+    font-weight: 800;
+    letter-spacing: -.06em;
+    text-decoration: none;
+}
+
+.moveit-brand:hover { color: white; }
+.moveit-brand span { color: var(--moveit-accent); }
+.moveit-nav-link { color: white; text-underline-offset: .25em; }
+.moveit-nav-link:hover { color: var(--moveit-accent); }
+
+.moveit-header .btn {
+    --bs-btn-color: var(--moveit-ink);
+    --bs-btn-bg: var(--moveit-accent);
+    --bs-btn-border-color: var(--moveit-accent);
+    --bs-btn-hover-color: var(--moveit-ink);
+    --bs-btn-hover-bg: #c6efd5;
+    --bs-btn-hover-border-color: #c6efd5;
+}
+
+main .btn-primary {
+    --bs-btn-bg: var(--moveit-action);
+    --bs-btn-border-color: var(--moveit-action);
+    --bs-btn-hover-bg: #123d31;
+    --bs-btn-hover-border-color: #123d31;
+}
+
+.moveit-skip {
+    position: absolute;
+    z-index: 1050;
+    padding: .75rem 1rem;
+    background: white;
+}
+
+.moveit-header :focus-visible { outline: 2px solid white; outline-offset: 3px; }
+main :focus-visible { outline: 2px solid var(--moveit-action); outline-offset: 3px; }
+
+.moveit-auth { max-width: 54rem; }
+.moveit-auth .card { --bs-card-bg: white; --bs-card-border-color: var(--moveit-border); }
+
+.moveit-workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.5rem;
+    align-items: start;
+}
+
+.moveit-workspace-content { min-width: 0; }
+
+.moveit-sidebar {
+    background: white;
+    border: 1px solid var(--moveit-border);
+    border-block-start: .3rem solid var(--moveit-action);
+    border-radius: .5rem;
+    padding: 1rem;
+}
+
+.moveit-sidebar-title { font-weight: 700; margin-bottom: .75rem; }
+
+.moveit-sidebar-link {
+    display: block;
+    border-radius: .35rem;
+    padding: .55rem .75rem;
+    text-decoration: none;
+    overflow-wrap: anywhere;
+}
+
+.moveit-sidebar-link:hover,
+.moveit-sidebar-link[aria-current="page"] {
+    background: var(--moveit-accent);
+    color: var(--moveit-ink);
+}
+
+@media (min-width: 992px) {
+    .moveit-workspace { grid-template-columns: 15rem minmax(0, 1fr); gap: 2.5rem; }
+}
