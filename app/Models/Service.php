@@ -7,6 +7,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Service extends Model
 {
+    public const TYPE_TRANSPORT = 'transport';
+    public const TYPE_WORKERS = 'workers';
+    public const TYPE_PACKING = 'packing';
+    public const TYPE_BOXES = 'boxes';
+    public const TYPE_ASSEMBLY = 'assembly';
+
     protected $fillable = [
         'name',
         'description',

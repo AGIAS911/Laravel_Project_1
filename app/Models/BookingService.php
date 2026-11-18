@@ -19,7 +19,7 @@ class BookingService extends Model
     protected function casts(): array
     {
         return [
-            'quantity' => 'decimal:2',
+            'quantity' => 'integer',
             'unit_price' => 'decimal:3',
         ];
     }
@@ -32,5 +32,10 @@ class BookingService extends Model
     public function service(): BelongsTo
     {
         return $this->belongsTo(Service::class);
+    }
+
+    public function lineTotal(): string
+    {
+        return number_format($this->quantity * $this->unit_price, 3, '.', '');
     }
 }
