@@ -23,6 +23,8 @@ Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name
 Route::resource('vehicles', VehicleController::class);
 Route::resource('vehicle-types', VehicleTypeController::class);
 Route::resource('booking', BookingController::class);
+Route::resource('booking-services', \App\Http\Controllers\BookingServiceController::class)
+    ->middleware('auth');
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
