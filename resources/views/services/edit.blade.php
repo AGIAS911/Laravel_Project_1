@@ -1,12 +1,12 @@
 @extends('layouts.dashboard')
-@section('workspace-title' , 'Sevises')
-@section('page-title','Services')
 
-@section('content')
+@section('workspace-title', 'Services')
+@section('page-title', 'Edit service')
 
-<h1>Edit Service</h1>
-
-@include('services._form', ['service' => $service])
-
+@section('actions')
+    <a class="btn btn-outline-secondary" href="{{ route('services.show', $service) }}">Back to service</a>
 @endsection
 
+@section('content')
+    @include('services._form', ['service' => $service])
+@endsection

@@ -73,7 +73,9 @@ class ServiceFlowTest extends TestCase
             ->assertRedirect(route('services.index'))
             ->assertSessionHas('success');
 
-        $this->assertDatabaseMissing('services', ['id' => $service->id]);
+        $this->assertSoftDeleted('services', ['id' => $service->id]);
+        $this->assertNull(Service::find($service->id));
+        $this->assertNotNull(Service::withTrashed()->find($service->id));
     }
 
     public function test_service_cannot_be_created_with_a_negative_price(): void
