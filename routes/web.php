@@ -1,4 +1,3 @@
-use App\Models\Booking;
 <?php
 
 use App\Http\Controllers\BookingController;
