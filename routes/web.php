@@ -11,7 +11,6 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ServiceController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\DriverController;
-use App\Http\Controllers\UserController;
 
 
 Route::get('/', function () {
