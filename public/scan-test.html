@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Furniture Scanner</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background: #f5f5f5;
+        }
+        .scanner {
+            position: relative;
+            display: inline-block;
+            max-width: 100%;
+        }
+        video {
+            display: block;
+            width: 640px;
+            max-width: 100%;
+            border-radius: 10px;
+        }
+        canvas {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            pointer-events: none;
+        }
+        button {
+            padding: 12px 20px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .inventory {
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            text-align: left;
+        }
+        .inventory ul {
+            padding: 0;
+        }
+        .inventory li {
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+            list-style: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>AI Furniture Scanner</h1>
+
+    <button id="start">Start Camera</button>
+    <button id="stop">Stop Camera</button>
+
+    <p id="status">Disconnected</p>
+
+    <div class="scanner">
+        <video id="video" autoplay playsinline muted></video>
+        <canvas id="overlay"></canvas>
+    </div>
+
+    <div class="inventory">
+        <h2>Detected Furniture</h2>
+        <ul id="inventory-list"></ul>
+        <h3>Total Items: <span id="total-items">0</span></h3>
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        const overlay = document.getElementById('overlay');
+        const ctx = overlay.getContext('2d');
+        const frame = document.createElement('canvas');
+        const frameCtx = frame.getContext('2d');
+        const status = document.getElementById('status');
+        const startButton = document.getElementById('start');
+        const stopButton = document.getElementById('stop');
+        const inventoryList = document.getElementById('inventory-list');
+        const totalItems = document.getElementById('total-items');
+
+        let socket = null;
+        let stream = null;
+        let running = false;
+
+        stopButton.disabled = true;
+
+        startButton.onclick = async () => {
+            if (running) return;
+
+            running = true;
+            startButton.disabled = true;
+
+            try {
+                status.textContent = 'Starting camera...';
+
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 640 },
+                        height: { ideal: 480 },
+                        facingMode: { ideal: 'environment' }
+                    },
+                    audio: false
+                });
+
+                video.srcObject = stream;
+                await video.play();
+
+                frame.width = overlay.width = video.videoWidth;
+                frame.height = overlay.height = video.videoHeight;
+
+                stopButton.disabled = false;
+
+                status.textContent = 'Camera ready. Connecting to AI...';
+
+                socket = new WebSocket('ws://127.0.0.1:8001/ws/detect');
+
+                const currentSocket = socket;
+
+                socket.onopen = () => {
+                    if (socket !== currentSocket || !running) return;
+
+                    status.textContent = 'Connected to AI';
+                    updateInventory({}, 0);
+                    sendFrame();
+                };
+
+                socket.onmessage = (event) => {
+                    if (!running || socket !== currentSocket) return;
+
+                    const data = JSON.parse(event.data);
+
+                    if (data.error) {
+                        console.error(data.error);
+                        requestAnimationFrame(sendFrame);
+                        return;
+                    }
+
+                    drawDetections(data.detections || []);
+
+                    updateInventory(
+                        data.inventory || {},
+                        data.total_items || 0
+                    );
+
+                    requestAnimationFrame(sendFrame);
+                };
+
+                socket.onerror = (error) => {
+                    if (socket !== currentSocket) return;
+
+                    console.error('WebSocket error:', error);
+                    stopCamera();
+                    status.textContent = 'AI connection failed';
+                };
+
+                socket.onclose = () => {
+                    if (socket !== currentSocket) return;
+
+                    stopCamera();
+                    status.textContent = 'AI disconnected';
+                };
+
+            } catch (error) {
+                stopCamera();
+                console.error(error);
+                status.textContent = error.message;
+            }
+        };
+
+        function sendFrame() {
+            if (!running || socket?.readyState !== WebSocket.OPEN) {
+                return;
+            }
+
+            frameCtx.drawImage(
+                video, 0, 0, frame.width, frame.height
+            );
+
+            const currentSocket = socket;
+
+            frame.toBlob(blob => {
+                if (
+                    blob &&
+                    running &&
+                    socket === currentSocket &&
+                    currentSocket.readyState === WebSocket.OPEN
+                ) {
+                    currentSocket.send(blob);
+                }
+            }, 'image/jpeg', 0.7);
+        }
+
+        function drawDetections(detections) {
+            ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+            detections.forEach(item => {
+                const [x1, y1, x2, y2] = item.bbox;
+
+                ctx.strokeStyle = '#00ff00';
+                ctx.lineWidth = 3;
+
+                ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+
+                ctx.fillStyle = '#00ff00';
+                ctx.font = '18px Arial';
+
+                const confidence = Math.round(item.confidence * 100);
+
+                ctx.fillText(
+                    `${item.label} #${item.object_id} ${confidence}%`,
+                    x1,
+                    Math.max(20, y1 - 8)
+                );
+            });
+        }
+
+        function updateInventory(inventory, total) {
+            inventoryList.replaceChildren();
+
+            Object.entries(inventory).forEach(([label, quantity]) => {
+                const li = document.createElement('li');
+                li.textContent = `${label}: ${quantity}`;
+                inventoryList.appendChild(li);
+            });
+
+            totalItems.textContent = total;
+        }
+
+        function stopCamera() {
+            running = false;
+
+            if (socket) {
+                const oldSocket = socket;
+                socket = null;
+                oldSocket.close();
+            }
+
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+
+            video.srcObject = null;
+
+            ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+            startButton.disabled = false;
+            stopButton.disabled = true;
+
+            status.textContent = 'Camera stopped';
+        }
+
+        stopButton.onclick = stopCamera;
+    </script>
+</body>
+</html>

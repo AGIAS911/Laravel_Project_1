@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Booking;
 use App\Http\Controllers\BookingController;
 use App\Http\Controllers\VehicleController;
 use App\Http\Controllers\VehicleTypeController;
