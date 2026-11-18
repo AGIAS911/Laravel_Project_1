@@ -2,18 +2,23 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\Service;
-
+use Illuminate\Database\Seeder;
 
 class ServiceSeeder extends Seeder
 {
-    /**
-     * Run the database seeds.
-     */
     public function run(): void
     {
-         Service::factory()->count(10)->create();
+        $services = [
+            ['name' => 'Furniture transport', 'type' => Service::TYPE_TRANSPORT, 'unit' => 'fixed', 'price' => 20],
+            ['name' => 'Loading workers', 'type' => Service::TYPE_WORKERS, 'unit' => 'worker', 'price' => 10],
+            ['name' => 'Packing', 'type' => Service::TYPE_PACKING, 'unit' => 'fixed', 'price' => 15],
+            ['name' => 'Boxes', 'type' => Service::TYPE_BOXES, 'unit' => 'box', 'price' => 1.5],
+            ['name' => 'Assembly and installation', 'type' => Service::TYPE_ASSEMBLY, 'unit' => 'fixed', 'price' => 25],
+        ];
 
+        foreach ($services as $service) {
+            Service::updateOrCreate(['type' => $service['type']], $service);
+        }
     }
 }
