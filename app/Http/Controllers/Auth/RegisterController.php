@@ -71,16 +71,16 @@ class RegisterController extends Controller
     protected function create(array $data)
     {
         return DB::transaction(function () use ($data) {
-            $isActive = ($data['account_type'] === 'customer') ? 1 : 0;
-
-            $user = User::create([
+            $user = new User([
                 'name' => $data['name'],
                 'email' => $data['email'],
                 'phone' => $data['phone'],
-                'role' => $data['account_type'],
-                'is_active' => $isActive,
                 'password' => Hash::make($data['password']),
             ]);
+
+            $user->role = $data['account_type'];
+            $user->is_active = ($data['account_type'] === 'customer') ? 1 : 0;
+            $user->save();
 
             if ($data['account_type'] === 'driver') {
                 $imagePath = request()->file('license_image')->store('licenses', 'public');
