@@ -7,6 +7,7 @@ use App\Models\BookingService;
 use App\Models\Service;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class BookingServiceController extends Controller
 {
@@ -15,15 +16,10 @@ class BookingServiceController extends Controller
      */
     public function index(Request $request)
     {
-        $user = $request->user();
-
-        $query = BookingService::with(['booking', 'service'])->latest('id');
-
-        if ($user->role !== 'admin') {
-            $query->whereHas('booking', fn ($q) => $q->where('customer_id', $user->id));
-        }
-
-        $bookingServices = $query->paginate(10);
+        $bookingServices = $this->visibleServices($request)
+            ->with(['booking', 'service'])
+            ->latest('id')
+            ->paginate(10);
 
         return view('booking_services.index', compact('bookingServices'));
     }
@@ -33,7 +29,7 @@ class BookingServiceController extends Controller
      */
     public function create(Request $request)
     {
-        $bookings = $this->availableBookings($request);
+        $bookings = $this->draftBookings($request)->get();
         $services = Service::where('is_active', true)->orderBy('name')->get();
 
         return view('booking_services.create', compact('bookings', 'services'));
@@ -49,16 +45,27 @@ class BookingServiceController extends Controller
             'service_id' => [
                 'required',
                 'integer',
-                'exists:services,id',
+                Rule::exists('services', 'id')->where('is_active', true),
                 Rule::unique('booking_services')->where('booking_id', $request->input('booking_id')),
             ],
-            'quantity' => ['required', 'numeric', 'min:0.01', 'max:999999.99'],
+            'quantity' => ['required', 'integer', 'min:1', 'max:1000'],
         ]);
 
-        $booking = $this->availableBookings($request)->firstWhere('id', $data['booking_id']);
-        abort_if(! $booking, 403);
-
+        $booking = $this->draftBookings($request)->findOrFail($data['booking_id']);
         $service = Service::findOrFail($data['service_id']);
+
+        // Fixed-price services are always a single unit.
+        if ($service->unit === 'fixed') {
+            $data['quantity'] = 1;
+        }
+
+        if ($service->type === Service::TYPE_TRANSPORT && $this->hasType($booking, Service::TYPE_TRANSPORT)) {
+            $this->fail('service_id', __('booking_services.one_transport'));
+        }
+
+        if ($service->type === Service::TYPE_ASSEMBLY && ! $this->hasType($booking, Service::TYPE_WORKERS)) {
+            $this->fail('service_id', __('booking_services.assembly_needs_workers'));
+        }
 
         // Snapshot the service values so later price changes do not affect this booking.
         BookingService::create([
@@ -71,7 +78,7 @@ class BookingServiceController extends Controller
         ]);
 
         return redirect()->route('booking-services.index')
-            ->with('success', 'Booking service created successfully');
+            ->with('success', __('booking_services.created'));
     }
 
     /**
@@ -79,7 +86,7 @@ class BookingServiceController extends Controller
      */
     public function show(Request $request, string $id)
     {
-        $bookingService = $this->findForUser($request, $id);
+        $bookingService = $this->visibleServices($request)->with(['booking', 'service'])->findOrFail($id);
 
         return view('booking_services.show', compact('bookingService'));
     }
@@ -89,7 +96,7 @@ class BookingServiceController extends Controller
      */
     public function edit(Request $request, string $id)
     {
-        $bookingService = $this->findForUser($request, $id, true);
+        $bookingService = $this->editableServices($request)->with(['booking', 'service'])->findOrFail($id);
 
         return view('booking_services.edit', compact('bookingService'));
     }
@@ -99,16 +106,20 @@ class BookingServiceController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        $bookingService = $this->findForUser($request, $id, true);
+        $bookingService = $this->editableServices($request)->findOrFail($id);
 
         $data = $request->validate([
-            'quantity' => ['required', 'numeric', 'min:0.01', 'max:999999.99'],
+            'quantity' => ['required', 'integer', 'min:1', 'max:1000'],
         ]);
+
+        if ($bookingService->unit === 'fixed') {
+            $data['quantity'] = 1;
+        }
 
         $bookingService->update($data);
 
         return redirect()->route('booking-services.index')
-            ->with('success', 'Booking service updated successfully');
+            ->with('success', __('booking_services.updated'));
     }
 
     /**
@@ -116,48 +127,82 @@ class BookingServiceController extends Controller
      */
     public function destroy(Request $request, string $id)
     {
-        $bookingService = $this->findForUser($request, $id, true);
+        $bookingService = $this->editableServices($request)->with(['booking', 'service'])->findOrFail($id);
+
+        $removesWorkers = $bookingService->service?->type === Service::TYPE_WORKERS;
+
+        if ($removesWorkers && $this->hasType($bookingService->booking, Service::TYPE_ASSEMBLY)) {
+            return back()->withErrors(['service' => __('booking_services.workers_needed_for_assembly')]);
+        }
+
         $bookingService->delete();
 
         return redirect()->route('booking-services.index')
-            ->with('success', 'Booking service deleted successfully');
+            ->with('success', __('booking_services.deleted'));
     }
 
     /**
-     * Bookings the current user may attach services to (admins: any, customers: own drafts).
+     * Rows the user may see: admin all, driver own requests, customer own bookings.
      */
-    private function availableBookings(Request $request)
+    private function visibleServices(Request $request)
     {
         $user = $request->user();
+        $query = BookingService::query();
 
-        $query = Booking::orderByDesc('id');
-
-        if ($user->role !== 'admin') {
-            $query->where('customer_id', $user->id)->where('status', 'draft');
+        if ($user->role === 'admin') {
+            return $query;
         }
 
-        return $query->get();
+        if ($user->role === 'driver') {
+            return $query->whereHas('booking', fn ($q) => $q->where('driver_id', $user->driverProfile?->id));
+        }
+
+        return $query->whereHas('booking', fn ($q) => $q->where('customer_id', $user->id));
     }
 
     /**
-     * Find a row the user may access; $editable also requires a draft booking for customers.
+     * Rows that may be changed: draft bookings only, own for customers, any for admin.
      */
-    private function findForUser(Request $request, string $id, bool $editable = false): BookingService
+    private function editableServices(Request $request)
     {
         $user = $request->user();
+        abort_unless(in_array($user->role, ['admin', 'customer']), 403);
 
-        $query = BookingService::with(['booking', 'service']);
+        return BookingService::whereHas('booking', function ($q) use ($user) {
+            $q->where('status', 'draft');
 
-        if ($user->role !== 'admin') {
-            $query->whereHas('booking', function ($q) use ($user, $editable) {
+            if ($user->role !== 'admin') {
                 $q->where('customer_id', $user->id);
+            }
+        });
+    }
 
-                if ($editable) {
-                    $q->where('status', 'draft');
-                }
-            });
+    /**
+     * Draft bookings the user may attach services to.
+     */
+    private function draftBookings(Request $request)
+    {
+        $user = $request->user();
+        abort_unless(in_array($user->role, ['admin', 'customer']), 403);
+
+        $query = Booking::where('status', 'draft')->orderByDesc('id');
+
+        if ($user->role !== 'admin') {
+            $query->where('customer_id', $user->id);
         }
 
-        return $query->findOrFail($id);
+        return $query;
+    }
+
+    private function hasType(Booking $booking, string $type): bool
+    {
+        return $booking->bookingServices()
+            ->whereHas('service', fn ($q) => $q->where('type', $type))
+            ->exists();
+    }
+
+    private function fail(string $field, string $message): void
+    {
+        throw ValidationException::withMessages([$field => $message]);
     }
 }
