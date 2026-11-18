@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
-use App\Notifications\DriverApprovedNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -28,13 +27,15 @@ class UserController extends Controller
             'role' => 'required|in:admin,driver,customer',
         ]);
 
-        User::create([
+        $user = new User([
             'name' => $validatedData['name'],
             'email' => $validatedData['email'],
             'password' => Hash::make($validatedData['password']),
-            'role' => $validatedData['role'],
-            'is_active' => true,
         ]);
+
+        $user->role = $validatedData['role'];
+        $user->is_active = true;
+        $user->save();
 
         return redirect()->back()->with('success', 'User added successfully.');
     }
@@ -42,19 +43,7 @@ class UserController extends Controller
     public function update(Request $request, User $user)
     {
         if ($request->has('approve_driver')) {
-            $request->validate([
-                'approve_driver' => ['accepted'],
-            ]);
-
-            abort_unless($user->role === 'driver', 404);
-
-            if (! $user->is_active) {
-                $user->update([
-                    'is_active' => true,
-                ]);
-
-                $user->notify(new DriverApprovedNotification());
-            $user->update(['is_active' => true]);
+            $user->forceFill(['is_active' => true])->save();
 
             if ($user->driverProfile) {
                 $user->driverProfile->update(['status' => 'approved']);
@@ -62,8 +51,10 @@ class UserController extends Controller
 
             return redirect()->back()->with('success', 'Driver approved.');
         }
+
         $validatedData = $request->validate([
-            'name' => 'required|string|max:150',
+            'name' => 'required|string|max:255',
+            'phone' => 'required|string|max:20',
         ]);
 
         $user->update($validatedData);
