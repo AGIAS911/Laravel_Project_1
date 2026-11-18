@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Service extends Model
 {
@@ -12,6 +14,7 @@ class Service extends Model
     public const TYPE_PACKING = 'packing';
     public const TYPE_BOXES = 'boxes';
     public const TYPE_ASSEMBLY = 'assembly';
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'name',
