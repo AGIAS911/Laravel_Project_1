@@ -15,12 +15,13 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        $this->call([ServiceSeeder::class,""]);
-        // User::factory(10)->create();
-
         User::factory()->create([
             'name' => 'Test User',
             'email' => 'test@example.com',
         ]);
+
+        $this->call(VehicleSeeder::class);
+        $this->call(ReviewSeeder::class);
+        $this->call(ServiceSeeder::class);
     }
 }

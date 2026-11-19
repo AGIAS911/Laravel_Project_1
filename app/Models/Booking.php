@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -9,6 +11,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Booking extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'customer_id',
         'vehicle_id',
@@ -61,6 +65,16 @@ class Booking extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function scopeOccupyingWindow(Builder $query, $start, $end): Builder
+    {
+        return $query->where(fn ($states) => $states->whereIn('status', ['confirmed', 'in_progress'])
+            ->orWhere(fn ($hold) => $hold->where('status', 'awaiting_deposit')
+                ->where(fn ($active) => $active->where('deposit_due_at', '>', now())
+                    ->orWhereHas('payments', fn ($payment) => $payment->where('status', 'pending')))))
+            ->where('scheduled_start_at', '<', $end)
+            ->where('scheduled_end_at', '>', $start);
+    }
+
     public function vehicle(): BelongsTo
     {
         return $this->belongsTo(Vehicle::class);
@@ -74,6 +88,14 @@ class Booking extends Model
     public function bookingServices(): HasMany
     {
         return $this->hasMany(BookingService::class);
+    }
+
+    public function servicesTotal(): string
+    {
+        $total = $this->bookingServices()->get()
+            ->sum(fn ($item) => $item->quantity * $item->unit_price);
+
+        return number_format($total, 3, '.', '');
     }
 
     public function scanSessions(): HasMany

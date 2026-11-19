@@ -14,13 +14,21 @@ class VehicleCrudTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->actingAs(User::factory()->create(['role' => 'admin']));
+    }
+
     public function test_vehicle_pages_render(): void
     {
         [$vehicle, $vehicleType, $driver] = $this->createVehicle();
 
         $this->get(route('vehicles.index'))->assertOk();
         $this->get(route('vehicles.create'))->assertOk();
-        $this->get(route('vehicles.show', $vehicle))->assertOk();
+        $this->get(route('vehicles.show', $vehicle))
+            ->assertOk()
+            ->assertSee('Test Driver');
         $this->get(route('vehicles.edit', $vehicle))->assertOk();
     }
 
@@ -92,7 +100,7 @@ class VehicleCrudTest extends TestCase
             'is_active' => true,
         ]);
         $driver = DriverProfile::create([
-            'user_id' => User::factory()->create()->id,
+            'user_id' => User::factory()->create(['name' => 'Test Driver'])->id,
             'license_number' => 'LICENSE-1',
             'license_image' => 'license.png',
         ]);

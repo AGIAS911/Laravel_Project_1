@@ -6,11 +6,24 @@ use App\Http\Requests\ProfileUpdateRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\View\View;
 
 class ProfileController extends Controller
 {
+    public function updatePassword(Request $request): RedirectResponse
+    {
+        $data = $request->validateWithBag('updatePassword', [
+            'current_password' => ['required', 'current_password'],
+            'password' => ['required', 'string', 'min:8', 'confirmed'],
+        ]);
+        $request->user()->update(['password' => Hash::make($data['password'])]);
+        $request->session()->regenerate();
+
+        return Redirect::route('profile.edit')->with('status', 'password-updated');
+    }
+
     /**
      * Display the user's profile form.
      */
@@ -50,7 +63,11 @@ class ProfileController extends Controller
 
         Auth::logout();
 
-        $user->delete();
+        if ($user->bookings()->exists() || $user->driverProfile || $user->reviewedPayments()->exists()) {
+            $user->forceFill(['is_active' => false])->save();
+        } else {
+            $user->delete();
+        }
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();

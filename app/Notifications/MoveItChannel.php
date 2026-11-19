@@ -7,7 +7,7 @@ use RuntimeException;
 
 class MoveItChannel
 {
-    public function send($notifiable, Notification $notification)
+    public function send(object $notifiable, Notification $notification): void
     {
         if (method_exists($notification, 'toDatabase')) {
             $data = $notification->toDatabase($notifiable);
@@ -21,14 +21,9 @@ class MoveItChannel
             throw new RuntimeException('Notification data must be an array.');
         }
 
-        return $notifiable->notifications()->create(
-            [
-                'booking_id' => $data['booking_id'] ?? null,
-                'type' => $notification::class,
-                'title' => $data['title'] ?? null,
-                'message' => $data['message'] ?? null,
-                'url' => $data['url'] ?? null,
-            ]
-        );
+        $notifiable->notifications()->create([
+            'type' => $notification::class,
+            'data' => $data,
+        ]);
     }
 }

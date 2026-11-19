@@ -43,10 +43,18 @@ class LoginController extends Controller
 
     protected function authenticated(Request $request, $user)
     {
-        if (!$user->is_active) {
+        $profile = $user->role === 'driver' ? $user->driverProfile : null;
+
+        if (!$user->is_active || ($profile && $profile->status !== 'approved')) {
             Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+            if ($profile?->status === 'pending') {
+                return redirect()->route('driver.application.pending');
+            }
+
             return redirect('/login')->withErrors([
-                'email' => 'Your account is pending admin approval or inactive.',
+                'email' => $profile?->status_reason ?: 'Your account is pending admin approval or inactive.',
             ]);
         }
 
@@ -55,7 +63,7 @@ class LoginController extends Controller
         }
 
         if ($user->role === 'driver') {
-            return redirect('/driver/dashboard');
+            return redirect()->route($profile ? 'driver.dashboard' : 'driver.profile.edit');
         }
 
         return redirect('/home');

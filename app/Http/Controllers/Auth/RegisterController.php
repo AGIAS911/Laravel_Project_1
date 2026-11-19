@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\DriverProfile;
 use App\Models\User;
 use Illuminate\Foundation\Auth\RegistersUsers;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
@@ -68,6 +69,23 @@ class RegisterController extends Controller
         return Validator::make($data, $rules);
     }
 
+    protected function registered(Request $request, User $user)
+    {
+        if ($user->role !== 'driver') {
+            return null;
+        }
+
+        $this->guard()->logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        $message = 'Your driver application was submitted and is awaiting approval.';
+
+        return $request->wantsJson()
+            ? response()->json(['message' => $message], 201)
+            : redirect()->route('driver.application.pending');
+    }
+
     protected function create(array $data)
     {
         return DB::transaction(function () use ($data) {
@@ -83,7 +101,8 @@ class RegisterController extends Controller
             $user->save();
 
             if ($data['account_type'] === 'driver') {
-                $imagePath = request()->file('license_image')->store('licenses', 'public');
+                $imagePath = request()->file('license_image')->store('licenses', 'local');
+                abort_unless($imagePath, 503, 'Could not save the driver license.');
 
                 DriverProfile::create([
                     'user_id' => $user->id,

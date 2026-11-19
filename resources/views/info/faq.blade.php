@@ -1,0 +1,8 @@
+@extends('layouts.info')
+
+@section('title', 'FAQ')
+
+@section('content')
+<div class="container"><section class="page-hero"><div class="crumbs"><a href="{{ url('/') }}">Home</a> / FAQ</div><h1>FAQ</h1></section></div>
+<section class="section"><div class="container" style="max-width:860px"><details class="faq" open><summary>Do I need to enter furniture weight or dimensions?</summary><p>No. Inventory uses item type and quantity only. The driver confirms vehicle suitability on acceptance.</p></details><details class="faq"><summary>When do I pay the deposit?</summary><p>After the driver accepts your request. Transfer the deposit via CliQ and upload the receipt.</p></details><details class="faq"><summary>Does uploading a receipt confirm my booking?</summary><p>No. The team verifies the actual transfer before confirming the booking.</p></details><details class="faq"><summary>When can I see driver details?</summary><p>After deposit approval. Before that, only vehicle details and ratings are visible.</p></details><details class="faq"><summary>What if the driver rejects my request?</summary><p>Create a new request with another vehicle. The previous request remains in your history.</p></details><details class="faq"><summary>What if the camera fails or I decline permission?</summary><p>You can complete your inventory manually without losing data.</p></details><details class="faq"><summary>How is distance calculated?</summary><p>The server uses Google routing to calculate actual driving distance between the two points.</p></details><details class="faq"><summary>Can I cancel after payment?</summary><p>The team handles cases according to the approved policy. Refunds are not claimed before completion.</p></details></div></section>
+@endsection

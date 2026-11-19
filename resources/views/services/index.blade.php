@@ -1,35 +1,33 @@
 @extends('layouts.dashboard')
 
-@section('workspace-title', 'Services')
 @section('page-title', 'Services')
 
 @section('actions')
-    <a class="btn btn-primary" href="{{ route('services.create') }}">إضافة خدمة</a>
+    <a class="btn btn-primary" href="{{ route('services.create') }}">Add service</a>
 @endsection
 
 @section('content')
-    <div class="card shadow-sm">
-        @forelse ($services as $service)
-            <div class="list-group-item d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 p-3">
-                <div>
-                    <h2 class="h5 mb-1">{{ $service->name }}</h2>
-                    <span class="badge text-bg-light border">{{ number_format((float) $service->price, 2) }}</span>
-                </div>
-
-                <div class="d-flex gap-2">
-                    <a class="btn btn-sm btn-outline-secondary" href="{{ route('services.show', $service) }}">عرض</a>
-                    <a class="btn btn-sm btn-outline-primary" href="{{ route('services.edit', $service) }}">تعديل</a>
-                </div>
-            </div>
-        @empty
-            <div class="card-body text-center text-muted py-5">
-                <p class="mb-0">لا توجد خدمات بعد.</p>
-            </div>
-        @endforelse
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead><tr><th scope="col">Service</th><th scope="col">Type</th><th scope="col">Price</th><th scope="col">Unit</th><th scope="col">Status</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr></thead>
+            <tbody>
+                @forelse ($services as $service)
+                    <tr>
+                        <th scope="row">{{ $service->name }}</th>
+                        <td>{{ str($service->type)->headline() }}</td>
+                        <td>{{ number_format((float) $service->price, 3) }} JOD</td>
+                        <td>{{ str($service->unit)->headline() }}</td>
+                        <td>@include('booking._status', ['state' => $service->is_active ? 'approved' : 'draft', 'label' => $service->is_active ? 'Active' : 'Inactive'])</td>
+                        <td class="text-end text-nowrap">
+                            <a class="btn btn-outline-secondary btn-sm" href="{{ route('services.show', $service) }}">Details</a>
+                            <a class="btn btn-outline-secondary btn-sm" href="{{ route('services.edit', $service) }}">Edit</a>
+                        </td>
+                    </tr>
+                @empty
+                    <tr><td colspan="6" class="text-center text-body-secondary py-4">No services yet.</td></tr>
+                @endforelse
+            </tbody>
+        </table>
     </div>
-
-    <div class="mt-3">
-        {{ $services->links('pagination::bootstrap-5') }}
-    </div>
+    <div class="mt-3">{{ $services->links('pagination::bootstrap-5') }}</div>
 @endsection
-

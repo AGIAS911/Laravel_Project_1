@@ -3,64 +3,39 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Notifications\DatabaseNotification;
 
-
-
-class MoveItNotification extends Model
+class MoveItNotification extends DatabaseNotification
 {
     use HasUuids;
 
-    protected $table = 'notifications';
-
-    protected $fillable = [
-        'user_id',
-        'booking_id',
-        'type',
-        'title',
-        'message',
-        'url',
-        'read_at',
-    ];
-
-    protected function casts(): array
+    public function getTitleAttribute(): ?string
     {
-        return [
-            'read_at' => 'datetime',
-        ];
+        return $this->data['title'] ?? null;
     }
 
-    public function getDataAttribute(): array
+    public function getMessageAttribute(): ?string
     {
-        return array_filter([
-            'title' => $this->title,
-            'message' => $this->message,
-            'url' => $this->url,
-            'booking_id' => $this->booking_id,
-        ], static fn ($value) => $value !== null);
+        return $this->data['message'] ?? null;
     }
 
-    public function markAsRead(): void
+    public function getUrlAttribute(): ?string
     {
-        if ($this->read_at === null) {
-            $this->forceFill(['read_at' => now()])->save();
-        }
+        return $this->data['url'] ?? null;
     }
 
-    public static function bookingEvent(
-        User $user,
-        Booking $booking,
-        string $type,
-        string $title,
-        string $message,
-        ?string $url = null
-    ): static {
+    public static function bookingEvent(int $userId, Booking $booking, string $message): static
+    {
+        $user = User::findOrFail($userId);
+
         return $user->notifications()->create([
-            'booking_id' => $booking->id,
-            'type' => $type,
-            'title' => $title,
-            'message' => $message,
-            'url' => $url,
+            'type' => 'booking',
+            'data' => [
+                'title' => 'Booking #'.$booking->id,
+                'message' => $message,
+                'url' => route('booking.show', $booking, false),
+                'booking_id' => $booking->id,
+            ],
         ]);
     }
 }
