@@ -1,7 +1,7 @@
 @extends('layouts.dashboard')
 
-@section('title', 'Booking test')
-@section('page-title', 'Booking test')
+@section('title', 'Bookings')
+@section('page-title', 'Bookings')
 
 @section('content')
     <section class="border rounded bg-white p-3 p-md-4 mb-4" aria-labelledby="booking-form-title">
@@ -70,7 +70,7 @@
         </form>
     </section>
 
-    <section aria-labelledby="booking-list-title">
+    <section class="border rounded bg-white p-3 p-md-4" aria-labelledby="booking-list-title">
         <h2 id="booking-list-title" class="h5">{{ auth()->user()->role === 'admin' ? 'All bookings' : 'Your bookings' }}</h2>
         @forelse ($bookings as $booking)
             <div class="border-bottom py-2 d-flex align-items-center justify-content-between gap-2">

@@ -14,7 +14,7 @@
                         </div>
                     @endif
 
-                    {{ __('You are logged in!') }}
+                    <a class="btn btn-primary" href="{{ route('booking.index') }}">{{ __('View bookings') }}</a>
                 </div>
             </div>
         </div>
