@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\DriverController;
 
 
+use App\Http\Controllers\ScanSessionController;
+
 Route::get('/', function () {
     return view('welcome');
 });
@@ -69,3 +71,8 @@ Route::middleware(['auth', 'active', 'role:admin'])->group(function () {
 Auth::routes();
 
 Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
+
+
+Route::post('/bookings/{booking}/scan-sessions', 
+    [ScanSessionController::class, 'store']
+)->middleware('auth')->name('scan-sessions.store');
