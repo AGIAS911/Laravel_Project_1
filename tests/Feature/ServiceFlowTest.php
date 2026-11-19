@@ -20,7 +20,9 @@ class ServiceFlowTest extends TestCase
 
     public function test_guests_can_browse_services_but_cannot_create_them(): void
     {
-        $this->get(route('services.index'))->assertOk();
+        $this->get(route('services.index'))
+            ->assertOk()
+            ->assertSee(route('services.index'));
         $this->get(route('services.create'))
             ->assertRedirect(route('login'));
     }
@@ -29,7 +31,11 @@ class ServiceFlowTest extends TestCase
     {
         $this->actingAs(User::factory()->create(['role' => 'admin']));
 
-        $this->get(route('services.index'))->assertOk();
+        $this->get(route('services.index'))
+            ->assertOk()
+            ->assertSee(route('services.index'))
+            ->assertSee('Services')
+            ->assertSee('Add service');
         $this->get(route('services.create'))->assertOk();
 
         $this->post(route('services.store'), [
@@ -49,9 +55,15 @@ class ServiceFlowTest extends TestCase
             'is_active' => true,
         ]);
 
+        $this->get(route('services.index'))
+            ->assertOk()
+            ->assertSee(route('services.show', $service))
+            ->assertSee('Details');
+
         $this->get(route('services.show', $service))
             ->assertOk()
-            ->assertSee('Packing');
+            ->assertSee('Packing')
+            ->assertSee('Delete service');
         $this->get(route('services.edit', $service))->assertOk();
 
         $this->put(route('services.update', $service), [
@@ -77,6 +89,43 @@ class ServiceFlowTest extends TestCase
         $this->assertSoftDeleted('services', ['id' => $service->id]);
         $this->assertNull(Service::find($service->id));
         $this->assertNotNull(Service::withTrashed()->find($service->id));
+    }
+
+    public function test_only_admins_can_manage_services_and_inactive_services_are_hidden_from_the_public(): void
+    {
+        $activeService = Service::create([
+            'name' => 'Active service',
+            'type' => 'moving',
+            'unit' => 'fixed',
+            'price' => '12.500',
+            'is_active' => true,
+        ]);
+        $inactiveService = Service::create([
+            'name' => 'Inactive service',
+            'type' => 'moving',
+            'unit' => 'fixed',
+            'price' => '20.000',
+            'is_active' => false,
+        ]);
+
+        $this->actingAs(User::factory()->create(['role' => 'customer']))
+            ->get(route('services.index'))
+            ->assertOk()
+            ->assertSee('workspace-menu')
+            ->assertSee('Services')
+            ->assertSee('Active service')
+            ->assertDontSee('Inactive service')
+            ->assertSee('Delete');
+
+        $this->get(route('services.show', $activeService))->assertOk();
+        $this->get(route('services.show', $inactiveService))->assertNotFound();
+        $this->get(route('services.create'))->assertForbidden();
+        $this->post(route('services.store'), [])->assertForbidden();
+        $this->put(route('services.update', $activeService), [])->assertForbidden();
+        $this->delete(route('services.destroy', $activeService))
+            ->assertRedirect(route('services.index'))
+            ->assertSessionHas('success');
+        $this->assertSoftDeleted('services', ['id' => $activeService->id]);
     }
 
     public function test_service_cannot_be_created_with_a_negative_price(): void

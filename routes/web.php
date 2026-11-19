@@ -13,6 +13,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\VehicleController;
 use App\Http\Controllers\VehicleTypeController;
+use App\Http\Controllers\Admin\PaymentReviewController;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\UserController;
@@ -20,6 +21,7 @@ use App\Http\Controllers\ServiceController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\DriverController;
 use App\Http\Controllers\ChatbotController;
+use App\Http\Controllers\PaymentController;
 
 
 use App\Http\Controllers\ScanSessionController;
@@ -27,6 +29,12 @@ use App\Http\Controllers\ScanSessionController;
 Route::get('/', function () {
     return view('welcome');
 });
+
+Route::view('/how-it-works', 'info.how-it-works')->name('info.how-it-works');
+Route::view('/faq', 'info.faq')->name('info.faq');
+Route::view('/contact', 'info.contact')->name('info.contact');
+Route::post('/contact', [ContactController::class, 'store'])->name('info.contact.store');
+Route::view('/policies', 'info.policies')->name('info.policies');
 
 Route::get('/dashboard', function () {
     return view('dashboard');
@@ -92,8 +100,11 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::put('/password', [ProfileController::class, 'updatePassword']);
     Route::put('/password/reset', [ProfileController::class, 'updatePassword']);
 });
-Route::resource('services', ServiceController::class)->except(['index', 'show'])
+Route::resource('services', ServiceController::class)->except(['index', 'show', 'destroy'])
     ->middleware(['auth', 'active', 'role:admin']);
+Route::delete('/services/{service}', [ServiceController::class, 'destroy'])
+    ->middleware(['auth', 'active'])
+    ->name('services.destroy');
 Route::resource('services', ServiceController::class)->only(['index', 'show']);
 
 //--------------------------------------------------------
@@ -121,6 +132,10 @@ Route::middleware(['auth', 'active', 'role:admin'])
         Route::get('/settings', [WorkspaceController::class, 'settings'])->name('settings');
         Route::put('/settings', [WorkspaceController::class, 'updateSettings'])->name('settings.update');
         Route::get('/inbox', [WorkspaceController::class, 'inbox'])->name('inbox');
+        Route::get('/payments', [PaymentReviewController::class, 'index'])->name('payments.index');
+        Route::get('/payments/{id}', [PaymentReviewController::class, 'show'])->name('payments.show');
+        Route::post('/payments/{id}/approve', [PaymentReviewController::class, 'approve'])->name('payments.approve');
+        Route::post('/payments/{id}/reject', [PaymentReviewController::class, 'reject'])->name('payments.reject');
         Route::patch('/users/{user}/driver-status', [UserController::class, 'reviewDriver'])->name('users.driver-status');
         Route::apiResource('pricing-rules', PricingRuleController::class)->except('show');
         Route::resource('users', UserController::class)
@@ -135,3 +150,14 @@ Route::get('/chatbot', [ChatbotController::class, 'index'])->name('chatbot.index
 
 Route::post('/chatbot/message', [ChatbotController::class, 'send'])
     ->name('chatbot.message');
+Route::middleware(['auth', 'active', 'role:customer'])->group(function () {
+    Route::get('/payments', [PaymentController::class, 'index'])
+        ->name('payments.index');
+    Route::get('/payments/create', [PaymentController::class, 'create'])
+        ->name('payments.create');
+    Route::post('/payments', [PaymentController::class, 'store'])
+        ->name('payments.store');
+});
+
+Route::middleware(['auth', 'active'])->get('/payments/{id}/receipt', [PaymentController::class, 'receipt'])
+    ->name('payments.receipt');
