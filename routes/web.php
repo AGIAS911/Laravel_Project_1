@@ -27,7 +27,7 @@ Route::get('/dashboard', function () {
 //------------------------------------------------------------------------------
 Route::resource('vehicles', VehicleController::class);
 Route::resource('vehicle-types', VehicleTypeController::class);
-Route::resource('booking', BookingController::class);
+Route::resource('booking', BookingController::class)->middleware('auth');
 
 Route::resource('booking-services', \App\Http\Controllers\BookingServiceController::class)
     ->middleware('auth');
@@ -73,6 +73,9 @@ Auth::routes();
 Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
 
 
-Route::post('/bookings/{booking}/scan-sessions', 
-    [ScanSessionController::class, 'store']
-)->middleware('auth')->name('scan-sessions.store');
+Route::middleware('auth')->scopeBindings()->group(function () {
+    Route::post('/bookings/{booking}/scan-sessions', [ScanSessionController::class, 'store'])
+        ->name('scan-sessions.store');
+    Route::get('/bookings/{booking}/scan-sessions/{scanSession}', [ScanSessionController::class, 'show'])
+        ->name('scan-sessions.show');
+});
