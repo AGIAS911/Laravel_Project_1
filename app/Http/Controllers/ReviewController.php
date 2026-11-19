@@ -22,7 +22,8 @@ class ReviewController extends Controller
             'booking_id' => $booking->id,
             'status' => $booking->status,
             'can_review' => $booking->status === 'completed' && $booking->review === null,
-            'driver_profile_url' => $driverProfileId === null ? null : route('drivers.show', $driverProfileId),
+            'driver_profile_url' => $driverProfileId !== null && in_array($booking->status, ['confirmed', 'in_progress', 'completed'], true)
+                ? route('drivers.show', $driverProfileId) : null,
             'review' => $booking->review === null ? null : [
                 'id' => $booking->review->id,
                 'rating' => $booking->review->rating,

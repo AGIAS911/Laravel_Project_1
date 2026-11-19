@@ -44,9 +44,12 @@ class LoginController extends Controller
     protected function authenticated(Request $request, $user)
     {
         if (!$user->is_active) {
+            $message = $user->role === 'driver' ? $user->driverProfile?->status_reason : null;
             Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
             return redirect('/login')->withErrors([
-                'email' => 'Your account is pending admin approval or inactive.',
+                'email' => $message ?: 'Your account is pending admin approval or inactive.',
             ]);
         }
 

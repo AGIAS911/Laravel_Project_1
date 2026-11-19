@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -62,6 +63,16 @@ class Booking extends Model
     public function customer(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function scopeOccupyingWindow(Builder $query, $start, $end): Builder
+    {
+        return $query->where(fn ($states) => $states->whereIn('status', ['confirmed', 'in_progress'])
+            ->orWhere(fn ($hold) => $hold->where('status', 'awaiting_deposit')
+                ->where(fn ($active) => $active->where('deposit_due_at', '>', now())
+                    ->orWhereHas('payments', fn ($payment) => $payment->where('status', 'pending')))))
+            ->where('scheduled_start_at', '<', $end)
+            ->where('scheduled_end_at', '>', $start);
     }
 
     public function vehicle(): BelongsTo

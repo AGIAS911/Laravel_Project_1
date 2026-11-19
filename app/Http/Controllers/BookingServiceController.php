@@ -6,6 +6,7 @@ use App\Models\Booking;
 use App\Models\BookingService;
 use App\Models\Service;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -51,31 +52,26 @@ class BookingServiceController extends Controller
             'quantity' => ['required', 'integer', 'min:1', 'max:1000'],
         ]);
 
-        $booking = $this->draftBookings($request)->findOrFail($data['booking_id']);
-        $service = Service::findOrFail($data['service_id']);
+        DB::transaction(function () use ($request, $data) {
+            $booking = $this->draftBookings($request)->lockForUpdate()->findOrFail($data['booking_id']);
+            $service = Service::where('is_active', true)->findOrFail($data['service_id']);
 
-        // Fixed-price services are always a single unit.
-        if ($service->unit === 'fixed') {
-            $data['quantity'] = 1;
-        }
+            if ($booking->bookingServices()->where('service_id', $service->id)->exists()
+                || ($service->type === Service::TYPE_TRANSPORT && $this->hasType($booking, Service::TYPE_TRANSPORT))) {
+                $this->fail('service_id', __('booking_services.one_transport'));
+            }
+            if ($service->type === Service::TYPE_ASSEMBLY && !$this->hasType($booking, Service::TYPE_WORKERS)) {
+                $this->fail('service_id', __('booking_services.assembly_needs_workers'));
+            }
 
-        if ($service->type === Service::TYPE_TRANSPORT && $this->hasType($booking, Service::TYPE_TRANSPORT)) {
-            $this->fail('service_id', __('booking_services.one_transport'));
-        }
-
-        if ($service->type === Service::TYPE_ASSEMBLY && ! $this->hasType($booking, Service::TYPE_WORKERS)) {
-            $this->fail('service_id', __('booking_services.assembly_needs_workers'));
-        }
-
-        // Snapshot the service values so later price changes do not affect this booking.
-        BookingService::create([
-            'booking_id' => $booking->id,
-            'service_id' => $service->id,
-            'service_name' => $service->name,
-            'unit' => $service->unit,
-            'quantity' => $data['quantity'],
-            'unit_price' => $service->price,
-        ]);
+            $booking->bookingServices()->create([
+                'service_id' => $service->id,
+                'service_name' => $service->name,
+                'unit' => $service->unit,
+                'quantity' => $service->unit === 'fixed' ? 1 : $data['quantity'],
+                'unit_price' => $service->price,
+            ]);
+        }, 3);
 
         return redirect()->route('booking-services.index')
             ->with('success', __('booking_services.created'));
@@ -112,11 +108,11 @@ class BookingServiceController extends Controller
             'quantity' => ['required', 'integer', 'min:1', 'max:1000'],
         ]);
 
-        if ($bookingService->unit === 'fixed') {
-            $data['quantity'] = 1;
-        }
-
-        $bookingService->update($data);
+        DB::transaction(function () use ($request, $bookingService, $data) {
+            $booking = $this->draftBookings($request)->lockForUpdate()->findOrFail($bookingService->booking_id);
+            $line = $booking->bookingServices()->findOrFail($bookingService->id);
+            $line->update(['quantity' => $line->unit === 'fixed' ? 1 : $data['quantity']]);
+        }, 3);
 
         return redirect()->route('booking-services.index')
             ->with('success', __('booking_services.updated'));
@@ -129,13 +125,14 @@ class BookingServiceController extends Controller
     {
         $bookingService = $this->editableServices($request)->with(['booking', 'service'])->findOrFail($id);
 
-        $removesWorkers = $bookingService->service?->type === Service::TYPE_WORKERS;
-
-        if ($removesWorkers && $this->hasType($bookingService->booking, Service::TYPE_ASSEMBLY)) {
-            return back()->withErrors(['service' => __('booking_services.workers_needed_for_assembly')]);
-        }
-
-        $bookingService->delete();
+        DB::transaction(function () use ($request, $bookingService) {
+            $booking = $this->draftBookings($request)->lockForUpdate()->findOrFail($bookingService->booking_id);
+            $line = $booking->bookingServices()->with('service')->findOrFail($bookingService->id);
+            if ($line->service?->type === Service::TYPE_WORKERS && $this->hasType($booking, Service::TYPE_ASSEMBLY)) {
+                $this->fail('service', __('booking_services.workers_needed_for_assembly'));
+            }
+            $line->delete();
+        }, 3);
 
         return redirect()->route('booking-services.index')
             ->with('success', __('booking_services.deleted'));

@@ -1,3 +1,15 @@
+use App\Models\User;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Auth;
+use App\Models\BookingService;
+use App\Models\ScanSession;
+use App\Models\InventoryItem;
+use App\Models\Payment;
+use App\Models\Review;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 @extends('layouts.app')
 
 @section('body')

@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class InventoryItem extends Model
 {
+    protected $hidden = ['image'];
+
     protected $fillable = [
         'booking_id',
         'scan_session_id',

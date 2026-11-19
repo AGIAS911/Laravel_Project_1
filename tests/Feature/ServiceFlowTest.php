@@ -18,15 +18,16 @@ class ServiceFlowTest extends TestCase
         $this->withoutVite();
     }
 
-    public function test_guests_are_redirected_from_services(): void
+    public function test_guests_can_browse_services_but_cannot_create_them(): void
     {
-        $this->get(route('services.index'))
+        $this->get(route('services.index'))->assertOk();
+        $this->get(route('services.create'))
             ->assertRedirect(route('login'));
     }
 
-    public function test_authenticated_user_can_complete_service_crud_flow(): void
+    public function test_admin_can_complete_service_crud_flow(): void
     {
-        $this->actingAs(User::factory()->create());
+        $this->actingAs(User::factory()->create(['role' => 'admin']));
 
         $this->get(route('services.index'))->assertOk();
         $this->get(route('services.create'))->assertOk();
@@ -80,7 +81,7 @@ class ServiceFlowTest extends TestCase
 
     public function test_service_cannot_be_created_with_a_negative_price(): void
     {
-        $this->actingAs(User::factory()->create())
+        $this->actingAs(User::factory()->create(['role' => 'admin']))
             ->post(route('services.store'), [
                 'name' => 'Packing',
                 'type' => 'moving',

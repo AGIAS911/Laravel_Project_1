@@ -35,6 +35,7 @@ class ReviewFlowTest extends TestCase
         $driver = DriverProfile::factory()->create();
         $otherDriver = DriverProfile::factory()->create();
         $booking = $this->createBooking($driver, User::factory()->create());
+        $booking->update(['status' => 'in_progress']);
 
         $this->actingAs($driver->user)
             ->getJson(route('driver.bookings.index'))
@@ -43,11 +44,11 @@ class ReviewFlowTest extends TestCase
 
         $this->actingAs($otherDriver->user)
             ->patchJson(route('driver.bookings.complete', $booking))
-            ->assertForbidden();
+            ->assertNotFound();
 
         $this->assertDatabaseHas('bookings', [
             'id' => $booking->id,
-            'status' => 'draft',
+            'status' => 'in_progress',
         ]);
 
         $this->actingAs($driver->user)
@@ -74,6 +75,7 @@ class ReviewFlowTest extends TestCase
             ])
             ->assertStatus(409);
 
+        $booking->update(['status' => 'in_progress']);
         $this->actingAs($driver->user)
             ->patchJson(route('driver.bookings.complete', $booking))
             ->assertOk();

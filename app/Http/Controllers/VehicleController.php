@@ -17,7 +17,9 @@ class VehicleController extends Controller
      */
     public function index()
     {
+        $driver = $this->managingDriver(request());
         $vehicles = Vehicle::with(['vehicleType', 'driver'])
+            ->when($driver, fn ($query) => $query->where('driver_id', $driver->id))
             ->withCount('bookings')
             ->latest()
             ->paginate(10);
@@ -31,7 +33,8 @@ class VehicleController extends Controller
     public function create()
     {
         $vehicleTypes = VehicleType::where('is_active', true)->get();
-        $drivers = DriverProfile::all();
+        $driver = $this->managingDriver(request());
+        $drivers = $driver ? collect([$driver]) : DriverProfile::all();
 
         return view('vehicles.create', compact('vehicleTypes', 'drivers'));
     }
@@ -41,6 +44,10 @@ class VehicleController extends Controller
      */
     public function store(Request $request)
     {
+        $driver = $this->managingDriver($request);
+        if ($driver) {
+            $request->merge(['driver_id' => $driver->id]);
+        }
         $validatedData = $request->validate([
             'vehicle_type_id' => 'required|exists:vehicle_types,id',
             'driver_id' => 'required|exists:driver_profiles,id',
@@ -69,6 +76,7 @@ class VehicleController extends Controller
      */
     public function show(Vehicle $vehicle)
     {
+        $this->managingDriver(request(), $vehicle);
         $vehicle->load(['vehicleType', 'driver.user', 'bookings']);
 
         return view('vehicles.show', compact('vehicle'));
@@ -79,10 +87,11 @@ class VehicleController extends Controller
      */
     public function edit(Vehicle $vehicle)
     {
+        $driver = $this->managingDriver(request(), $vehicle);
         $vehicleTypes = VehicleType::where('is_active', true)
             ->orWhere('id', $vehicle->vehicle_type_id)
             ->get();
-        $drivers = DriverProfile::all();
+        $drivers = $driver ? collect([$driver]) : DriverProfile::all();
 
         return view('vehicles.edit', compact('vehicle', 'vehicleTypes', 'drivers'));
     }
@@ -92,6 +101,10 @@ class VehicleController extends Controller
      */
     public function update(Request $request, Vehicle $vehicle)
     {
+        $driver = $this->managingDriver($request, $vehicle);
+        if ($driver) {
+            $request->merge(['driver_id' => $driver->id]);
+        }
         $validatedData = $request->validate([
             'vehicle_type_id' => 'required|exists:vehicle_types,id',
             'driver_id' => 'required|exists:driver_profiles,id',
@@ -104,6 +117,11 @@ class VehicleController extends Controller
             'price_per_km' => 'required|numeric|min:0',
             'status' => 'required|string|in:active,inactive,maintenance',
         ]);
+
+        if ((int) $validatedData['driver_id'] !== $vehicle->driver_id || $validatedData['status'] !== 'active') {
+            abort_if($vehicle->bookings()->whereIn('status', ['pending', 'awaiting_deposit', 'confirmed', 'in_progress'])->exists(),
+                409, 'Resolve active bookings before reassigning or deactivating this vehicle.');
+        }
 
         if ($request->hasFile('image')) {
             $imagePath = $this->storeImage($request->file('image'));
@@ -121,6 +139,7 @@ class VehicleController extends Controller
      */
     public function destroy(Vehicle $vehicle)
     {
+        $this->managingDriver(request(), $vehicle);
         if ($vehicle->bookings()->exists()) {
             return redirect()->route('vehicles.index')
                 ->with('error', 'A vehicle linked to bookings cannot be deleted.');
@@ -132,6 +151,18 @@ class VehicleController extends Controller
         return redirect()->route('vehicles.index')->with('success', 'Vehicle has been deleted.');
     }
     
+    private function managingDriver(Request $request, ?Vehicle $vehicle = null): ?DriverProfile
+    {
+        if ($request->user()->role === 'admin') {
+            return null;
+        }
+        $driver = $request->user()->driverProfile;
+        abort_unless($request->user()->role === 'driver' && $driver?->status === 'approved', 403);
+        abort_if($vehicle && $vehicle->driver_id !== $driver->id, 404);
+
+        return $driver;
+    }
+
     private function storeImage(UploadedFile $image): string
     {
         $directory = public_path('images/vehicles');
