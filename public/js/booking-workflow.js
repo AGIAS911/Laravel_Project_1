@@ -62,6 +62,36 @@
                 select.add(new Option(`${vehicle.type} · ${vehicle.capacity_m3} · ${vehicle.base_price} JOD base`, vehicle.id));
             }
             if ([...select.options].some(option => option.value === selected)) select.value = selected;
+            const choices = form.querySelector('[data-vehicle-options]');
+            if (choices) {
+                const buttons = page.data.map(vehicle => {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'customer-vehicle-choice';
+
+                    const title = document.createElement('strong');
+                    title.textContent = vehicle.type;
+
+                    const detail = document.createElement('span');
+                    detail.textContent = [vehicle.capacity_m3 && vehicle.capacity_m3 + ' m³', vehicle.base_price + ' JOD base'].filter(Boolean).join(' · ');
+
+                    button.append(title, detail);
+                    button.dataset.vehicle = String(vehicle.id);
+                    button.addEventListener('click', () => {
+                        select.value = button.dataset.vehicle;
+                        select.dispatchEvent(new Event('change'));
+                    });
+                    return button;
+                });
+                const updateSelection = () => {
+                    for (const button of choices.children) {
+                        button.setAttribute('aria-pressed', String(button.dataset.vehicle === select.value));
+                    }
+                };
+                choices.replaceChildren(...buttons);
+                select.onchange = updateSelection;
+                updateSelection();
+            }
             status.textContent = page.data.length ? `${page.total} available vehicles.` : 'No vehicles available for this time.';
         } catch (error) {
             status.textContent = error.message;

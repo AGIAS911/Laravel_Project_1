@@ -9,16 +9,27 @@
             <a class="button" href="{{ route('vehicles.create') }}">Add Vehicle</a>
         </div>
 
+        <p class="text-body-secondary">All driver vehicles.</p>
+        <form method="GET" action="{{ route('vehicles.index') }}" class="admin-filterbar" role="search">
+            <input type="search" name="q" value="{{ $search }}" aria-label="Search vehicles" placeholder="Search...">
+            <select name="status" aria-label="Vehicle status">
+                <option value="">All statuses</option>
+                @foreach (['active', 'maintenance', 'inactive'] as $option)
+                    <option value="{{ $option }}" @selected($status === $option)>{{ ucfirst($option) }}</option>
+                @endforeach
+            </select>
+            <button class="btn btn-outline-secondary btn-sm">Filter</button>
+        </form>
         <div class="table-wrap">
             <table>
                 <thead>
                     <tr>
                         <th>Vehicle</th>
-                        <th>License Plate</th>
-                        <th>Type</th>
-                        <th>Driver License</th>
+                        <th>Driver</th>
+                        <th>License plate</th>
+                        <th>Capacity</th>
                         <th>Status</th>
-                        <th>Image</th>
+
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -26,24 +37,10 @@
                     @forelse ($vehicles as $vehicle)
                         <tr>
                             <td>{{ $vehicle->name }}</td>
+                            <td>{{ $vehicle->driver?->user?->name ?? '—' }}</td>
                             <td>{{ $vehicle->plate_number }}</td>
-                            <td>{{ $vehicle->vehicleType?->name ?? '—' }}</td>
-                            <td>{{ $vehicle->driver?->license_number ?? '—' }}</td>
-                            <td>
-                                @switch($vehicle->status)
-                                    @case('active') Active @break
-                                    @case('inactive') Inactive @break
-                                    @case('maintenance') Maintenance @break
-                                    @default {{ $vehicle->status }}
-                                @endswitch
-                            </td>
-                            <td>
-                                @if ($vehicle->image)
-                                    <img class="thumbnail" src="{{ asset($vehicle->image) }}" alt="Image of {{ $vehicle->name }}">
-                                @else
-                                    —
-                                @endif
-                            </td>
+                            <td>{{ $vehicle->capacity_kg === null ? '—' : number_format((float) $vehicle->capacity_kg) . ' kg' }}</td>
+                            <td>@include('booking._status', ['state' => $vehicle->status, 'label' => ucfirst($vehicle->status)])</td>
                             <td>
                                 <div class="actions">
                                     <a class="button secondary" href="{{ route('vehicles.show', $vehicle) }}">View</a>
@@ -61,12 +58,12 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="7">No vehicles found.</td></tr>
+                        <tr><td colspan="6">No vehicles found.</td></tr>
                     @endforelse
                 </tbody>
             </table>
         </div>
 
-        {{ $vehicles->links() }}
+        {{ $vehicles->links('pagination::bootstrap-5') }}
     </section>
 @endsection

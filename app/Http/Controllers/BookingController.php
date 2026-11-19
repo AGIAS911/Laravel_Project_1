@@ -37,13 +37,19 @@ class BookingController extends Controller
         $search = $request->query('q', '');
         $search = is_string($search) ? trim(substr($search, 0, 40)) : '';
         $query = $user->role === 'admin' ? Booking::query() : $user->bookings();
+        $drivers = $user->role === 'admin'
+            ? \App\Models\DriverProfile::with('user:id,name')->orderBy('id')->get(['id', 'user_id'])
+            : collect();
+        $driverFilter = $request->query('driver');
+        $driverFilter = is_string($driverFilter) && $drivers->contains('id', $driverFilter) ? $driverFilter : null;
         $relations = $user->role === 'admin' ? ['customer', 'driver.user'] : ['vehicle.vehicleType'];
         $bookings = $query->with($relations)
             ->when($status, fn ($query) => $query->where('status', $status))
+            ->when($driverFilter, fn ($query) => $query->where('driver_id', $driverFilter))
             ->when($search !== '', fn ($query) => $query->where('id', ctype_digit($search) && strlen($search) <= 18 ? $search : 0))
-            ->latest('id')->paginate(10)->appends(array_filter(['status' => $status, 'q' => $search]));
+            ->latest('id')->paginate(10)->appends(array_filter(['status' => $status, 'q' => $search, 'driver' => $driverFilter]));
 
-        return view('booking.index', compact('bookings', 'statuses', 'status', 'search'));
+        return view('booking.index', compact('bookings', 'statuses', 'status', 'search', 'drivers', 'driverFilter'));
     }
 
     /**
@@ -68,7 +74,9 @@ class BookingController extends Controller
 
         $booking = Booking::create($data);
 
-        return redirect()->route('booking.show', $booking)->with('success', 'Booking created successfully');
+        $destination = $request->boolean('open_phone_scan') ? 'scan-sessions.workspace' : 'booking.show';
+
+        return redirect()->route($destination, $booking)->with('success', 'Booking created successfully');
     }
 
     /**

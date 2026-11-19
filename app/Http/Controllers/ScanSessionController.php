@@ -13,6 +13,15 @@ use Endroid\QrCode\Writer\SvgWriter;
 
 class ScanSessionController extends Controller
 {
+    public function workspace(Request $request, Booking $booking)
+    {
+        abort_unless($booking->customer_id === $request->user()->id, 404);
+        abort_unless($booking->status === 'draft', 409);
+        $booking->load('inventoryItems');
+
+        return view('booking.scan', compact('booking'));
+    }
+
     public function store(Request $request, Booking $booking)
     {
         abort_unless(

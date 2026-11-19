@@ -25,14 +25,30 @@ class PaymentReviewController extends Controller
     public function index(Request $request)
     {
         $status = $request->query('status', Payment::STATUS_PENDING);
+        $status = in_array($status, ['pending', 'approved', 'rejected', 'all'], true) ? $status : Payment::STATUS_PENDING;
+        $search = $request->query('q');
+        $search = is_string($search) ? trim(substr($search, 0, 100)) : '';
+        $matches = Payment::query()->when($search !== '', function ($query) use ($search) {
+            $query->where(function ($fields) use ($search) {
+                $fields->where('transfer_reference', 'like', '%'.$search.'%');
+                if (ctype_digit($search) && strlen($search) <= 18) {
+                    $fields->orWhere('booking_id', $search);
+                }
+            });
+        });
 
-        $payments = Payment::with('booking.customer')
-            ->when($status !== 'all', fn ($q) => $q->where('status', $status))
-            ->latest('id')
-            ->paginate(10)
-            ->withQueryString();
+        $counts = (clone $matches)->selectRaw('status, COUNT(*) as total')->groupBy('status')->pluck('total', 'status');
+        $overdueOnly = $status === Payment::STATUS_PENDING && $request->boolean('overdue');
+        $overdueBookings = fn ($query) => $query->where('deposit_due_at', '<', now());
+        $overdueCount = (clone $matches)->where('status', Payment::STATUS_PENDING)
+            ->whereHas('booking', $overdueBookings)->count();
 
-        return view('admin.payments.index', compact('payments', 'status'));
+        $payments = $matches->with('booking.customer')
+            ->when($overdueOnly, fn ($query) => $query->whereHas('booking', $overdueBookings))
+            ->when($status !== 'all', fn ($query) => $query->where('status', $status))
+            ->latest('id')->paginate(10)->withQueryString();
+
+        return view('admin.payments.index', compact('payments', 'status', 'search', 'counts', 'overdueOnly', 'overdueCount'));
     }
 
     public function show(string $id)

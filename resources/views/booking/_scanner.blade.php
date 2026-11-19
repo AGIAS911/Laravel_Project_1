@@ -1,11 +1,12 @@
     <div class="modal fade" id="furniture-scan" tabindex="-1" aria-labelledby="furniture-scan-title" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h2 class="modal-title fs-5" id="furniture-scan-title">Scan furniture</h2>
+                    <h2 class="modal-title fs-5" id="furniture-scan-title"><i class="fa-solid fa-qrcode me-2" aria-hidden="true"></i> Scan furniture with your phone</h2>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
+                    <p class="text-body-secondary">Name the room, generate a QR code, then open it with your phone camera.</p>
                     <form id="scan-form">
                         @csrf
                         <label for="scan-room" class="form-label">Room name</label>

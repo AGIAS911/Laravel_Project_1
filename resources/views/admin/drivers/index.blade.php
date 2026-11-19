@@ -2,7 +2,8 @@
 
 @section('content')
     <div class="container py-4">
-        <h1 class="h3 mb-4">Reviews</h1>
+        <h1 class="h3 workspace-heading mb-1">Reviews</h1>
+        <p class="text-body-secondary mb-4">One review per completed booking.</p>
         <div class="table-responsive mb-3">
             <table class="table align-middle mb-0">
                 <thead><tr><th scope="col">Booking</th><th scope="col">Customer</th><th scope="col">Driver</th><th scope="col">Rating</th><th scope="col">Comment</th></tr></thead>
@@ -12,7 +13,7 @@
                             <th scope="row"><a href="{{ route('booking.show', $review->booking) }}">#{{ $review->booking_id }}</a></th>
                             <td>{{ $review->booking?->customer?->name ?? '—' }}</td>
                             <td>{{ $review->booking?->driver?->user?->name ?? '—' }}</td>
-                            <td>{{ $review->rating }} / 5</td>
+                            <td class="text-nowrap"><span class="text-warning" aria-hidden="true">{{ str_repeat('★', $review->rating) }}{{ str_repeat('☆', 5 - $review->rating) }}</span><span class="visually-hidden">{{ $review->rating }} / 5</span></td>
                             <td class="text-break">{{ $review->comment ?: '—' }}</td>
                         </tr>
                     @empty

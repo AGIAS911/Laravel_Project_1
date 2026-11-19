@@ -2,6 +2,8 @@
 
 @section('title', 'Booking #' . $booking->id)
 @section('page-title', 'Booking #' . $booking->id)
+@section('page-icon', 'fa-clipboard-list')
+@section('page-description', 'Track your move, furniture inventory, and payment status.')
 
 @php
     $user = auth()->user();
@@ -16,15 +18,22 @@
 @section('content')
     <p data-workflow-status class="fw-semibold" role="status"></p>
     @if ($draft)
-        @include('booking._steps', ['current' => 'inventory'])
+        @include('booking._steps', [
+            'current' => 'inventory',
+            'links' => ['locations' => route('booking.edit', $booking), 'vehicle' => route('booking.edit', $booking).'#vehicle-selection', 'services' => '#services', 'review' => '#review'],
+        ])
     @endif
 
     <div class="row g-4">
         <div class="col-lg-8">
-    <section class="card mb-3">
+            @if ($draft)
+                @include('booking._inventory')
+
+            @endif
+    <section class="card mb-3" id="locations">
         <div class="card-body">
-            <span class="badge text-bg-light">{{ str($booking->status)->headline() }}</span>
-            <h2 class="h5 mt-2">Move details</h2>
+            @include('booking._status', ['state' => $booking->status])
+            <h2 class="h5 workspace-heading mt-2">Move details</h2>
             <p>{{ $booking->scheduled_start_at?->timezone('Asia/Amman')->format('D, d M · H:i') ?? 'Choose a date and time' }}</p>
             @foreach (['pickup' => 'Pickup', 'destination' => 'Destination'] as $stop => $label)
                 @if ($booking->{$stop.'_latitude'} !== null && $booking->{$stop.'_longitude'} !== null)
@@ -35,20 +44,15 @@
             @endforeach
             @if ($booking->notes)<p class="mt-2">{{ $booking->notes }}</p>@endif
             @if ($booking->rejection_reason)<p>{{ $booking->rejection_reason }}</p>@endif
+        @if ($owner && in_array($booking->status, ['confirmed', 'in_progress', 'completed'], true) && $booking->driver?->user)
+                <div class="customer-driver">
+                    <i class="fa-solid fa-id-card" aria-hidden="true"></i>
+                    <div><strong>{{ $booking->driver->user->name }}</strong>
+                        @if ($booking->driver->user->phone)
+                            <a class="d-block small" href="tel:{{ $booking->driver->user->phone }}">{{ $booking->driver->user->phone }}</a>
+                        @endif
+                    </div>
                 </div>
-        <aside class="col-lg-4 d-grid gap-3 align-content-start">
-            <div class="card card-body">
-                <h2 class="h5">Booking summary</h2>
-                <p>@include('booking._status', ['state' => $booking->status])</p>
-                <dl class="row mb-0">
-                    <dt class="col-6">Distance</dt><dd class="col-6">{{ $booking->distance_km !== null ? $booking->distance_km . ' km' : '—' }}</dd>
-                    <dt class="col-6">Total</dt><dd class="col-6">{{ $booking->total_price !== null ? $booking->total_price . ' JOD' : '—' }}</dd>
-                    <dt class="col-6">Deposit</dt><dd class="col-6">{{ $booking->deposit_amount !== null ? $booking->deposit_amount . ' JOD' : '—' }}</dd>
-                </dl>
-            </div>
-
-    @if ($owner && in_array($booking->status, ['confirmed', 'in_progress', 'completed'], true) && $booking->driver?->user)
-                <p>Driver {{ $booking->driver->user->name }} · {{ $booking->driver->user->phone }}</p>
             @endif
             @if ($draft)
                 <a class="btn btn-outline-secondary" href="{{ route('booking.edit', $booking) }}">Edit locations, schedule and vehicle</a>
@@ -57,12 +61,9 @@
     </section>
 
     @if ($draft)
-        @include('booking._inventory')
-        @include('booking._scanner')
-
         <section class="card mb-3">
             <div class="card-body">
-                <h2 class="h5">Services</h2>
+                <h2 class="h5 workspace-heading" id="services">Services</h2>
                 @foreach ($booking->bookingServices as $line)
                     <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
                         <span>{{ $line->service_name }}</span>
@@ -99,9 +100,9 @@
                 </form>
             </div>
         </section>
-        <section class="card mb-3">
+    <section class="card mb-3">
             <div class="card-body">
-                <h2 class="h5">Review and send</h2>
+                <h2 class="h5 workspace-heading" id="review">Review and send</h2>
                 <div class="d-flex flex-wrap gap-2">
                     <form data-workflow-form="quote" method="POST" action="{{ route('bookings.quote', $booking, false) }}">
                         @csrf
@@ -134,7 +135,7 @@
         </div>
         <aside class="col-lg-4 d-grid gap-3 align-content-start">
             <div class="card card-body">
-                <h2 class="h5">Booking summary</h2>
+                <h2 class="h5 workspace-heading">Booking summary</h2>
                 <p>@include('booking._status', ['state' => $booking->status])</p>
                 <dl class="row mb-0">
                     <dt class="col-6">Distance</dt><dd class="col-6">{{ $booking->distance_km !== null ? $booking->distance_km . ' km' : '—' }}</dd>
@@ -145,7 +146,7 @@
 
     @if ($owner && in_array($booking->status, ['pending', 'awaiting_deposit'], true))
         @if ($booking->status === 'awaiting_deposit')
-            <a class="btn btn-primary mb-2" href="{{ route('payments.create', ['booking_id' => $booking->id]) }}">Pay deposit or view receipt status</a>
+            <a class="btn btn-primary w-100" href="{{ route('payments.create', ['booking_id' => $booking->id]) }}">Pay deposit or view receipt status</a>
         @endif
         <form data-workflow-form method="POST" action="{{ route('bookings.cancel', $booking, false) }}">
             @csrf @method('PATCH')

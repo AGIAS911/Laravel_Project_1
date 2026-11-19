@@ -7,6 +7,15 @@ use Illuminate\Http\Request;
 
 class ServiceController extends Controller
 {
+    public function setStatus(Request $request, Service $service)
+    {
+        $data = $request->validate(['is_active' => 'required|boolean']);
+        abort_if($service->type === Service::TYPE_TRANSPORT && !$request->boolean('is_active'), 422);
+        $service->update(['is_active' => $data['is_active']]);
+
+        return back()->with('success', 'Status updated.');
+    }
+
     /**
      * Display a listing of the resource.
      */

@@ -11,11 +11,12 @@
                 'Commission and deposit' => [
                     'commission_percent' => ['Commission (%)', '0', '100', '0.01'],
                     'deposit_percent' => ['Deposit (%)', '0.01', '100', '0.01'],
-                    'deposit_minutes' => ['Deposit deadline (minutes)', '1', '10080', '1'],
+
                 ],
                 'CliQ beneficiary' => [
                     'clik_name' => ['Beneficiary name'],
-                    'clik_id' => ['CliQ ID'],
+                    'clik_id' => ['CliQ alias'],
+                    'deposit_minutes' => ['Deposit deadline (minutes)', '1', '10080', '1'],
                 ],
             ] as $heading => $fields)
                 <div class="col-lg-6">
