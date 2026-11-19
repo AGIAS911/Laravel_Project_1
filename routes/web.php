@@ -11,6 +11,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ServiceController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\DriverController;
+use App\Http\Controllers\ChatbotController;
 
 
 Route::get('/', function () {
@@ -56,3 +57,8 @@ Route::middleware(['auth', 'active', 'role:admin'])
 Auth::routes();
 
 Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
+
+Route::get('/chatbot', [ChatbotController::class, 'index'])->name('chatbot.index');
+
+Route::post('/chatbot/message', [ChatbotController::class, 'send'])
+    ->name('chatbot.message');
