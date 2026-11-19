@@ -44,11 +44,14 @@ class DriverController extends Controller
     {
         $user = $request->user();
         $driver = $user->driverProfile;
+
         $validated = $request->validate([
             'license_number' => ['required', 'string', 'max:100'],
             'license_image' => [
                 !$driver || $driver->license_number !== $request->input('license_number') ? 'required' : 'nullable',
-                'image', 'mimes:jpeg,png,jpg', 'max:2048',
+                'image',
+                'mimes:jpeg,png,jpg',
+                'max:2048',
             ],
         ]);
 
@@ -63,16 +66,16 @@ class DriverController extends Controller
             $previousImage = DB::transaction(function () use ($user, $validated, $image) {
                 $account = User::lockForUpdate()->findOrFail($user->id);
                 abort_unless($account->is_active && $account->role === 'driver', 403);
+
                 $profile = $account->driverProfile()->firstOrNew();
                 $previousImage = $profile->license_image;
 
                 $profile->forceFill([
                     'license_number' => $validated['license_number'],
                     'license_image' => $image,
-                    'status' => 'pending',
+                    'status' => $profile->exists ? $profile->status : 'approved',
                     'status_reason' => null,
                 ])->save();
-                $account->forceFill(['is_active' => false])->save();
 
                 return $previousImage;
             });
@@ -85,13 +88,8 @@ class DriverController extends Controller
             Storage::disk('local')->delete($previousImage);
         }
 
-        Auth::logout();
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
-
-        return redirect()->route('driver.application.pending');
+        return redirect()->route('driver.profile.show')->with('success', 'Driver license updated successfully.');
     }
-
     public function destroy()
     {
         $user = User::findOrFail(Auth::id());
