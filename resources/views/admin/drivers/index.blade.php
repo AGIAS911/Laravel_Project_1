@@ -2,7 +2,28 @@
 
 @section('content')
     <div class="container py-4">
-        <h1 class="h3 mb-4">Driver ratings</h1>
+        <h1 class="h3 mb-4">Reviews</h1>
+        <div class="table-responsive mb-3">
+            <table class="table align-middle mb-0">
+                <thead><tr><th scope="col">Booking</th><th scope="col">Customer</th><th scope="col">Driver</th><th scope="col">Rating</th><th scope="col">Comment</th></tr></thead>
+                <tbody>
+                    @forelse ($recentReviews as $review)
+                        <tr>
+                            <th scope="row"><a href="{{ route('booking.show', $review->booking) }}">#{{ $review->booking_id }}</a></th>
+                            <td>{{ $review->booking?->customer?->name ?? '—' }}</td>
+                            <td>{{ $review->booking?->driver?->user?->name ?? '—' }}</td>
+                            <td>{{ $review->rating }} / 5</td>
+                            <td class="text-break">{{ $review->comment ?: '—' }}</td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="5" class="text-center py-4">No reviews yet.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+        {{ $recentReviews->withQueryString()->links('pagination::bootstrap-5') }}
+
+        <h2 class="h5 workspace-heading mt-4">Driver rating summaries</h2>
 
         <div class="card">
             <div class="table-responsive">
@@ -38,7 +59,7 @@
         </div>
 
         <div class="mt-3">
-            {{ $drivers->links('pagination::bootstrap-5') }}
+            {{ $drivers->withQueryString()->links('pagination::bootstrap-5') }}
         </div>
     </div>
 @endsection

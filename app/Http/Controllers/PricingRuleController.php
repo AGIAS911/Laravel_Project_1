@@ -8,9 +8,11 @@ use Illuminate\Support\Facades\Cache;
 
 class PricingRuleController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        return response()->json(PricingRule::orderBy('id')->paginate(20));
+        $rules = PricingRule::orderBy('id')->paginate(20);
+
+        return $request->expectsJson() ? response()->json($rules) : view('admin.workspace.pricing', compact('rules'));
     }
 
     public function store(Request $request)

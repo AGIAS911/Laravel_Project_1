@@ -12,6 +12,11 @@ class ServiceController extends Controller
      */
     public function index()
     {
+        if (request()->user()?->role !== 'admin') {
+            $services = Service::where('is_active', true)->paginate(12);
+
+            return view('info.services', compact('services'));
+        }
         $services = Service::latest()->paginate(10);
         return view('services.index',compact('services'));
     }

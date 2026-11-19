@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\BookingController;
+use App\Http\Controllers\Admin\WorkspaceController;
+use App\Http\Controllers\ContactController;
 use App\Http\Controllers\BookingWorkflowController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\PricingRuleController;
@@ -27,9 +29,9 @@ Route::get('/', function () {
 
 Route::get('/dashboard', function () {
     return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+})->middleware(['auth', 'active', 'verified'])->name('dashboard');
 
-Route::get('/home', [HomeController::class, 'index'])->name('home');
+Route::get('/home', [HomeController::class, 'index'])->middleware('active')->name('home');
 
 Route::resource('vehicles', VehicleController::class)->middleware(['auth', 'active']);
 Route::resource('vehicle-types', VehicleTypeController::class)->except(['index', 'show'])
@@ -38,7 +40,7 @@ Route::resource('vehicle-types', VehicleTypeController::class)->only(['index', '
 Route::get('/drivers/{driverProfile}', [DriverProfileController::class, 'show'])->name('drivers.show');
 Route::get('/drivers/{driverProfile}/license', [DriverController::class, 'license'])
     ->middleware(['auth', 'active'])->name('drivers.license');
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/booking/{booking}/review', [ReviewController::class, 'show'])
         ->name('booking.reviews.show');
     Route::post('/booking/{booking}/review', [ReviewController::class, 'store'])
@@ -57,6 +59,7 @@ Route::resource('booking', BookingController::class)->middleware(['auth', 'activ
 Route::middleware(['auth', 'active', 'role:customer'])->scopeBindings()->group(function () {
     Route::get('/bookings/available-vehicles', [BookingWorkflowController::class, 'vehicles'])->name('bookings.vehicles');
     Route::post('/bookings/{booking}/submit', [BookingWorkflowController::class, 'submit'])->name('bookings.submit');
+    Route::post('/bookings/{booking}/quote', [BookingWorkflowController::class, 'quote'])->name('bookings.quote');
     Route::patch('/bookings/{booking}/cancel', [BookingWorkflowController::class, 'cancel'])->name('bookings.cancel');
     Route::get('/bookings/{booking}/inventory', [InventoryController::class, 'index'])->name('bookings.inventory.index');
     Route::get('/bookings/{booking}/inventory/{inventoryItem}/image', [InventoryController::class, 'image'])->name('bookings.inventory.image');
@@ -68,11 +71,12 @@ Route::middleware(['auth', 'active', 'role:customer'])->scopeBindings()->group(f
 Route::resource('booking-services', \App\Http\Controllers\BookingServiceController::class)
     ->middleware(['auth', 'active']);
 
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'active'])->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead'])
         ->name('notifications.read');
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead'])
@@ -80,7 +84,8 @@ Route::middleware('auth')->group(function () {
 });
 
 Auth::routes(['verify' => true]);
-Route::middleware('auth')->group(function () {
+Route::view('/driver/application-pending', 'driver.application-pending')->name('driver.application.pending');
+Route::middleware(['auth', 'active'])->group(function () {
     Route::post('/email/verification-notification', [\App\Http\Controllers\Auth\VerificationController::class, 'resend'])
         ->name('verification.send');
     Route::put('/password', [ProfileController::class, 'updatePassword']);
@@ -93,11 +98,12 @@ Route::resource('services', ServiceController::class)->only(['index', 'show']);
 //--------------------------------------------------------
 Route::middleware(['auth', 'active', 'role:driver'])->prefix('driver')->name('driver.')->group(function () {
     Route::get('/bookings', [DriverBookingController::class, 'index'])->name('bookings.index');
+    Route::get('/schedule', [DriverBookingController::class, 'schedule'])->name('schedule');
     Route::patch('/bookings/{booking}/accept', [BookingWorkflowController::class, 'accept'])->name('bookings.accept');
     Route::patch('/bookings/{booking}/reject', [BookingWorkflowController::class, 'reject'])->name('bookings.reject');
     Route::patch('/bookings/{booking}/start', [BookingWorkflowController::class, 'start'])->name('bookings.start');
     Route::patch('/bookings/{booking}/complete', [BookingWorkflowController::class, 'complete'])->name('bookings.complete');
-    Route::get('/dashboard', [DriverController::class, 'show'])->name('dashboard');
+    Route::get('/dashboard', [DriverController::class, 'dashboard'])->name('dashboard');
     Route::get('/profile', [DriverController::class, 'show'])->name('profile.show');
     Route::get('/profile/edit', [DriverController::class, 'edit'])->name('profile.edit');
     Route::put('/profile', [DriverController::class, 'update'])->name('profile.update');
@@ -108,7 +114,12 @@ Route::middleware(['auth', 'active', 'role:admin'])
     ->prefix('admin')
     ->name('admin.')
     ->group(function () {
-        Route::get('/dashboard', [UserController::class, 'index'])->name('dashboard');
+        Route::get('/dashboard', [WorkspaceController::class, 'index'])->name('dashboard');
+        Route::get('/driver-approvals', [UserController::class, 'index'])->name('driver-approvals');
+        Route::get('/reports', [WorkspaceController::class, 'reports'])->name('reports');
+        Route::get('/settings', [WorkspaceController::class, 'settings'])->name('settings');
+        Route::put('/settings', [WorkspaceController::class, 'updateSettings'])->name('settings.update');
+        Route::get('/inbox', [WorkspaceController::class, 'inbox'])->name('inbox');
         Route::patch('/users/{user}/driver-status', [UserController::class, 'reviewDriver'])->name('users.driver-status');
         Route::apiResource('pricing-rules', PricingRuleController::class)->except('show');
         Route::resource('users', UserController::class)
@@ -149,3 +160,9 @@ Route::middleware(['auth', 'active', 'role:customer'])->scopeBindings()->group(f
     Route::delete('/bookings/{booking}/scan-sessions/{scanSession}', [ScanSessionController::class, 'close'])
         ->name('scan-sessions.close');
 });
+
+Route::view('/how-it-works', 'info.how-it-works')->name('info.how-it-works');
+Route::view('/faq', 'info.faq')->name('info.faq');
+Route::view('/contact', 'info.contact')->name('info.contact');
+Route::post('/contact', [ContactController::class, 'store'])->middleware('throttle:5,1,contact:')->name('info.contact.store');
+Route::view('/policies', 'info.policies')->name('info.policies');

@@ -114,6 +114,26 @@
 
         stopButton.disabled = true;
 
+        async function scannerToken() {
+            const pairingToken = new URLSearchParams(location.hash.slice(1)).get('token');
+            if (!pairingToken) {
+                const saved = sessionStorage.getItem('moveit-scanner-device');
+                if (saved) return saved;
+                throw new Error('Scan the QR code from your booking first.');
+            }
+
+            const response = await fetch('/api/scanner/pair', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                body: JSON.stringify({ pairing_token: pairingToken }),
+            });
+            if (!response.ok) throw new Error('This QR code could not be paired. Generate a new code in your booking.');
+            const data = await response.json();
+            sessionStorage.setItem('moveit-scanner-device', data.device_token);
+            history.replaceState(null, '', location.pathname + location.search);
+            return data.device_token;
+        }
+
         startButton.onclick = async () => {
             if (running) return;
 
@@ -121,6 +141,10 @@
             startButton.disabled = true;
 
             try {
+                if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+                    throw new Error('Open the scanner QR link over HTTPS to use the phone camera.');
+                }
+
                 status.textContent = 'Starting camera...';
 
                 stream = await navigator.mediaDevices.getUserMedia({
@@ -134,6 +158,9 @@
 
                 video.srcObject = stream;
                 await video.play();
+
+                status.textContent = 'Pairing scanner...';
+                const deviceToken = await scannerToken();
 
                 frame.width = Math.min(480, video.videoWidth);
                 frame.height = Math.max(
@@ -149,7 +176,7 @@
                 const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
 
                 socket = new WebSocket(
-                    `${protocol}//${location.host}/ws/detect`
+                    `${protocol}//${location.host}/ws/detect`, ['moveit.scan', `token.${deviceToken}`]
                 );
 
                 const currentSocket = socket;

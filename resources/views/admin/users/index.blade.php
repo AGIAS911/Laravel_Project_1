@@ -1,93 +1,71 @@
-@extends('layouts.app')
+@extends('layouts.dashboard')
+
+@section('page-title', 'Driver approvals')
+@section('page-description', 'Review licenses and update driver status.')
 
 @section('content')
-<div class="container">
-    @if(session('success'))
-        <div class="alert alert-success">{{ session('success') }}</div>
-    @endif
-    @if(session('error'))
-        <div class="alert alert-danger">{{ session('error') }}</div>
+    @if ($errors->any())
+        <div class="alert alert-danger" role="alert">{{ $errors->first() }}</div>
     @endif
 
-    <h4>Pending Drivers</h4>
-    <table class="table table-bordered mb-4">
-        <thead>
-            <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>License #</th>
-                <th>License Image</th>
-                <th>Action</th>
-            </tr>
-        </thead>
-        <tbody>
-            @forelse($pendingDrivers as $driver)
-                <tr>
-                    <td>{{ $driver->name }}</td>
-                    <td>{{ $driver->email }}</td>
-                    <td>{{ $driver->driverProfile->license_number ?? '-' }}</td>
-                    <td>
-                        @if($driver->driverProfile && $driver->driverProfile->license_image)
-                            <a href="{{ asset('storage/' . $driver->driverProfile->license_image) }}" target="_blank">View</a>
-                        @endif
-                    </td>
-                    <td>
-                        <form action="{{ route('users.update', $driver->id) }}" method="POST" class="d-inline">
-                            @csrf
-                            @method('PUT')
-                            <input type="hidden" name="approve_driver" value="1">
-                            <button type="submit" class="btn btn-success btn-sm">Approve</button>
-                        </form>
-                        <form action="{{ route('users.destroy', $driver->id) }}" method="POST" class="d-inline">
-                            @csrf
-                            @method('DELETE')
-                            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
-                        </form>
-                    </td>
-                </tr>
-            @empty
-                <tr><td colspan="5">No pending drivers.</td></tr>
-            @endforelse
-        </tbody>
-    </table>
+    <nav class="d-flex flex-wrap gap-2 mb-3" aria-label="Driver status">
+        @foreach ($tabs as $value => $label)
+            <a @class(['move-filter', 'is-current' => $status === $value]) href="{{ route('admin.driver-approvals', ['status' => $value]) }}"
+                @if ($status === $value) aria-current="page" @endif>{{ $label }}{{ $value === 'pending' ? ' ('.$pendingCount.')' : '' }}</a>
+        @endforeach
+    </nav>
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead><tr><th scope="col">Driver</th><th scope="col">License</th><th scope="col">Vehicles</th><th scope="col">Request date</th><th scope="col">Status</th><th scope="col">Action</th></tr></thead>
+            <tbody>
+                @forelse ($drivers as $driver)
+                    @php($profile = $driver->driverProfile)
+                    <tr>
+                        <th scope="row">
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="admin-avatar flex-shrink-0" aria-hidden="true">{{ str($driver->name)->substr(0, 1)->upper() }}</span>
+                                <span>{{ $driver->name }}<small class="d-block text-body-secondary fw-normal">{{ $driver->phone ?: '—' }}</small></span>
+                            </div>
+                        </th>
+                        <td>@if ($profile->license_image)<a href="{{ route('drivers.license', $profile) }}" target="_blank" rel="noopener">View image</a>@else — @endif</td>
+                        <td>{{ $profile->vehicles_count }}</td>
+                        <td class="text-nowrap">{{ $profile->created_at?->timezone('Asia/Amman')->format('d M') ?? '—' }}</td>
+                        <td>@include('booking._status', ['state' => $status, 'label' => $status === 'pending' ? 'Pending approval' : ucfirst($status)])</td>
+                        <td>
+                            <div class="d-flex flex-wrap gap-2">
+                                @if ($status !== 'approved')
+                                    <form method="POST" action="{{ route('admin.users.driver-status', $driver) }}">
+                                        @csrf @method('PATCH')
+                                        <button class="btn btn-success btn-sm" name="status" value="approved">Approve</button>
+                                    </form>
+                                @endif
+                                @if ($status === 'pending' || $status === 'approved')
+                                    <button type="button" class="btn btn-outline-danger btn-sm" data-driver-dialog
+                                        data-url="{{ route('admin.users.driver-status', $driver) }}"
+                                        data-status="{{ $status === 'pending' ? 'rejected' : 'suspended' }}">{{ $status === 'pending' ? 'Reject' : 'Stop' }}</button>
+                                @endif
+                            </div>
+                            @if ($profile->status_reason)<small class="text-body-secondary">{{ $profile->status_reason }}</small>@endif
+                        </td>
+                    </tr>
+                @empty
+                    <tr><td colspan="6" class="text-center py-4">No drivers with this status.</td></tr>
+                @endforelse
+            </tbody>
+        </table>
+    </div>
+    <div class="mt-3">{{ $drivers->links('pagination::bootstrap-5') }}</div>
 
-    <h4>Active Drivers</h4>
-    <table class="table table-bordered mb-4">
-        <thead>
-            <tr><th>Name</th><th>Email</th><th>Phone</th><th>Action</th></tr>
-        </thead>
-        <tbody>
-            @foreach($activeDrivers as $driver)
-                <tr>
-                    <td>{{ $driver->name }}</td>
-                    <td>{{ $driver->email }}</td>
-                    <td>{{ $driver->phone }}</td>
-                    <td>
-                        <form action="{{ route('users.destroy', $driver->id) }}" method="POST">
-                            @csrf
-                            @method('DELETE')
-                            <button type="submit" class="btn btn-danger btn-sm">Delete</button>
-                        </form>
-                    </td>
-                </tr>
-            @endforeach
-        </tbody>
-    </table>
-
-    <h4>Customers</h4>
-    <table class="table table-bordered">
-        <thead>
-            <tr><th>Name</th><th>Email</th><th>Phone</th></tr>
-        </thead>
-        <tbody>
-            @foreach($customers as $customer)
-                <tr>
-                    <td>{{ $customer->name }}</td>
-                    <td>{{ $customer->email }}</td>
-                    <td>{{ $customer->phone }}</td>
-                </tr>
-            @endforeach
-        </tbody>
-    </table>
-</div>
+    <dialog class="admin-decision" id="driver-decision" aria-labelledby="driver-decision-title">
+        <div class="admin-decision-icon" aria-hidden="true">!</div>
+        <h2 id="driver-decision-title">Reject driver</h2>
+        <p>The driver will see the reason.</p>
+        <form method="POST">
+            @csrf @method('PATCH')
+            <input type="hidden" name="status">
+            <textarea class="form-control mb-4" name="reason" aria-label="Reason" rows="4" maxlength="1000" placeholder="Enter a reason..." required></textarea>
+            <button type="button" class="btn btn-secondary" data-close-decision>Cancel</button>
+            <button type="submit" class="btn btn-danger" data-submit-decision>Reject</button>
+        </form>
+    </dialog>
 @endsection

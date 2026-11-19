@@ -1,3 +1,11 @@
+use App\Models\Payment;
+use App\Models\PlatformSetting;
+use Illuminate\Support\Facades\DB;
+use App\Models\User;
+use App\Models\MoveItNotification;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Auth;
 @extends('layouts.dashboard')
 @section('workspace-title', 'Services')
 @section('page-title', $service->name)

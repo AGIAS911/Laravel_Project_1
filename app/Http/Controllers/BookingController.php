@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 
 use App\Models\Booking;
 use App\Models\Vehicle;
+use App\Models\Service;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Carbon;
@@ -23,15 +24,26 @@ class BookingController extends Controller
     {
         $user = $request->user();
 
-        if ($user->role === 'admin') {
-            $bookings = Booking::latest('id')->paginate(10);
-        } else {
-            $bookings = $user->bookings()
-                ->latest('id')
-                ->paginate(10);
-        }
+        $statuses = [
+            'draft' => 'Drafts',
+            'pending' => 'Awaiting driver',
+            'awaiting_deposit' => 'Awaiting deposit',
+            'confirmed' => 'Confirmed',
+            'completed' => 'Completed',
+            'cancelled' => 'Cancelled',
+        ];
+        $status = $request->query('status');
+        $status = is_string($status) && isset($statuses[$status]) ? $status : null;
+        $search = $request->query('q', '');
+        $search = is_string($search) ? trim(substr($search, 0, 40)) : '';
+        $query = $user->role === 'admin' ? Booking::query() : $user->bookings();
+        $relations = $user->role === 'admin' ? ['customer', 'driver.user'] : ['vehicle.vehicleType'];
+        $bookings = $query->with($relations)
+            ->when($status, fn ($query) => $query->where('status', $status))
+            ->when($search !== '', fn ($query) => $query->where('id', ctype_digit($search) && strlen($search) <= 18 ? $search : 0))
+            ->latest('id')->paginate(10)->appends(array_filter(['status' => $status, 'q' => $search]));
 
-        return view('booking.index', compact('bookings'));
+        return view('booking.index', compact('bookings', 'statuses', 'status', 'search'));
     }
 
     /**
@@ -54,9 +66,9 @@ class BookingController extends Controller
         $data['status'] = 'draft';
         $data = $this->draftValues($data);
 
-        Booking::create($data);
+        $booking = Booking::create($data);
 
-        return redirect()->route('booking.index')->with('success', 'Booking created successfully');
+        return redirect()->route('booking.show', $booking)->with('success', 'Booking created successfully');
     }
 
     /**
@@ -96,7 +108,12 @@ class BookingController extends Controller
             return response()->json($details);
         }
 
-        return view('booking.show', compact('booking'));
+        $booking->load(['inventoryItems', 'bookingServices', 'review']);
+        $services = $user->id === $booking->customer_id && $booking->status === 'draft'
+            ? Service::where('is_active', true)->orderBy('name')->get()
+            : collect();
+
+        return view('booking.show', compact('booking', 'services'));
     }
 
     /**
@@ -135,7 +152,7 @@ class BookingController extends Controller
             $booking->save();
         });
 
-        return redirect()->route('booking.index')
+        return redirect()->route('booking.show', $id)
             ->with('success', 'Booking updated successfully');
     }
 

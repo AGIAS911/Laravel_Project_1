@@ -1,15 +1,13 @@
-@extends('layouts.app')
+@extends('layouts.dashboard')
+
+@section('title', __('payments.title'))
+@section('page-title', __('payments.title'))
 
 @section('content')
-<div class="container">
-    <h1 class="h4 mb-3">{{ __('payments.title') }}</h1>
-
-    @if (session('success'))
-        <div class="alert alert-success" role="alert">{{ session('success') }}</div>
-    @endif
+    <p class="text-body-secondary">Payment proof history and deposits awaiting payment.</p>
 
     @if ($awaiting->isNotEmpty())
-        <div class="border rounded bg-white p-3 mb-4">
+        <div class="card card-body mb-4">
             <h2 class="h6">{{ __('payments.awaiting') }}</h2>
             <ul class="list-unstyled mb-0">
                 @foreach ($awaiting as $booking)
@@ -29,7 +27,8 @@
         </div>
     @endif
 
-    <div class="table-responsive border rounded bg-white">
+    <div class="card move-table">
+        <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
             <thead>
                 <tr>
@@ -46,11 +45,11 @@
                 @forelse ($payments as $payment)
                     <tr>
                         <td>{{ $payment->id }}</td>
-                        <td>#{{ $payment->booking_id }}</td>
-                        <td><bdi>{{ $payment->amount }}</bdi></td>
+                        <td><a href="{{ route('booking.show', $payment->booking_id) }}">#{{ $payment->booking_id }}</a></td>
+                        <td><bdi>{{ $payment->amount }} {{ config('payments.currency') }}</bdi></td>
                         <td><bdi>{{ $payment->transfer_reference ?? '—' }}</bdi></td>
                         <td>
-                            {{ __('payments.status_' . $payment->status) }}
+                            @include('booking._status', ['state' => $payment->status, 'label' => __('payments.status_' . $payment->status)])
                             @if ($payment->status === 'rejected' && $payment->rejection_reason)
                                 <div class="text-danger small">{{ $payment->rejection_reason }}</div>
                             @endif
@@ -68,8 +67,8 @@
                 @endforelse
             </tbody>
         </table>
+        </div>
     </div>
 
     <div class="mt-3">{{ $payments->links('pagination::bootstrap-5') }}</div>
-</div>
 @endsection

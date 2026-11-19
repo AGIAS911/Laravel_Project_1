@@ -1,11 +1,11 @@
 @extends('vehicle-types.layout')
 
-@section('title', 'Vehicle Types')
+@section('title', 'Vehicle types')
 
 @section('content')
     <div class="panel">
         <div class="actions" style="justify-content: space-between">
-            <h1>Vehicle Types</h1>
+            <h1>Vehicle types</h1>
             <a class="button" href="{{ route('vehicle-types.create') }}">Add Vehicle Type</a>
         </div>
 
