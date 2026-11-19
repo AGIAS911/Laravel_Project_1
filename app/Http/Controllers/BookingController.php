@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 
 use App\Models\Booking;
+use App\Models\Vehicle;
 
 class BookingController extends Controller
 {
@@ -43,9 +44,11 @@ class BookingController extends Controller
         $data = $request->validate($this->bookingRules());
         $data['customer_id'] = $request->user()->id;
         $data['status'] = 'draft';
+        $data['driver_id'] = isset($data['vehicle_id'])
+            ? Vehicle::findOrFail($data['vehicle_id'])->driver_id
+            : null;
 
-
-        $bookings = Booking::create($data);
+        Booking::create($data);
 
         return redirect()->route('booking.index')->with('success', 'Booking created successfully');
     }
@@ -84,6 +87,9 @@ class BookingController extends Controller
             ->findOrFail($id);
 
         $data = $request->validate($this->bookingRules());
+        $data['driver_id'] = isset($data['vehicle_id'])
+            ? Vehicle::findOrFail($data['vehicle_id'])->driver_id
+            : null;
 
         $booking->update($data);
 
