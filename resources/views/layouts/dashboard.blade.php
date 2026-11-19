@@ -13,7 +13,12 @@
             <section class="col">
                 <header class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
                     <div>
-                        <h1 class="h3 workspace-heading mb-0">@yield('page-title', __('Dashboard'))</h1>
+                        <h1 class="h3 workspace-heading mb-0">
+                            @if (auth()->user()?->role === 'customer' && View::hasSection('page-icon'))
+                                <span class="customer-page-icon" aria-hidden="true"><i class="fa-solid @yield('page-icon')"></i></span>
+                            @endif
+                            @yield('page-title', __('Dashboard'))
+                        </h1>
                         @hasSection('page-description')
                             <p class="text-body-secondary mb-0 mt-1">@yield('page-description')</p>
                         @endif

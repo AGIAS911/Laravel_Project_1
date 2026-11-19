@@ -1,8 +1,9 @@
 import json
+import logging
 import os
 import re
 import time
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -17,6 +18,7 @@ from feature_extractor import FeatureExtractor
 from identity_manager import ObjectIdentityManager
 
 app = FastAPI()
+logger = logging.getLogger("uvicorn.error")
 SERVICE_DIR = Path(__file__).resolve().parent
 VISIBLE_TRACK_HITS = 2
 INVENTORY_TRACK_HITS = 3
@@ -49,21 +51,44 @@ def scanner_request(path, token, items=None):
                  "Content-Type": "application/json"},
         method="GET" if payload is None else "PUT",
     )
-    try:
-        with urlopen(request, timeout=3) as response:
-            return response.status == 204
-    except (URLError, TimeoutError):
-        return False
+    for delay in (0, 0.25, 1):
+        if delay:
+            time.sleep(delay)
+        try:
+            with urlopen(request, timeout=3) as response:
+                return response.status
+        except HTTPError as error:
+            status = error.code
+            error.close()
+            if status != 429 and status < 500:
+                break
+        except (URLError, TimeoutError, OSError):
+            status = 503
+    logger.warning("Scanner API %s failed (HTTP %s)", path, status)
+    return status
+
+
+async def scanner_available(websocket, path, token, items=None):
+    status = await run_in_threadpool(scanner_request, path, token, items)
+    if status == 204:
+        return True
+    if status in (401, 403, 404, 409):
+        await websocket.close(code=1008, reason="Scan session ended")
+    else:
+        await websocket.close(code=1011, reason="Scanner backend unavailable")
+    return False
 
 
 @app.websocket("/ws/detect")
 async def detect(websocket: WebSocket):
     protocols = websocket.scope.get("subprotocols", [])
     token = next((value[6:] for value in protocols if re.fullmatch(r"token\.[a-zA-Z0-9]{64}", value)), None)
-    if "moveit.scan" not in protocols or token is None or not await run_in_threadpool(scanner_request, "device", token):
+    if "moveit.scan" not in protocols or token is None:
         await websocket.close(code=1008)
         return
     await websocket.accept(subprotocol="moveit.scan")
+    if not await scanner_available(websocket, "device", token):
+        return
 
     model = await run_in_threadpool(YOLO, str(SERVICE_DIR / "yolo26s.pt"))
     allowed_ids = [
@@ -78,8 +103,7 @@ async def detect(websocket: WebSocket):
     try:
         while True:
             data = await websocket.receive_bytes()
-            if not await run_in_threadpool(scanner_request, "device", token):
-                await websocket.close(code=1008)
+            if not await scanner_available(websocket, "device", token):
                 return
             start_time = time.perf_counter()
 
@@ -196,8 +220,7 @@ async def detect(websocket: WebSocket):
                     {"item_type": "sofa" if label == "couch" else label, "quantity": quantity}
                     for label, quantity in response["inventory"].items()
                 ]
-                if not await run_in_threadpool(scanner_request, "inventory", token, items):
-                    await websocket.close(code=1011)
+                if not await scanner_available(websocket, "inventory", token, items):
                     return
                 synced_inventory = response["inventory"]
             print(

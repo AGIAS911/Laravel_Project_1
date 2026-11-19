@@ -3,92 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Furniture Scanner</title>
+    <title>Furniture scan | MoveIt</title>
+    <link rel="icon" href="/landing/img/favicon.svg">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap">
+    <link rel="stylesheet" href="/landing/css/style.css">
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            background: #f5f5f5;
-        }
-        .scanner {
-            position: relative;
-            display: inline-block;
-            max-width: 100%;
-        }
-        video {
-            display: block;
-            width: 640px;
-            max-width: 100%;
-            border-radius: 10px;
-        }
-        canvas {
-            position: absolute;
-            inset: 0;
-            width: 100%;
-            height: 100%;
-            background: transparent;
-            pointer-events: none;
-        }
-        button {
-            padding: 12px 20px;
-            cursor: pointer;
-            margin: 5px;
-        }
-        .inventory {
-            max-width: 600px;
-            margin: 20px auto;
-            padding: 20px;
-            background: white;
-            border-radius: 10px;
-            text-align: left;
-        }
-        .inventory ul {
-            padding: 0;
-        }
-        .inventory li {
-            padding: 12px;
-            border-bottom: 1px solid #ddd;
-            list-style: none;
-        }
-        .review-quantity {
-            box-sizing: border-box;
-            width: 5rem;
-            min-height: 44px;
-            margin-left: 1rem;
-            font: inherit;
-        }
+        .phone-scan { width: min(100% - 2rem, 44rem); margin: 1.5rem auto 3rem; }
+        .phone-scan .moveit-brand { color: var(--navy); display: inline-block; margin-bottom: 1.25rem; }
+        .phone-scan h1 { color: var(--navy); font-weight: 900; }
+        .camera-stage { position: relative; overflow: hidden; border-radius: var(--r); background: var(--navy); margin: 1.2rem 0; }
+        .camera-stage video { display: block; width: 100%; min-height: 12rem; }
+        .camera-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+        .scan-actions { display: flex; align-items: center; flex-wrap: wrap; gap: .6rem; margin-bottom: .75rem; }
+        .scan-actions .btn { min-height: 44px; }
+        .scan-actions button:disabled { opacity: .5; cursor: default; }
     </style>
 </head>
 <body>
-    <h1>AI Furniture Scanner</h1>
-
-    <button id="start">Start Camera</button>
-    <button id="stop">Stop Camera</button>
-
-    <p id="status">Disconnected</p>
-
-    <div class="scanner">
-        <video id="video" autoplay playsinline muted></video>
-        <canvas id="overlay"></canvas>
-    </div>
-
-    <div class="inventory">
-        <p>Visible objects: <strong id="visible-items">0</strong></p>
-        <h2>Session inventory</h2>
-        <ul id="inventory-list"></ul>
-        <h3>Total Items: <span id="total-items">0</span></h3>
-        <form id="review-form" hidden>
-            <h2>Review quantities</h2>
-            <ul id="review-list"></ul>
-            <button type="submit">Confirm inventory</button>
-        </form>
-        <section id="confirmed-inventory" hidden>
-            <h2>Confirmed inventory</h2>
-            <ul id="confirmed-list"></ul>
-            <p>Total confirmed: <strong id="confirmed-total">0</strong></p>
+    <main class="phone-scan">
+        <span class="moveit-brand" aria-label="MoveIt">MOVE<span>IT</span></span>
+        <section class="panel" aria-labelledby="scan-title">
+            <h1 id="scan-title">Furniture scan</h1>
+            <p class="muted">Point your camera at each item. Review quantities in your MoveIt booking.</p>
+            <div class="camera-stage">
+                <video id="video" autoplay playsinline muted aria-label="Furniture camera preview"></video>
+                <canvas id="overlay" aria-hidden="true"></canvas>
+            </div>
+            <div class="scan-actions">
+                <button class="btn btn-primary" id="start" type="button">Start Camera</button>
+                <button class="btn btn-outline" id="stop" type="button" disabled>Stop Camera</button>
+                <a class="btn btn-outline" id="back-to-booking" hidden>Back to booking</a>
+            </div>
+            <p id="status" class="muted" role="status">Ready to start</p>
         </section>
-    </div>
-
+    </main>
     <script>
         const video = document.getElementById('video');
         const overlay = document.getElementById('overlay');
@@ -98,24 +46,25 @@
         const status = document.getElementById('status');
         const startButton = document.getElementById('start');
         const stopButton = document.getElementById('stop');
-        const inventoryList = document.getElementById('inventory-list');
-        const totalItems = document.getElementById('total-items');
-        const visibleItems = document.getElementById('visible-items');
-        const reviewForm = document.getElementById('review-form');
-        const reviewList = document.getElementById('review-list');
-        const confirmedInventory = document.getElementById('confirmed-inventory');
-        const confirmedList = document.getElementById('confirmed-list');
-        const confirmedTotal = document.getElementById('confirmed-total');
+        const back = document.getElementById('back-to-booking');
+        const params = new URLSearchParams(location.hash.slice(1));
+        const booking = params.has('token') ? params.get('booking') : sessionStorage.getItem('moveit-scanner-booking');
+        if (/^[0-9]+$/.test(booking ?? '')) {
+            back.href = `/bookings/${booking}/scan`;
+            back.hidden = false;
+        }
 
         let socket = null;
         let stream = null;
         let running = false;
-        let sessionInventory = null;
+        let retryTimer;
+        let responseTimer;
+        let retries = 0;
 
         stopButton.disabled = true;
 
         async function scannerToken() {
-            const pairingToken = new URLSearchParams(location.hash.slice(1)).get('token');
+            const pairingToken = params.get('token');
             if (!pairingToken) {
                 const saved = sessionStorage.getItem('moveit-scanner-device');
                 if (saved) return saved;
@@ -130,6 +79,9 @@
             if (!response.ok) throw new Error('This QR code could not be paired. Generate a new code in your booking.');
             const data = await response.json();
             sessionStorage.setItem('moveit-scanner-device', data.device_token);
+            if (booking) sessionStorage.setItem('moveit-scanner-booking', booking);
+            else sessionStorage.removeItem('moveit-scanner-booking');
+            params.delete('token');
             history.replaceState(null, '', location.pathname + location.search);
             return data.device_token;
         }
@@ -173,68 +125,75 @@
 
                 status.textContent = 'Camera ready. Connecting to AI...';
 
-                const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-
-                socket = new WebSocket(
-                    `${protocol}//${location.host}/ws/detect`, ['moveit.scan', `token.${deviceToken}`]
-                );
-
-                const currentSocket = socket;
-
-                socket.onopen = () => {
-                    if (socket !== currentSocket || !running) return;
-
-                    status.textContent = 'Connected to AI';
-                    sessionInventory = null;
-                    reviewForm.hidden = true;
-                    confirmedInventory.hidden = true;
-                    updateInventory({}, 0);
-                    sendFrame();
-                };
-
-                socket.onmessage = (event) => {
-                    if (!running || socket !== currentSocket) return;
-
-                    const data = JSON.parse(event.data);
-
-                    if (data.error) {
-                        console.error(data.error);
-                        requestAnimationFrame(sendFrame);
-                        return;
-                    }
-
-                    const detections = data.detections || [];
-                    const pendingDetections = data.pending_detections || [];
-                    visibleItems.textContent = detections.length + pendingDetections.length;
-                    drawDetections(detections, pendingDetections);
-
-                    sessionInventory = data.inventory || {};
-                    updateInventory(sessionInventory, data.total_items || 0);
-
-                    requestAnimationFrame(sendFrame);
-                };
-
-                socket.onerror = (error) => {
-                    if (socket !== currentSocket) return;
-
-                    console.error('WebSocket error:', error);
-                    stopCamera();
-                    status.textContent = 'AI connection failed';
-                };
-
-                socket.onclose = () => {
-                    if (socket !== currentSocket) return;
-
-                    stopCamera();
-                    status.textContent = 'AI disconnected';
-                };
-
+                retries = 0;
+                connect(deviceToken);
             } catch (error) {
                 stopCamera();
                 console.error(error);
                 status.textContent = error.message;
             }
         };
+
+        function connect(deviceToken) {
+            const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const currentSocket = new WebSocket(
+                `${protocol}//${location.host}/ws/detect`, ['moveit.scan', `token.${deviceToken}`]
+            );
+            socket = currentSocket;
+            waitForResponse(currentSocket);
+
+            currentSocket.onopen = () => {
+                if (socket !== currentSocket || !running) return;
+
+                status.textContent = 'Connected to AI';
+                sendFrame();
+            };
+
+            currentSocket.onmessage = (event) => {
+                if (!running || socket !== currentSocket) return;
+
+                const data = JSON.parse(event.data);
+                clearTimeout(responseTimer);
+                retries = 0;
+
+                if (data.error) {
+                    console.error(data.error);
+                    requestAnimationFrame(sendFrame);
+                    return;
+                }
+
+                const detections = data.detections || [];
+                const pendingDetections = data.pending_detections || [];
+                drawDetections(detections, pendingDetections);
+                status.textContent = pendingDetections.length && !detections.length
+                    ? 'Finding a stable match? Hold the camera steady.'
+                    : 'Scanning. Review results in your MoveIt booking.';
+
+                requestAnimationFrame(sendFrame);
+            };
+
+            currentSocket.onclose = (event) => {
+                if (!running || socket !== currentSocket) return;
+                clearTimeout(responseTimer);
+                socket = null;
+                if (event.code === 1008 || retries >= 3) {
+                    stopCamera();
+                    status.textContent = event.code === 1008
+                        ? 'Scan session ended. Open a new scan from your booking.'
+                        : 'AI connection interrupted. Tap Start to try again.';
+                    return;
+                }
+                status.textContent = 'Reconnecting to AI...';
+                retryTimer = setTimeout(() => connect(deviceToken), 1000 * ++retries);
+            };
+        }
+
+        function waitForResponse(currentSocket) {
+            clearTimeout(responseTimer);
+            responseTimer = setTimeout(() => {
+                if (socket === currentSocket) currentSocket.close();
+            }, 30000);
+        }
 
         function sendFrame() {
             if (!running || socket?.readyState !== WebSocket.OPEN) {
@@ -249,11 +208,15 @@
 
             frame.toBlob(blob => {
                 if (
-                    blob &&
                     running &&
                     socket === currentSocket &&
                     currentSocket.readyState === WebSocket.OPEN
                 ) {
+                    if (!blob) {
+                        requestAnimationFrame(sendFrame);
+                        return;
+                    }
+                    waitForResponse(currentSocket);
                     currentSocket.send(blob);
                 }
             }, 'image/jpeg', 0.55);
@@ -280,67 +243,19 @@
                 ctx.fillStyle = color;
                 ctx.font = '18px Arial';
 
-                const confidence = Math.round(item.confidence * 100);
-                const identity = pending ? 'pending' : `#${item.object_id}`;
 
                 ctx.fillText(
-                    `${item.label} ${identity} ${confidence}%`,
+                    item.label,
                     x,
                     Math.max(20, y - 8)
                 );
             });
         }
 
-        function updateInventory(inventory, total) {
-            renderInventory(inventoryList, Object.entries(inventory));
-            totalItems.textContent = total;
-        }
-
-        function renderInventory(list, entries) {
-            list.replaceChildren();
-            entries.forEach(([label, quantity]) => {
-                const li = document.createElement('li');
-                li.textContent = `${label}: ${quantity}`;
-                list.appendChild(li);
-            });
-        }
-
-        function showReview() {
-            if (sessionInventory === null || !confirmedInventory.hidden || !reviewForm.hidden) return;
-
-            reviewList.replaceChildren();
-            for (const [label, quantity] of Object.entries(sessionInventory)) {
-                const row = document.createElement('li');
-                const fieldLabel = document.createElement('label');
-                const input = document.createElement('input');
-                input.type = 'number';
-                input.name = label;
-                input.min = '0';
-                input.max = String(Number.MAX_SAFE_INTEGER);
-                input.step = '1';
-                input.required = true;
-                input.value = quantity;
-                input.className = 'review-quantity';
-                fieldLabel.append(label, input);
-                row.appendChild(fieldLabel);
-                reviewList.appendChild(row);
-            }
-            reviewForm.hidden = false;
-        }
-
-        reviewForm.onsubmit = (event) => {
-            event.preventDefault();
-            const entries = [...new FormData(reviewForm)]
-                .map(([label, quantity]) => [label, Number(quantity)])
-                .filter(([, quantity]) => quantity > 0);
-            renderInventory(confirmedList, entries);
-            confirmedTotal.textContent = entries.reduce((total, [, quantity]) => total + quantity, 0);
-            confirmedInventory.hidden = false;
-            reviewForm.hidden = true;
-        };
-
         function stopCamera() {
             running = false;
+            clearTimeout(retryTimer);
+            clearTimeout(responseTimer);
 
             if (socket) {
                 const oldSocket = socket;
@@ -356,8 +271,6 @@
             video.srcObject = null;
 
             ctx.clearRect(0, 0, overlay.width, overlay.height);
-            visibleItems.textContent = '0';
-            showReview();
 
             startButton.disabled = false;
             stopButton.disabled = true;

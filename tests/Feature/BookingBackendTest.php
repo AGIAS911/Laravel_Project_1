@@ -14,6 +14,14 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
+use App\Models\VehicleType;
+use App\Models\PlatformSetting;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
+use App\Models\ScanSession;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Auth;
+use Carbon\Carbon;
 class BookingBackendTest extends TestCase
 {
     use RefreshDatabase;
@@ -38,6 +46,16 @@ class BookingBackendTest extends TestCase
             ->assertSee('Latest bookings')
             ->assertSee(route('booking.show', $booking));
         $this->get(route('admin.reports'))->assertOk()->assertSee('Approved deposits');
+        $pending = DriverProfile::factory()->create(['status' => 'pending']);
+        $this->get(route('admin.driver-approvals', ['status' => 'pending']))
+            ->assertOk()->assertSee($pending->user->name)->assertSee('Reject driver');
+        $this->get(route('admin.driver-approvals', ['status' => 'approved']))
+            ->assertOk()->assertDontSee($pending->user->name);
+        $this->get(route('admin.reports.export'))->assertDownload('moveit-commissions.csv');
+
+        $type = \App\Models\VehicleType::factory()->create(['is_active' => true]);
+        $this->patch(route('admin.vehicle-types.status', $type), ['is_active' => 0])->assertRedirect();
+        $this->assertFalse((bool) $type->refresh()->is_active);
         foreach ([
             'admin.users.index', 'admin.driver-approvals', 'vehicle-types.index', 'vehicles.index',
             'services.index', 'booking.index', 'admin.payments.index', 'admin.driver-reviews.index',
@@ -61,7 +79,7 @@ class BookingBackendTest extends TestCase
         [$expired, $underReview] = Booking::factory()->count(2)->create([
             'status' => 'awaiting_deposit', 'deposit_due_at' => now()->subMinute(),
         ]);
-        $underReview->payments()->create([
+        $overdueProof = $underReview->payments()->create([
             'purpose' => 'deposit', 'amount' => '10.000',
             'receipt_image' => 'receipts/pending.jpg', 'status' => 'pending',
         ]);
@@ -70,6 +88,17 @@ class BookingBackendTest extends TestCase
         $this->assertSame('cancelled', $expired->refresh()->status);
         $this->assertSame('awaiting_deposit', $underReview->refresh()->status);
         $this->assertSame(1, $expired->customer->notifications()->count());
+
+        $onTime = Booking::factory()->create(['status' => 'awaiting_deposit', 'deposit_due_at' => now()->addHour()]);
+        $onTimeProof = $onTime->payments()->create([
+            'purpose' => 'deposit', 'amount' => '10.000',
+            'receipt_image' => 'receipts/new.jpg', 'status' => 'pending',
+        ]);
+        $this->actingAs(User::factory()->create(['role' => 'admin']))
+            ->get(route('admin.payments.index', ['overdue' => 1]))->assertOk()
+            ->assertSee('Show all under review')
+            ->assertSee(route('admin.payments.show', $overdueProof))
+            ->assertDontSee(route('admin.payments.show', $onTimeProof));
     }
 
     public function test_admin_pricing_rules_reject_overlapping_windows(): void
@@ -168,10 +197,16 @@ class BookingBackendTest extends TestCase
         $this->assertTrue(Payment::referenceInUse('test-123'));
         $payment = $booking->payments()->firstOrFail();
         Storage::disk('local')->assertExists($payment->receipt_image);
+        $this->get(route('booking.show', $booking))->assertOk()
+            ->assertSee('Receipt under review')->assertSee('View payment status');
         $this->actingAs(User::factory()->create(['role' => 'admin']))
             ->get(route('admin.payments.show', $payment))->assertOk()
-            ->assertSee('Receipt image')->assertSee('Transfer details')
+            ->assertSee('Receipt image')->assertSee('Transfer details')->assertSee('Verified amount')
             ->assertSee(route('payments.receipt', $payment));
+        $this->get(route('admin.payments.index', ['q' => 'Test-123']))
+            ->assertOk()->assertSee('Under review (1)')->assertSee(route('admin.payments.show', $payment));
+        $this->get(route('admin.payments.index', ['q' => 'no-matching-reference']))
+            ->assertOk()->assertSee('No proofs match this search.');
         $this->actingAs(User::factory()->create(['role' => 'admin']))
             ->post(route('admin.payments.approve', $payment), ['amount' => '4.000'])
             ->assertRedirect(route('admin.payments.index'))->assertSessionHasNoErrors();
@@ -204,6 +239,8 @@ class BookingBackendTest extends TestCase
         $this->putJson('/api/scanner/inventory', $items)->assertNoContent();
         $this->putJson('/api/scanner/inventory', ['items' => [['item_type' => 'chair', 'quantity' => 1]]])->assertNoContent();
         $this->assertDatabaseHas('inventory_items', ['booking_id' => $booking->id, 'item_type' => 'sofa', 'status' => 'suggested']);
+        $this->get(route('scan-sessions.inventory', ['booking' => $booking, 'scan_only' => 1]))
+            ->assertOk()->assertSee('2 suggested')->assertSee('chair')->assertSee('sofa');
         $item = $booking->inventoryItems()->firstOrFail();
         $this->assertSame('suggested', $item->status);
         $this->putJson(route('bookings.inventory.update', [$booking, $item]), [
@@ -213,5 +250,99 @@ class BookingBackendTest extends TestCase
         $this->assertSame(2, $item->refresh()->quantity);
         $this->deleteJson(route('scan-sessions.close', [$booking, $session['scan_session_id']]))->assertNoContent();
         $this->getJson('/api/scanner/device')->assertUnauthorized();
+
+        $direct = $this->postJson(route('scan-sessions.store', $booking), [
+            'room_name' => 'Study', 'direct' => true,
+        ])->assertCreated()->assertJsonPath('qr_code', null)->json();
+        parse_str(parse_url($direct['scan_url'], PHP_URL_FRAGMENT), $fragment);
+        $this->assertSame((string) $booking->id, $fragment['booking']);
+        $this->postJson('/api/scanner/pair', ['pairing_token' => $fragment['token']])->assertOk();
+    }
+
+    public function test_commission_report_export_respects_booking_search(): void
+    {
+        $included = Booking::factory()->create([
+            'status' => 'completed', 'total_price' => '100.000', 'commission_rate' => '10.00', 'commission_amount' => '10.000',
+        ]);
+        $excluded = Booking::factory()->create([
+            'status' => 'completed', 'total_price' => '200.000', 'commission_amount' => '20.000',
+        ]);
+
+        $this->actingAs(User::factory()->create(['role' => 'admin']));
+        $query = ['q' => $included->id];
+        $this->get(route('admin.reports', $query))->assertOk()
+            ->assertSee(route('booking.show', $included))
+            ->assertDontSee(route('booking.show', $excluded))
+            ->assertSee('10.00%')->assertSee(route('admin.reports.export', $query));
+
+        $csv = $this->get(route('admin.reports.export', $query))
+            ->assertDownload('moveit-commissions.csv')->streamedContent();
+        $this->assertStringContainsString($included->id.',100.000,10.000', $csv);
+        $this->assertStringNotContainsString($excluded->id.',200.000,20.000', $csv);
+    }
+
+    public function test_customer_pages_share_workspace_and_draft_opens_at_inventory(): void
+    {
+        $customer = User::factory()->create();
+        $this->actingAs($customer);
+
+        foreach (['home', 'booking.index', 'booking.create', 'payments.index', 'notifications.index', 'profile.edit'] as $page) {
+            $this->get(route($page))->assertOk()
+                ->assertSee('Customer workspace')->assertSee('Customer account')
+                ->assertSee('id="customer-menu"', false)->assertDontSee('id="admin-sidebar"', false);
+        }
+
+        $this->post(route('booking.store'))->assertRedirect();
+        $draft = $customer->bookings()->sole();
+        $page = $this->get(route('booking.show', $draft))->assertOk()->assertSee('Furniture inventory')->assertSee('Confirm furniture')->assertSee('Draft checklist');
+        $page->assertSee(route('scan-sessions.workspace', $draft));
+        $this->assertSame(1, substr_count($page->getContent(), 'id="inventory"'));
+        $edit = route('booking.edit', $draft);
+        $this->get($edit)->assertOk()->assertSee('Find available vehicles')->assertSee('Save draft');
+        $this->from($edit)->put(route('booking.update', $draft), ['pickup_latitude' => '999'])
+            ->assertRedirect($edit)->assertSessionHasErrors('pickup_latitude');
+        $this->get($edit)->assertOk()->assertSee('pickup_latitude-error');
+        $this->put(route('booking.update', $draft), [
+            'pickup_latitude' => '31.9500000', 'pickup_longitude' => '35.9100000',
+            'notes' => 'Use the side entrance.',
+        ])->assertRedirect(route('booking.show', $draft))->assertSessionHasNoErrors();
+        $this->assertSame('Use the side entrance.', $draft->refresh()->notes);
+    }
+
+    public function test_inventory_tiles_create_a_draft_and_phone_scan_can_open(): void
+    {
+        Storage::fake('local');
+        $customer = User::factory()->create();
+        $this->actingAs($customer)->get(route('booking.create'))->assertOk()
+            ->assertSee('Add item manually')->assertSee('Camera scan')->assertSee('Washing machine');
+
+        $this->post(route('bookings.inventory.start'), [
+            'item_type' => 'mirror', 'quantity' => 2, 'notes' => 'Handle with care',
+            'image' => new UploadedFile(base_path('ai-service/chair.jpg'), 'inventory.jpg', 'image/jpeg', null, true),
+        ])->assertRedirect();
+        $draft = $customer->bookings()->sole();
+        $item = $draft->inventoryItems()->sole();
+        $this->assertSame('mirror', $item->item_type);
+        $this->assertEquals(2, $item->quantity);
+        Storage::disk('local')->assertExists($item->image);
+
+        $response = $this->post(route('booking.store'), ['open_phone_scan' => 1]);
+        $scanDraft = $customer->bookings()->latest('id')->firstOrFail();
+        $response->assertRedirect(route('scan-sessions.workspace', $scanDraft));
+        $this->get(route('scan-sessions.workspace', $scanDraft))->assertOk()
+            ->assertSee('Use your phone camera')->assertSee('Detected items')
+            ->assertSee('Continue to locations and schedule')
+            ->assertSee(route('booking.edit', $scanDraft))
+            ->assertDontSee('scan-demo-video')
+            ->assertSee(route('scan-sessions.store', $scanDraft, false));
+        $this->get(route('booking.edit', $scanDraft))->assertOk();
+
+        $scanDraft->inventoryItems()->create([
+            'source' => 'ai', 'status' => 'suggested', 'item_type' => 'sofa', 'quantity' => 2,
+        ]);
+        $this->get(route('scan-sessions.workspace', $scanDraft))->assertOk()
+            ->assertSee('Suggested')->assertSee('Confirm');
+        $this->actingAs(User::factory()->create())
+            ->get(route('scan-sessions.workspace', $scanDraft))->assertNotFound();
     }
 }

@@ -1,6 +1,7 @@
 @extends('layouts.dashboard')
 
 @section('page-title', 'Time rules')
+@section('page-description', 'Time rules cannot overlap for the same day and period.')
 
 @section('actions')
     <a class="btn btn-primary" href="#new-pricing-rule">Add time rule</a>

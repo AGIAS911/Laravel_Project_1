@@ -1,5 +1,5 @@
         <header class="admin-topbar">
-            <button type="button" class="admin-menu-toggle" aria-label="Admin menu" aria-controls="admin-sidebar" aria-expanded="false">
+            <button type="button" class="admin-menu-toggle" aria-label="Workspace menu" aria-controls="admin-sidebar" aria-expanded="false">
                 <i class="fa-solid fa-bars" aria-hidden="true"></i>
             </button>
             <form class="admin-search" method="GET" action="{{ route('booking.index') }}" role="search">
@@ -11,7 +11,7 @@
                 @if ($unread = auth()->user()->unreadNotifications()->count())<span class="admin-count">{{ $unread }}</span>@endif
             </a>
             <details class="admin-account">
-                <summary><span class="admin-avatar" aria-hidden="true">{{ str(auth()->user()->name)->substr(0, 1)->upper() }}</span><span><strong>{{ auth()->user()->name }}</strong><small>Administrator</small></span></summary>
+                <summary><span class="admin-avatar" aria-hidden="true">{{ str(auth()->user()->name)->substr(0, 1)->upper() }}</span><span><strong>{{ auth()->user()->name }}</strong><small>{{ auth()->user()->role === 'customer' ? 'Customer account' : 'Administrator' }}</small></span></summary>
                 <div>
                     <a href="{{ route('profile.edit') }}">Account settings</a>
                     <form method="POST" action="{{ route('logout') }}">

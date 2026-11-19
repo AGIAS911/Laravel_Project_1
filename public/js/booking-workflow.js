@@ -28,13 +28,23 @@
                 const submit = document.getElementById('submit-booking');
                 submit.elements.expected_total.value = data.total_price;
                 submit.hidden = false;
-                pageToast.textContent = `Distance ${data.distance_km} km · Total ${data.total_price} JOD · Deposit ${data.deposit_amount} JOD`;
+                const quote = document.querySelector('[data-booking-quote]');
+                if (quote) {
+                    quote.querySelector('[data-quote-distance]').textContent = data.distance_km + ' km';
+                    quote.querySelector('[data-quote-total]').textContent = data.total_price + ' JOD';
+                    quote.querySelector('[data-quote-deposit]').textContent = data.deposit_amount + ' JOD';
+                    quote.hidden = false;
+                }
             } else {
                 location.reload();
             }
         } catch (error) {
             if (pageToast) pageToast.textContent = error.message;
-            if (form.id === 'submit-booking') form.hidden = true;
+            if (form.id === 'submit-booking' || form.dataset.workflowForm === 'quote') {
+                document.getElementById('submit-booking').hidden = true;
+                const quote = document.querySelector('[data-booking-quote]');
+                if (quote) quote.hidden = true;
+            }
         } finally {
             if (button) button.disabled = false;
         }
@@ -62,6 +72,36 @@
                 select.add(new Option(`${vehicle.type} · ${vehicle.capacity_m3} · ${vehicle.base_price} JOD base`, vehicle.id));
             }
             if ([...select.options].some(option => option.value === selected)) select.value = selected;
+            const choices = form.querySelector('[data-vehicle-options]');
+            if (choices) {
+                const buttons = page.data.map(vehicle => {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'customer-vehicle-choice';
+
+                    const title = document.createElement('strong');
+                    title.textContent = vehicle.type;
+
+                    const detail = document.createElement('span');
+                    detail.textContent = [vehicle.capacity_m3 && vehicle.capacity_m3 + ' m³', vehicle.base_price + ' JOD base'].filter(Boolean).join(' · ');
+
+                    button.append(title, detail);
+                    button.dataset.vehicle = String(vehicle.id);
+                    button.addEventListener('click', () => {
+                        select.value = button.dataset.vehicle;
+                        select.dispatchEvent(new Event('change'));
+                    });
+                    return button;
+                });
+                const updateSelection = () => {
+                    for (const button of choices.children) {
+                        button.setAttribute('aria-pressed', String(button.dataset.vehicle === select.value));
+                    }
+                };
+                choices.replaceChildren(...buttons);
+                select.onchange = updateSelection;
+                updateSelection();
+            }
             status.textContent = page.data.length ? `${page.total} available vehicles.` : 'No vehicles available for this time.';
         } catch (error) {
             status.textContent = error.message;
@@ -78,7 +118,7 @@
             || inventory.querySelector('button:disabled')) return;
         refreshing = true;
         try {
-            const response = await fetch(location.href, { cache: 'no-store' });
+            const response = await fetch(inventory.dataset.liveInventory, { cache: 'no-store' });
             if (!response.ok || response.redirected) return;
             const page = new DOMParser().parseFromString(await response.text(), 'text/html');
             const updated = page.querySelector('[data-live-inventory]');

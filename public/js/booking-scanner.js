@@ -1,162 +1,136 @@
 (() => {
-    const modal = document.getElementById('furniture-scan');
-    const form = document.getElementById('scan-form');
-    const room = document.getElementById('scan-room');
-    const qrPanel = document.getElementById('scan-qr-panel');
-    const qr = document.getElementById('scan-qr');
-    const countdown = document.getElementById('scan-countdown');
-    const status = document.getElementById('scan-status');
-    const close = document.getElementById('scan-close');
-    const copy = document.getElementById('scan-copy');
-    const submit = form.querySelector('button[type="submit"]');
-    let request;
-    let timer;
-    let createUrl;
-    const sessions = new Map();
+    const panel = document.querySelector('#furniture-scan[data-scan-url]');
+    if (!panel) return;
 
-    function stopWatching() {
-        clearInterval(timer);
-        request?.abort();
+    const form = panel.querySelector('#scan-form');
+    const qrPanel = panel.querySelector('#scan-qr-panel');
+    const qr = panel.querySelector('#scan-qr');
+    const countdown = panel.querySelector('#scan-countdown');
+    const status = panel.querySelector('#scan-status');
+    const close = panel.querySelector('#scan-close');
+    const renew = panel.querySelector('#scan-renew');
+    const submit = form.querySelector('button[type="submit"]');
+    const copy = panel.querySelector('#scan-copy');
+    const csrf = form.elements._token.value;
+    const mobile = navigator.userAgentData?.mobile
+        || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+        || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (mobile) {
+        submit.textContent = 'Scan with this phone';
+        panel.querySelector('#scan-instructions').textContent = 'Open the camera on this phone. Review detected items here after scanning.';
+    }
+    let session;
+    let timer;
+    let busy = false;
+
+    function showState(message, connected = false) {
+        if (status.textContent !== message) status.textContent = message;
+        status.classList.toggle('is-connected', connected);
     }
 
-    modal.addEventListener('show.bs.modal', (event) => {
-        createUrl = event.relatedTarget.dataset.scanUrl;
-        form.reset();
-        submit.disabled = false;
-        status.textContent = '';
-        const existing = sessions.get(createUrl);
-        close.hidden = !existing;
-        if (existing) {
-            request = new AbortController();
-            submit.disabled = true;
-            watchSession(existing, request.signal);
-        }
-    });
-    modal.addEventListener('shown.bs.modal', () => room.focus());
-    modal.addEventListener('hide.bs.modal', () => {
-        stopWatching();
-        qrPanel.hidden = true;
-        qr.removeAttribute('src');
-    });
+    function setSession(value) {
+        clearTimeout(timer);
+        session = value;
+        close.hidden = renew.hidden = !value;
+        qrPanel.hidden = !value;
+        submit.disabled = Boolean(value);
+        if (value) qr.src = value.qr_code;
+        else qr.removeAttribute('src');
+    }
 
-    form.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        stopWatching();
-        request = new AbortController();
-        const { signal } = request;
-        submit.disabled = true;
-        status.textContent = 'Generating QR code…';
+    async function watch(current) {
+        if (session !== current) return;
+
+        const seconds = Math.max(0, Math.ceil((Date.parse(current.expires_at) - Date.now()) / 1000));
+        countdown.textContent = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 
         try {
-            const response = await fetch(createUrl, {
-                method: 'POST',
-                headers: { Accept: 'application/json' },
-                body: new FormData(form),
-                signal,
+            const response = await fetch(current.status_url, { headers: { Accept: 'application/json' } });
+            if (!response.ok) throw new Error();
+            const { status: state } = await response.json();
+            if (session !== current) return;
+
+            if (state === 'paired') {
+                qrPanel.hidden = true;
+                showState('Phone connected', true);
+            } else if (state === 'pending' && seconds > 0) {
+                qrPanel.hidden = false;
+                showState('Waiting for your phone…');
+            } else {
+                setSession(null);
+                showState(state === 'closed' ? 'Scan session ended.' : 'Pairing expired. Generate a new code.');
+                return;
+            }
+        } catch {
+            if (session === current) showState('Connection check failed. Retrying…');
+        }
+        if (session === current) timer = setTimeout(() => watch(current), 2000);
+    }
+
+    async function endSession() {
+        if (!session) return;
+        const response = await fetch(session.close_url, {
+            method: 'DELETE', headers: { Accept: 'application/json', 'X-CSRF-TOKEN': csrf },
+        });
+        if (!response.ok) throw new Error('Could not end the scan session. Try again.');
+        setSession(null);
+    }
+
+    async function generate() {
+        if (busy || !form.reportValidity()) return;
+        busy = true;
+        submit.disabled = close.disabled = renew.disabled = true;
+        try {
+            await endSession();
+            submit.disabled = true;
+            showState('Generating QR code…');
+            const body = new FormData(form);
+            if (mobile) body.append('direct', '1');
+            const response = await fetch(panel.dataset.scanUrl, {
+                method: 'POST', headers: { Accept: 'application/json' }, body,
             });
             const data = await response.json();
             if (!response.ok) throw new Error(data.errors?.room_name?.[0] || data.message);
-            if (signal.aborted) return;
-
-            qr.src = data.qr_code;
-            sessions.set(createUrl, data);
-            close.hidden = false;
-            qrPanel.hidden = false;
-            status.textContent = 'Waiting for your phone…';
-            watchSession(data, signal);
+            if (mobile) {
+                location.assign(data.scan_url);
+                return;
+            }
+            setSession(data);
+            showState('Waiting for your phone…');
+            watch(data);
         } catch (error) {
-            if (signal.aborted) return;
-            status.textContent = error.message || 'Could not generate a QR code. Try again.';
-            submit.disabled = false;
+            showState(error.message || 'Could not generate a QR code. Try again.');
+        } finally {
+            busy = close.disabled = renew.disabled = false;
+            submit.disabled = Boolean(session);
+        }
+    }
+
+    form.addEventListener('submit', event => {
+        event.preventDefault();
+        generate();
+    });
+    renew.addEventListener('click', generate);
+    close.addEventListener('click', async () => {
+        if (busy) return;
+        busy = close.disabled = renew.disabled = true;
+        try {
+            await endSession();
+            showState('Scan session ended.');
+        } catch (error) {
+            showState(error.message);
+        } finally {
+            busy = close.disabled = renew.disabled = false;
         }
     });
-
     copy.addEventListener('click', async () => {
-        const session = sessions.get(createUrl);
         if (!session) return;
         try {
             await navigator.clipboard.writeText(session.scan_url);
-            status.textContent = 'Phone link copied.';
+            showState('Phone link copied.');
         } catch {
-            status.textContent = 'Copy is unavailable. Scan the QR code with your phone.';
+            showState('Copy is unavailable. Scan the QR code with your phone.');
         }
     });
 
-    close.addEventListener('click', async () => {
-        const url = createUrl;
-        const session = sessions.get(url);
-        if (!session) return;
-        close.disabled = true;
-        try {
-            const response = await fetch(session.close_url, {
-                method: 'DELETE',
-                headers: { Accept: 'application/json', 'X-CSRF-TOKEN': form.elements._token.value },
-            });
-            if (!response.ok) throw new Error();
-            sessions.delete(url);
-            if (url === createUrl) {
-                stopWatching();
-                close.hidden = qrPanel.hidden = true;
-                qr.removeAttribute('src');
-                submit.disabled = false;
-                status.textContent = 'Scan session ended.';
-            }
-        } catch {
-            if (url === createUrl) status.textContent = 'Could not end the scan session. Try again.';
-        } finally {
-            close.disabled = false;
-        }
-    });
-
-    function watchSession(session, signal) {
-        const expiresAt = Date.parse(session.expires_at);
-        let checking = false;
-
-        async function check() {
-            const seconds = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
-            countdown.textContent = `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
-            if (!seconds) qrPanel.hidden = true;
-            if (checking) return;
-            checking = true;
-
-            let state;
-            try {
-                const response = await fetch(session.status_url, {
-                    headers: { Accept: 'application/json' },
-                    signal,
-                });
-                if (!response.ok) throw new Error();
-                state = (await response.json()).status;
-                if (!signal.aborted && status.textContent !== 'Waiting for your phone…') {
-                    status.textContent = 'Waiting for your phone…';
-                }
-            } catch {
-                if (!signal.aborted) status.textContent = 'Connection check failed. Retrying…';
-            } finally {
-                checking = false;
-            }
-
-            if (signal.aborted) return;
-            if (state === 'pending' && seconds) {
-                qr.src = session.qr_code;
-                qrPanel.hidden = false;
-            }
-            if (state === 'paired' || state === 'expired' || state === 'closed' || !seconds) {
-                clearInterval(timer);
-                qrPanel.hidden = true;
-                qr.removeAttribute('src');
-                status.textContent = state === 'paired'
-                    ? 'Phone connected.'
-                    : 'QR code expired. Generate a new one to reconnect.';
-                if (state !== 'paired') {
-                    sessions.delete(createUrl);
-                    close.hidden = true;
-                    submit.disabled = false;
-                }
-            }
-        }
-
-        timer = setInterval(check, 1000);
-        check();
-    }
 })();

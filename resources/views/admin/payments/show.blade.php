@@ -1,79 +1,100 @@
 @extends('layouts.dashboard')
 
 @section('page-title', 'Review proof #' . $payment->id)
+@section('page-description', 'Compare the receipt with the incoming CliQ transfer before recording a decision.')
 
 @section('actions')
-    <a class="btn btn-outline-secondary" href="{{ route('admin.payments.index') }}">{{ __('payments.back') }}</a>
+    <a class="btn btn-outline-secondary" href="{{ route('admin.payments.index', ['status' => $payment->status]) }}">
+        <i class="fa-solid fa-arrow-left me-1" aria-hidden="true"></i> Back to CliQ review
+    </a>
 @endsection
 
 @section('content')
+    @php
+        $booking = $payment->booking;
+        $currency = config('payments.currency');
+        $receiptUrl = route('payments.receipt', $payment);
+        $pending = $payment->status === 'pending';
+    @endphp
+
     @if ($errors->any())
-        <div class="alert alert-danger" role="alert">
-            <ul class="mb-0">
-                @foreach ($errors->all() as $message)
-                    <li>{{ $message }}</li>
-                @endforeach
-            </ul>
-        </div>
+        <div class="alert alert-danger" role="alert">{{ $errors->first() }}</div>
     @endif
 
-    <div class="row g-4">
-        <section class="col-lg-7">
-            <div class="card card-body">
-                <h2 class="h5 workspace-heading">Receipt image</h2>
-                <a href="{{ route('payments.receipt', $payment->id) }}" target="_blank" rel="noopener">
-                    <img src="{{ route('payments.receipt', $payment->id) }}" alt="{{ __('payments.view_receipt') }}" class="img-fluid rounded" style="max-height:480px">
-                </a>
-            </div>
-        </section>
-        <div class="col-lg-5">
-            <section class="card card-body mb-3">
-                <h2 class="h5 workspace-heading">Transfer details</h2>
-    <dl class="row mb-0">
+    <div class="row g-3 mb-4">
         @foreach ([
-            __('payments.booking') => '#' . $payment->booking_id . ' · ' . ucfirst($payment->booking->status),
-            __('payments.customer') => $payment->booking->customer?->name,
-            __('payments.deposit_required') => $payment->booking->deposit_amount,
-            __('payments.approved_total') => number_format($approvedTotal, 3, '.', ''),
-            __('payments.deposit_due') => $payment->booking->deposit_due_at?->format('Y-m-d H:i'),
-            __('payments.amount') => $payment->amount,
-            __('payments.transfer_reference') => $payment->transfer_reference,
-            __('payments.status') => __('payments.status_' . $payment->status),
-            __('payments.reason') => $payment->rejection_reason,
-            __('payments.reviewed_by') => $payment->reviewer?->name,
-            __('payments.reviewed_at') => $payment->reviewed_at?->format('Y-m-d H:i'),
-            __('payments.created_at') => $payment->created_at?->format('Y-m-d H:i'),
-        ] as $label => $value)
-            <dt class="col-sm-4">{{ $label }}</dt>
-            <dd class="col-sm-8 text-break"><bdi>{{ $value ?? '—' }}</bdi></dd>
+            'Claimed amount' => $payment->amount,
+            'Required deposit' => $booking->deposit_amount,
+            'Approved deposit total' => number_format($approvedTotal, 3, '.', ''),
+        ] as $label => $amount)
+            <div class="col-sm-4">
+                <div class="payment-metric">
+                    <span>{{ $label }}</span>
+                    <strong>{{ $amount === null ? '—' : $amount . ' ' . $currency }}</strong>
+                </div>
+            </div>
         @endforeach
-    </dl>
-
-            </section>
-    @if ($payment->status === 'pending')
-        <div class="d-grid gap-3">
-            <div >
-                <form method="POST" action="{{ route('admin.payments.approve', $payment->id) }}"
-                    class="card card-body">
-                    @csrf
-                    <label class="form-label" for="amount">{{ __('payments.approve_amount') }}</label>
-                    <input class="form-control mb-2" type="number" step="0.001" min="0.001" id="amount"
-                        name="amount" value="{{ old('amount', $payment->amount) }}" required>
-                    <button class="btn btn-success" type="submit">{{ __('payments.approve') }}</button>
-                </form>
-            </div>
-            <div >
-                <form method="POST" action="{{ route('admin.payments.reject', $payment->id) }}"
-                    class="card card-body">
-                    @csrf
-                    <label class="form-label" for="rejection_reason">{{ __('payments.reject_reason') }}</label>
-                    <textarea class="form-control mb-2" id="rejection_reason" name="rejection_reason" rows="2"
-                        maxlength="1000" required>{{ old('rejection_reason') }}</textarea>
-                    <button class="btn btn-danger" type="submit">{{ __('payments.reject') }}</button>
-                </form>
-            </div>
-        </div>
-    @endif
     </div>
+
+    <div class="row g-4 align-items-start">
+        <div class="col-lg-7">
+            <section class="card card-body payment-panel">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                    <h2 class="h5 workspace-heading mb-0">Receipt image</h2>
+                    <a class="btn btn-outline-secondary btn-sm" href="{{ $receiptUrl }}" target="_blank" rel="noopener">
+                        <i class="fa-solid fa-up-right-from-square me-1" aria-hidden="true"></i> Open full size
+                    </a>
+                </div>
+                <a class="payment-receipt" href="{{ $receiptUrl }}" target="_blank" rel="noopener" aria-label="Open receipt image full size">
+                    <img src="{{ $receiptUrl }}" alt="CliQ receipt for booking #{{ $booking->id }}">
+                </a>
+            </section>
+        </div>
+        <div class="col-lg-5 d-grid gap-3">
+            <section class="card card-body payment-panel">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                    <h2 class="h5 workspace-heading mb-0">Transfer details</h2>
+                    @include('payments._status')
+                </div>
+                <dl class="payment-details mb-0">
+                    <dt>Booking</dt><dd><a href="{{ route('booking.show', $booking) }}">#{{ $booking->id }}</a> · {{ str($booking->status)->headline() }}</dd>
+                    <dt>Customer</dt><dd>{{ $booking->customer?->name ?? '—' }}</dd>
+                    <dt>Transfer reference</dt><dd><bdi>{{ $payment->transfer_reference ?: '—' }}</bdi></dd>
+                    <dt>Uploaded</dt><dd>{{ $payment->created_at?->timezone('Asia/Amman')->format('d M Y · H:i') ?? '—' }}</dd>
+                    <dt>Deposit deadline</dt><dd>{{ $booking->deposit_due_at?->timezone('Asia/Amman')->format('d M Y · H:i') ?? '—' }}</dd>
+                    @unless ($pending)
+                        <dt>Reviewed by</dt><dd>{{ $payment->reviewer?->name ?? '—' }}</dd>
+                        <dt>Reviewed at</dt><dd>{{ $payment->reviewed_at?->timezone('Asia/Amman')->format('d M Y · H:i') ?? '—' }}</dd>
+                        @if ($payment->rejection_reason)
+                            <dt>Rejection reason</dt><dd>{{ $payment->rejection_reason }}</dd>
+                        @endif
+                    @endunless
+                </dl>
+            </section>
+
+            @if ($pending)
+                <section class="card card-body payment-panel">
+                    <h2 class="h5 workspace-heading">Record a decision</h2>
+                    <p class="small text-body-secondary mb-3">Enter the amount you verified in the receiving account.</p>
+                    <form method="POST" action="{{ route('admin.payments.approve', $payment) }}">
+                        @csrf
+                        <label class="form-label" for="amount">Verified amount ({{ $currency }})</label>
+                        <input class="form-control mb-3" type="number" step="0.001" min="0.001" max="9999999" id="amount"
+                            name="amount" value="{{ old('amount') }}" required>
+                        <button class="btn btn-success w-100">Approve verified payment</button>
+                    </form>
+                    <details class="payment-reject mt-3" @if ($errors->has('rejection_reason')) open @endif>
+                        <summary class="text-danger fw-semibold">Reject this proof</summary>
+                        <form method="POST" action="{{ route('admin.payments.reject', $payment) }}" class="pt-3">
+                            @csrf
+                            <label class="form-label" for="rejection_reason">Reason shown to the customer</label>
+                            <textarea class="form-control mb-3" id="rejection_reason" name="rejection_reason" rows="3"
+                                maxlength="1000" required>{{ old('rejection_reason') }}</textarea>
+                            <button class="btn btn-outline-danger">Reject proof</button>
+                        </form>
+                    </details>
+                </section>
+            @endif
+        </div>
     </div>
 @endsection

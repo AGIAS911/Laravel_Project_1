@@ -63,6 +63,7 @@ Route::middleware(['auth', 'active', 'role:customer'])->scopeBindings()->group(f
     Route::patch('/bookings/{booking}/cancel', [BookingWorkflowController::class, 'cancel'])->name('bookings.cancel');
     Route::get('/bookings/{booking}/inventory', [InventoryController::class, 'index'])->name('bookings.inventory.index');
     Route::get('/bookings/{booking}/inventory/{inventoryItem}/image', [InventoryController::class, 'image'])->name('bookings.inventory.image');
+    Route::post('/bookings/start-inventory', [InventoryController::class, 'startBooking'])->name('bookings.inventory.start');
     Route::post('/bookings/{booking}/inventory', [InventoryController::class, 'store'])->name('bookings.inventory.store');
     Route::put('/bookings/{booking}/inventory/{inventoryItem}', [InventoryController::class, 'update'])->name('bookings.inventory.update');
     Route::delete('/bookings/{booking}/inventory/{inventoryItem}', [InventoryController::class, 'destroy'])->name('bookings.inventory.destroy');
@@ -116,6 +117,9 @@ Route::middleware(['auth', 'active', 'role:admin'])
     ->group(function () {
         Route::get('/dashboard', [WorkspaceController::class, 'index'])->name('dashboard');
         Route::get('/driver-approvals', [UserController::class, 'index'])->name('driver-approvals');
+        Route::patch('/vehicle-types/{vehicleType}/status', [VehicleTypeController::class, 'setStatus'])->name('vehicle-types.status');
+        Route::patch('/services/{service}/status', [ServiceController::class, 'setStatus'])->name('services.status');
+        Route::get('/reports/export', [WorkspaceController::class, 'exportReports'])->name('reports.export');
         Route::get('/reports', [WorkspaceController::class, 'reports'])->name('reports');
         Route::get('/settings', [WorkspaceController::class, 'settings'])->name('settings');
         Route::put('/settings', [WorkspaceController::class, 'updateSettings'])->name('settings.update');
@@ -153,6 +157,8 @@ Route::middleware(['auth', 'active', 'role:admin'])->prefix('admin/payments')->n
 });
 
 Route::middleware(['auth', 'active', 'role:customer'])->scopeBindings()->group(function () {
+    Route::get('/bookings/{booking}/scan', [ScanSessionController::class, 'workspace'])->name('scan-sessions.workspace');
+    Route::get('/bookings/{booking}/scan/inventory', [ScanSessionController::class, 'inventory'])->name('scan-sessions.inventory');
     Route::post('/bookings/{booking}/scan-sessions', [ScanSessionController::class, 'store'])
         ->name('scan-sessions.store');
     Route::get('/bookings/{booking}/scan-sessions/{scanSession}', [ScanSessionController::class, 'show'])

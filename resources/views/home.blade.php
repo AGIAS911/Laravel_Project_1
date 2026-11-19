@@ -2,13 +2,15 @@
 
 @section('title', 'Dashboard | MoveIt')
 @section('page-title', 'Welcome, ' . auth()->user()->name)
+@section('page-icon', 'fa-house')
+@section('page-description', 'An overview of your bookings and activity.')
 
 @section('content')
     @if (auth()->user()->role === 'customer')
-        <section class="workspace-banner d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+        <section class="workspace-banner customer-welcome d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
             <div>
                 <h2 class="h4 fw-bold mb-1">Ready for a new move?</h2>
-                <p class="mb-0">Start your inventory and we will suggest suitable vehicles.</p>
+                <p class="mb-0">Add furniture, plan your route, and choose a vehicle for your move.</p>
             </div>
             <a class="btn btn-primary" href="{{ route('booking.create') }}">
                 <i class="fa-solid fa-plus" aria-hidden="true"></i> New booking
@@ -23,7 +25,7 @@
                 [$counts['draft'] ?? 0, 'Drafts', 'fa-pen-ruler', 'draft'],
             ] as [$count, $label, $icon, $tone])
                 <div class="col-6 col-xl-3">
-                    <div class="card h-100">
+                    <div class="card h-100 customer-metric">
                         <div class="card-body d-flex align-items-center gap-3">
                             <span class="workspace-metric-icon {{ $tone }}"><i class="fa-solid {{ $icon }}" aria-hidden="true"></i></span>
                             <div>
@@ -36,11 +38,11 @@
             @endforeach
         </div>
 
-        <div class="row g-3">
+        <div class="row g-4">
             <div class="col-lg-7">
                 <section class="card" aria-labelledby="recent-bookings-title">
                     <div class="card-header d-flex align-items-center justify-content-between gap-2">
-                        <h2 class="h6 fw-bold mb-0" id="recent-bookings-title">Recent bookings</h2>
+                        <h2 class="h6 workspace-heading mb-0" id="recent-bookings-title">Recent bookings</h2>
                         <a href="{{ route('booking.index') }}">View all</a>
                     </div>
                     <div class="table-responsive">
@@ -51,7 +53,7 @@
                                     <tr>
                                         <td><strong>#{{ $booking->id }}</strong></td>
                                         <td>{{ $booking->scheduled_start_at?->timezone('Asia/Amman')->format('d M Y, H:i') ?? '—' }}</td>
-                                        <td>{{ str($booking->status)->headline() }}</td>
+                                        <td>@include('booking._status', ['state' => $booking->status])</td>
                                         <td><a class="btn btn-outline-secondary btn-sm" href="{{ route('booking.show', $booking) }}">Details</a></td>
                                     </tr>
                                 @empty
@@ -72,7 +74,7 @@
                         </div>
                     @endif
                     <div class="card-header d-flex justify-content-between align-items-center gap-2">
-                        <h2 class="h6 fw-bold mb-0" id="recent-notifications-title">Recent notifications</h2>
+                        <h2 class="h6 workspace-heading mb-0" id="recent-notifications-title">Recent notifications</h2>
                         <a href="{{ route('notifications.index') }}">View all</a>
                     </div>
                     <ul class="list-group list-group-flush">
