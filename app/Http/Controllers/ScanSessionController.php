@@ -50,7 +50,21 @@ class ScanSessionController extends Controller
             'qr_code' => $result->getDataUri(),
             'scan_url' => $scanUrl,
             'expires_at' => $scanSession->pairing_expires_at,
+            'status_url' => route('scan-sessions.show', [$booking, $scanSession], false),
         ], 201)->header('Cache-Control', 'no-store');
+    }
+
+    public function show(Request $request, Booking $booking, ScanSession $scanSession)
+    {
+        abort_unless($booking->customer_id == $request->user()->id, 403);
+
+        $status = $scanSession->status;
+        if ($scanSession->expires_at->isPast()
+            || ($status === 'pending' && !$scanSession->pairing_expires_at?->isFuture())) {
+            $status = 'expired';
+        }
+
+        return response()->json(['status' => $status])->header('Cache-Control', 'no-store');
     }
 
     public function pair(Request $request)
