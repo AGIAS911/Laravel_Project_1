@@ -79,6 +79,14 @@ class Booking extends Model
         return $this->hasMany(BookingService::class);
     }
 
+    public function servicesTotal(): string
+    {
+        $total = $this->bookingServices()->get()
+            ->sum(fn ($item) => $item->quantity * $item->unit_price);
+
+        return number_format($total, 3, '.', '');
+    }
+
     public function scanSessions(): HasMany
     {
         return $this->hasMany(ScanSession::class);

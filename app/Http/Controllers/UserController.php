@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use App\Models\User;
@@ -10,8 +11,8 @@ class UserController extends Controller
 {
     public function index()
     {
-        $pendingDrivers = User::where('role', 'driver')->where('is_active', false)->get();
-        $activeDrivers = User::where('role', 'driver')->where('is_active', true)->get();
+        $pendingDrivers = User::with('driverProfile')->where('role', 'driver')->where('is_active', false)->get();
+        $activeDrivers = User::with('driverProfile')->where('role', 'driver')->where('is_active', true)->get();
         $customers = User::where('role', 'customer')->get();
 
         return view('admin.users.index', compact('pendingDrivers', 'activeDrivers', 'customers'));
@@ -26,13 +27,15 @@ class UserController extends Controller
             'role' => 'required|in:admin,driver,customer',
         ]);
 
-        User::create([
+        $user = new User([
             'name' => $validatedData['name'],
             'email' => $validatedData['email'],
             'password' => Hash::make($validatedData['password']),
-            'role' => $validatedData['role'],
-            'is_active' => true, 
         ]);
+
+        $user->role = $validatedData['role'];
+        $user->is_active = true;
+        $user->save();
 
         return redirect()->back()->with('success', 'User added successfully.');
     }
@@ -40,10 +43,12 @@ class UserController extends Controller
     public function update(Request $request, User $user)
     {
         if ($request->has('approve_driver')) {
-            $user->update([
-                'is_active' => true
-            ]);
-            
+            $user->forceFill(['is_active' => true])->save();
+
+            if ($user->driverProfile) {
+                $user->driverProfile->update(['status' => 'approved']);
+            }
+
             return redirect()->back()->with('success', 'Driver approved.');
         }
 
@@ -51,9 +56,9 @@ class UserController extends Controller
             'name' => 'required|string|max:255',
             'phone' => 'required|string|max:20',
         ]);
-        
+
         $user->update($validatedData);
-        
+
         return redirect()->back()->with('success', 'User updated successfully.');
     }
 
