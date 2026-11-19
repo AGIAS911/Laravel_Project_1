@@ -11,6 +11,7 @@
 
         <p><strong>License Plate:</strong> {{ $vehicle->plate_number }}</p>
         <p><strong>Vehicle Type:</strong> {{ $vehicle->vehicleType?->name ?? '—' }}</p>
+        <p><strong>Driver Name:</strong> {{ $vehicle->driver?->user?->name ?? '—' }}</p>
         <p><strong>Driver License:</strong> {{ $vehicle->driver?->license_number ?? '—' }}</p>
         <p><strong>Weight Capacity:</strong> {{ ['small' => 'Small', 'medium' => 'Medium', 'large' => 'Large'][$vehicle->capacity_kg] ?? $vehicle->capacity_kg }}</p>
         <p><strong>Volume Capacity:</strong> {{ ['small' => 'Small', 'medium' => 'Medium', 'large' => 'Large'][$vehicle->capacity_m3] ?? $vehicle->capacity_m3 }}</p>
