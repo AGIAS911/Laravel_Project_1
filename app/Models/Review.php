@@ -32,8 +32,7 @@ class Review extends Model
     public function scopeForDriver(Builder $query, int $driverProfileId): Builder
     {
         return $query->whereHas('booking', function (Builder $bookingQuery) use ($driverProfileId) {
-            $bookingQuery->where('driver_id', $driverProfileId)
-                ->orWhereHas('vehicle', fn (Builder $vehicleQuery) => $vehicleQuery->where('driver_id', $driverProfileId));
+            $bookingQuery->where('status', 'completed')->where('driver_id', $driverProfileId);
         });
     }
 }

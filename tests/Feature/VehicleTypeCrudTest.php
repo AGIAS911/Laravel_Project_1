@@ -13,6 +13,12 @@ class VehicleTypeCrudTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->actingAs(User::factory()->create(['role' => 'admin']));
+    }
+
     public function test_vehicle_type_pages_render(): void
     {
         $vehicleType = VehicleType::create([

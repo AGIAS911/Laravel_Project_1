@@ -1,22 +1,15 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
-
 return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn('phone');
-        });
+        // Keep existing phone numbers. The follow-up migration repairs databases that already ran the original drop.
     }
 
     public function down(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->string('phone', 30)->default('');
-        });
+        // The original users migration owns this column.
     }
 };

@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Notifications\DriverApprovedNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
@@ -43,13 +45,7 @@ class UserController extends Controller
     public function update(Request $request, User $user)
     {
         if ($request->has('approve_driver')) {
-            $user->forceFill(['is_active' => true])->save();
-
-            if ($user->driverProfile) {
-                $user->driverProfile->update(['status' => 'approved']);
-            }
-
-            return redirect()->back()->with('success', 'Driver approved.');
+            return $this->updateDriverStatus($user, 'approved', null);
         }
 
         $validatedData = $request->validate([
@@ -62,13 +58,51 @@ class UserController extends Controller
         return redirect()->back()->with('success', 'User updated successfully.');
     }
 
+    public function reviewDriver(Request $request, User $user)
+    {
+        $data = $request->validate([
+            'status' => 'required|in:approved,rejected,suspended',
+            'reason' => 'required_if:status,rejected,suspended|nullable|string|max:1000',
+        ]);
+
+        return $this->updateDriverStatus($user, $data['status'], $data['reason'] ?? null);
+    }
+
+    private function updateDriverStatus(User $user, string $status, ?string $reason)
+    {
+        abort_unless($user->role === 'driver', 404);
+        DB::transaction(function () use ($user, $status, $reason) {
+            $driver = $user->driverProfile()->lockForUpdate()->firstOrFail();
+            $changed = $driver->status !== $status || $driver->status_reason !== $reason;
+            $driver->forceFill(['status' => $status, 'status_reason' => $reason])->save();
+            $user->forceFill(['is_active' => $status === 'approved'])->save();
+            if ($changed && $status === 'approved') {
+                $user->notify(new DriverApprovedNotification());
+            } elseif ($changed) {
+                $user->notifications()->create([
+                    'type' => 'driver_status', 'title' => 'Driver account updated', 'message' => $reason,
+                ]);
+            }
+        });
+
+        if (request()->expectsJson()) {
+            return response()->json(['status' => $status, 'reason' => $reason]);
+        }
+
+        return back()->with('success', 'Driver status updated.');
+    }
+
     public function destroy(User $user)
     {
         if ($user->id === Auth::id()) {
             return redirect()->back()->with('error', 'You cannot delete your own account.');
         }
 
-        $user->delete();
+        if ($user->bookings()->exists() || $user->driverProfile || $user->reviewedPayments()->exists()) {
+            $user->forceFill(['is_active' => false])->save();
+        } else {
+            $user->delete();
+        }
 
         return redirect()->back()->with('success', 'User deleted successfully.');
     }

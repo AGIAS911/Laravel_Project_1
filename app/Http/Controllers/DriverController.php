@@ -44,14 +44,16 @@ class DriverController extends Controller
         ];
 
         if ($request->hasFile('license_image')) {
-            if ($driver->license_image) {
-                Storage::disk('public')->delete($driver->license_image);
-            }
-            $driverData['license_image'] = $request->file('license_image')->store('licenses', 'public');
+            $driverData['license_image'] = $request->file('license_image')->store('licenses', 'local');
+            abort_unless($driverData['license_image'], 503, 'Could not save the driver license.');
             $driverData['status'] = 'pending';
         }
 
+        $previousImage = $driver->license_image;
         $driver->update($driverData);
+        if (isset($driverData['license_image']) && $previousImage) {
+            Storage::disk('local')->delete($previousImage);
+        }
 
         return redirect()->route('driver.profile.show')->with('success', 'Driver profile updated successfully.');
     }
@@ -59,15 +61,19 @@ class DriverController extends Controller
     public function destroy()
     {
         $user = User::findOrFail(Auth::id());
-        $driver = $user->driverProfile;
-
-        if ($driver && $driver->license_image) {
-            Storage::disk('public')->delete($driver->license_image);
-        }
-
         Auth::logout();
-        $user->delete();
+        $user->forceFill(['is_active' => false])->save();
+        request()->session()->invalidate();
+        request()->session()->regenerateToken();
 
-        return redirect('/')->with('success', 'Account deleted successfully.');
+        return redirect('/')->with('success', 'Account disabled successfully.');
+    }
+
+    public function license(Request $request, DriverProfile $driverProfile)
+    {
+        abort_unless($request->user()->role === 'admin' || $driverProfile->user_id === $request->user()->id, 404);
+        abort_unless($driverProfile->license_image && Storage::disk('local')->exists($driverProfile->license_image), 404);
+
+        return Storage::disk('local')->response($driverProfile->license_image, null, ['Cache-Control' => 'private, no-store']);
     }
 }

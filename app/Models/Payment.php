@@ -28,6 +28,7 @@ class Payment extends Model
 
     protected $hidden = [
         'receipt_image',
+        'active_transfer_reference',
     ];
 
     protected function casts(): array
@@ -53,12 +54,12 @@ class Payment extends Model
      */
     public static function referenceInUse(?string $reference, ?int $exceptId = null): bool
     {
-        if (! $reference) {
+        $reference = $reference === null ? '' : mb_strtoupper(trim($reference));
+        if ($reference === '') {
             return false;
         }
 
-        return static::where('transfer_reference', $reference)
-            ->where('status', '!=', self::STATUS_REJECTED)
+        return static::where('active_transfer_reference', $reference)
             ->when($exceptId, fn ($q) => $q->where('id', '!=', $exceptId))
             ->exists();
     }

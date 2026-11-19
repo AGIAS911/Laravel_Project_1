@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Models\DriverProfile;
 use App\Notifications\DriverApprovedNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -18,6 +19,7 @@ class DriverApprovalNotificationTest extends TestCase
             'role' => 'driver',
             'is_active' => false,
         ]);
+        DriverProfile::factory()->for($driver, 'user')->create(['status' => 'pending']);
 
         $this->actingAs($admin)
             ->put(route('admin.users.update', $driver), ['approve_driver' => '1'])
@@ -26,8 +28,7 @@ class DriverApprovalNotificationTest extends TestCase
 
         $this->assertDatabaseHas('notifications', [
             'type' => DriverApprovedNotification::class,
-            'notifiable_type' => User::class,
-            'notifiable_id' => $driver->id,
+            'user_id' => $driver->id,
         ]);
         $this->assertTrue($driver->fresh()->is_active);
 
@@ -61,7 +62,7 @@ class DriverApprovalNotificationTest extends TestCase
         $this->actingAs($driver)
             ->get(route('home'))
             ->assertOk()
-            ->assertSee('تمت الموافقة على حسابك كسائق');
+            ->assertSee('Your account as a driver has been approved');
 
         $this->actingAs($otherUser)
             ->post(route('notifications.read', $notification->id))

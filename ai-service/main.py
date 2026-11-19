@@ -1,4 +1,9 @@
+import json
+import os
+import re
 import time
+from urllib.error import URLError
+from urllib.request import Request, urlopen
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from starlette.concurrency import run_in_threadpool
@@ -15,6 +20,7 @@ app = FastAPI()
 SERVICE_DIR = Path(__file__).resolve().parent
 VISIBLE_TRACK_HITS = 2
 INVENTORY_TRACK_HITS = 3
+SCANNER_API_URL = os.environ.get("SCANNER_API_URL", "http://127.0.0.1:8000/api/scanner").rstrip("/")
 
 ALLOWED_CLASSES = {
     "chair",
@@ -33,9 +39,31 @@ ALLOWED_CLASSES = {
 def health_check():
     return {"status": "running", "model": "YOLO26s"}
 
+
+def scanner_request(path, token, items=None):
+    payload = None if items is None else json.dumps({"items": items}).encode()
+    request = Request(
+        f"{SCANNER_API_URL}/{path}",
+        data=payload,
+        headers={"Authorization": f"Bearer {token}", "Accept": "application/json",
+                 "Content-Type": "application/json"},
+        method="GET" if payload is None else "PUT",
+    )
+    try:
+        with urlopen(request, timeout=3) as response:
+            return response.status == 204
+    except (URLError, TimeoutError):
+        return False
+
+
 @app.websocket("/ws/detect")
 async def detect(websocket: WebSocket):
-    await websocket.accept()
+    protocols = websocket.scope.get("subprotocols", [])
+    token = next((value[6:] for value in protocols if re.fullmatch(r"token\.[a-zA-Z0-9]{64}", value)), None)
+    if "moveit.scan" not in protocols or token is None or not await run_in_threadpool(scanner_request, "device", token):
+        await websocket.close(code=1008)
+        return
+    await websocket.accept(subprotocol="moveit.scan")
 
     model = await run_in_threadpool(YOLO, str(SERVICE_DIR / "yolo26s.pt"))
     allowed_ids = [
@@ -45,10 +73,14 @@ async def detect(websocket: WebSocket):
     identity_manager = ObjectIdentityManager()
     track_observations = {}
     accepted_labels = {}
+    synced_inventory = {}
 
     try:
         while True:
             data = await websocket.receive_bytes()
+            if not await run_in_threadpool(scanner_request, "device", token):
+                await websocket.close(code=1008)
+                return
             start_time = time.perf_counter()
 
             frame = cv2.imdecode(
@@ -159,6 +191,15 @@ async def detect(websocket: WebSocket):
                 "total_items": identity_manager.get_total()
             }
             processing_ms = round((time.perf_counter() - start_time) * 1000, 2)
+            if response["inventory"] != synced_inventory:
+                items = [
+                    {"item_type": "sofa" if label == "couch" else label, "quantity": quantity}
+                    for label, quantity in response["inventory"].items()
+                ]
+                if not await run_in_threadpool(scanner_request, "inventory", token, items):
+                    await websocket.close(code=1011)
+                    return
+                synced_inventory = response["inventory"]
             print(
                 f"INVENTORY STATE | items={response['inventory']} | total={response['total_items']}",
                 flush=True,

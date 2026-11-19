@@ -83,7 +83,8 @@ class RegisterController extends Controller
             $user->save();
 
             if ($data['account_type'] === 'driver') {
-                $imagePath = request()->file('license_image')->store('licenses', 'public');
+                $imagePath = request()->file('license_image')->store('licenses', 'local');
+                abort_unless($imagePath, 503, 'Could not save the driver license.');
 
                 DriverProfile::create([
                     'user_id' => $user->id,

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>{{ config('app.name', 'Laravel') }}</title>
+    <title>@yield('title', config('app.name', 'Laravel'))</title>
 
     <link rel="dns-prefetch" href="//fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=Nunito" rel="stylesheet">
@@ -27,6 +27,16 @@
                 <div class="collapse navbar-collapse" id="navbarSupportedContent">
                     <ul class="navbar-nav me-auto">
                         @auth
+                            <li class="nav-item">
+                                <a @class(['nav-link', 'active' => request()->routeIs('home')])
+                                    href="{{ route('home') }}"
+                                    @if (request()->routeIs('home')) aria-current="page" @endif>{{ __('Overview') }}</a>
+                            </li>
+                            <li class="nav-item">
+                                <a @class(['nav-link', 'active' => request()->routeIs('booking.*')])
+                                    href="{{ route('booking.index') }}"
+                                    @if (request()->routeIs('booking.*')) aria-current="page" @endif>{{ __('Bookings') }}</a>
+                            </li>
                             @if (Auth::user()->role === 'admin')
                                 <li class="nav-item">
                                     <a class="nav-link" href="{{ route('admin.users.index') }}">إدارة المستخدمين</a>
@@ -113,7 +123,11 @@
         </nav>
 
         <main class="py-4">
-            @yield('content')
+            @hasSection('body')
+                @yield('body')
+            @else
+                @yield('content')
+            @endif
         </main>
     </div>
 </body>

@@ -11,15 +11,13 @@ class DriverBookingController extends Controller
     public function index(Request $request): JsonResponse
     {
         $driverProfile = $request->user()->driverProfile;
-        if ($driverProfile === null) {
+        if ($driverProfile?->status !== 'approved') {
             return response()->json(['message' => 'A driver profile is required.'], 403);
         }
 
         $bookings = Booking::with(['customer', 'vehicle'])
-            ->where(function ($query) use ($driverProfile) {
-                $query->where('driver_id', $driverProfile->id)
-                    ->orWhereHas('vehicle', fn ($vehicleQuery) => $vehicleQuery->where('driver_id', $driverProfile->id));
-            })
+            ->where('driver_id', $driverProfile->id)
+            ->where('status', '!=', 'draft')
             ->latest()
             ->paginate(20);
 
@@ -46,32 +44,4 @@ class DriverBookingController extends Controller
         ]);
     }
 
-    public function complete(Request $request, Booking $booking): JsonResponse
-    {
-        $driverProfile = $request->user()->driverProfile;
-        if ($driverProfile === null) {
-            return response()->json(['message' => 'A driver profile is required.'], 403);
-        }
-
-        $booking->loadMissing('vehicle');
-        $assignedDriverId = $booking->driver_id ?? $booking->vehicle?->driver_id;
-
-        if ((int) $assignedDriverId !== $driverProfile->id) {
-            return response()->json(['message' => 'This booking is not assigned to you.'], 403);
-        }
-
-        if ($booking->status === 'completed') {
-            return response()->json(['message' => 'This booking is already completed.'], 409);
-        }
-
-        $booking->update([
-            'driver_id' => $driverProfile->id,
-            'status' => 'completed',
-        ]);
-
-        return response()->json([
-            'booking_id' => $booking->id,
-            'status' => $booking->status,
-        ]);
-    }
 }

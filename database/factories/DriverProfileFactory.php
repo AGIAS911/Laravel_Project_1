@@ -20,7 +20,7 @@ class DriverProfileFactory extends Factory
             'user_id' => User::factory()->state(['role' => 'driver']),
             'license_number' => fake()->unique()->bothify('LIC-########'),
             'license_image' => 'licenses/'.Str::uuid().'.jpg',
-            'status' => 'active',
+            'status' => 'approved',
         ];
     }
 }

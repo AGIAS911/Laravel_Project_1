@@ -5,12 +5,16 @@ namespace App\Http\Controllers;
 use App\Models\DriverProfile;
 use App\Models\Review;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class DriverProfileController extends Controller
 {
-    public function show(DriverProfile $driverProfile): JsonResponse
+    public function show(Request $request, DriverProfile $driverProfile): JsonResponse
     {
-        $driverProfile->load('user');
+        $user = $request->user();
+        $canSeeDriver = $user && ($user->role === 'admin' || $user->id === $driverProfile->user_id
+            || $user->bookings()->where('driver_id', $driverProfile->id)
+                ->whereIn('status', ['confirmed', 'in_progress', 'completed'])->exists());
 
         $query = Review::forDriver($driverProfile->id);
         $summary = (clone $query)
@@ -22,10 +26,10 @@ class DriverProfileController extends Controller
             ->paginate(20);
 
         return response()->json([
-            'driver' => [
+            'driver' => $canSeeDriver ? [
                 'id' => $driverProfile->id,
                 'name' => $driverProfile->user->name,
-            ],
+            ] : null,
             'average_rating' => round((float) ($summary->average_rating ?? 0), 1),
             'reviews_count' => (int) $summary->reviews_count,
             'ratings' => $ratings->getCollection()

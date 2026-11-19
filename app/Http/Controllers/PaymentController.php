@@ -3,7 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Booking;
+use App\Models\MoveItNotification;
 use App\Models\Payment;
+use App\Models\User;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -54,35 +57,47 @@ class PaymentController extends Controller
     {
         $data = $request->validate([
             'booking_id' => ['required', 'integer'],
-            'amount' => ['required', 'numeric', 'min:0.001', 'max:9999999'],
+            'amount' => ['required', 'numeric', 'decimal:0,3', 'min:0.001', 'max:9999999'],
             'transfer_reference' => ['nullable', 'string', 'max:100'],
             'receipt_image' => ['required', 'file', 'mimes:jpg,jpeg,png,webp', 'mimetypes:image/jpeg,image/png,image/webp', 'max:4096'],
         ]);
 
-        DB::transaction(function () use ($request, $data) {
-            // Lock the booking so two quick submits cannot both create a pending proof.
-            $booking = $this->payableBooking($request, $data['booking_id'], true);
+        $path = null;
+        try {
+            DB::transaction(function () use ($request, $data, &$path) {
+                $booking = $this->payableBooking($request, $data['booking_id'], true);
+                if ($this->hasPending($booking)) {
+                    $this->fail('receipt_image', __('payments.already_pending'));
+                }
+                if (Payment::referenceInUse($data['transfer_reference'] ?? null)) {
+                    $this->fail('transfer_reference', __('payments.reference_used'));
+                }
 
-            if ($this->hasPending($booking)) {
-                $this->fail('receipt_image', __('payments.already_pending'));
+                $path = $request->file('receipt_image')->store('receipts', 'local');
+                abort_unless($path, 503, 'Could not save the receipt.');
+
+                Payment::create([
+                    'booking_id' => $booking->id,
+                    'purpose' => Payment::PURPOSE_DEPOSIT,
+                    'amount' => $data['amount'],
+                    'transfer_reference' => $data['transfer_reference'] ?? null,
+                    'receipt_image' => $path,
+                    'status' => Payment::STATUS_PENDING,
+                ]);
+
+                User::where('role', 'admin')->where('is_active', true)->select('id')->each(
+                    fn (User $admin) => MoveItNotification::bookingEvent($admin->id, $booking, 'A payment proof is ready for review.')
+                );
+            });
+        } catch (\Throwable $error) {
+            if ($path) {
+                Storage::disk('local')->delete($path);
             }
-
-            if (Payment::referenceInUse($data['transfer_reference'] ?? null)) {
+            if ($error instanceof UniqueConstraintViolationException) {
                 $this->fail('transfer_reference', __('payments.reference_used'));
             }
-
-            // Private disk: the file is never reachable by a public URL.
-            $path = $request->file('receipt_image')->store('receipts', 'local');
-
-            Payment::create([
-                'booking_id' => $booking->id,
-                'purpose' => Payment::PURPOSE_DEPOSIT,
-                'amount' => $data['amount'],
-                'transfer_reference' => $data['transfer_reference'] ?? null,
-                'receipt_image' => $path,
-                'status' => Payment::STATUS_PENDING,
-            ]);
-        });
+            throw $error;
+        }
 
         return redirect()->route('payments.index')
             ->with('success', __('payments.submitted'));
@@ -113,7 +128,10 @@ class PaymentController extends Controller
             $query->lockForUpdate();
         }
 
-        return $query->findOrFail($bookingId);
+        $booking = $query->findOrFail($bookingId);
+        abort_if($booking->deposit_due_at?->isPast(), 410, 'The deposit deadline has passed.');
+
+        return $booking;
     }
 
     private function hasPending(Booking $booking): bool

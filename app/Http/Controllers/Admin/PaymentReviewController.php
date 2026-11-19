@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
+use App\Models\MoveItNotification;
 use App\Models\Payment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -45,7 +46,7 @@ class PaymentReviewController extends Controller
     public function approve(Request $request, string $id)
     {
         $data = $request->validate([
-            'amount' => ['required', 'numeric', 'min:0.001', 'max:9999999'],
+            'amount' => ['required', 'numeric', 'decimal:0,3', 'min:0.001', 'max:9999999'],
         ]);
 
         DB::transaction(function () use ($request, $id, $data) {
@@ -85,7 +86,11 @@ class PaymentReviewController extends Controller
             // Compare in thousandths of a dinar to avoid float noise.
             if ((int) round($paid * 1000) >= (int) round($booking->deposit_amount * 1000)) {
                 $booking->update(['status' => 'confirmed']);
+                if ($booking->driver) {
+                    MoveItNotification::bookingEvent($booking->driver->user_id, $booking, 'The deposit was approved. The booking is confirmed.');
+                }
             }
+            MoveItNotification::bookingEvent($booking->customer_id, $booking, 'Your payment proof was approved.');
         });
 
         return redirect()->route('admin.payments.index')
@@ -111,6 +116,7 @@ class PaymentReviewController extends Controller
                 'reviewed_by' => $request->user()->id,
                 'reviewed_at' => now(),
             ]);
+            MoveItNotification::bookingEvent($payment->booking->customer_id, $payment->booking, 'Your payment proof was rejected.');
         });
 
         return redirect()->route('admin.payments.index')
