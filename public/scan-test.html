@@ -50,6 +50,13 @@
             border-bottom: 1px solid #ddd;
             list-style: none;
         }
+        .review-quantity {
+            box-sizing: border-box;
+            width: 5rem;
+            min-height: 44px;
+            margin-left: 1rem;
+            font: inherit;
+        }
     </style>
 </head>
 <body>
@@ -66,9 +73,20 @@
     </div>
 
     <div class="inventory">
-        <h2>Detected Furniture</h2>
+        <p>Visible objects: <strong id="visible-items">0</strong></p>
+        <h2>Session inventory</h2>
         <ul id="inventory-list"></ul>
         <h3>Total Items: <span id="total-items">0</span></h3>
+        <form id="review-form" hidden>
+            <h2>Review quantities</h2>
+            <ul id="review-list"></ul>
+            <button type="submit">Confirm inventory</button>
+        </form>
+        <section id="confirmed-inventory" hidden>
+            <h2>Confirmed inventory</h2>
+            <ul id="confirmed-list"></ul>
+            <p>Total confirmed: <strong id="confirmed-total">0</strong></p>
+        </section>
     </div>
 
     <script>
@@ -82,10 +100,17 @@
         const stopButton = document.getElementById('stop');
         const inventoryList = document.getElementById('inventory-list');
         const totalItems = document.getElementById('total-items');
+        const visibleItems = document.getElementById('visible-items');
+        const reviewForm = document.getElementById('review-form');
+        const reviewList = document.getElementById('review-list');
+        const confirmedInventory = document.getElementById('confirmed-inventory');
+        const confirmedList = document.getElementById('confirmed-list');
+        const confirmedTotal = document.getElementById('confirmed-total');
 
         let socket = null;
         let stream = null;
         let running = false;
+        let sessionInventory = null;
 
         stopButton.disabled = true;
 
@@ -110,14 +135,22 @@
                 video.srcObject = stream;
                 await video.play();
 
-                frame.width = overlay.width = video.videoWidth;
-                frame.height = overlay.height = video.videoHeight;
+                frame.width = Math.min(480, video.videoWidth);
+                frame.height = Math.max(
+                    1, Math.round(frame.width * video.videoHeight / video.videoWidth)
+                );
+                overlay.width = video.videoWidth;
+                overlay.height = video.videoHeight;
 
                 stopButton.disabled = false;
 
                 status.textContent = 'Camera ready. Connecting to AI...';
 
-                socket = new WebSocket('ws://127.0.0.1:8001/ws/detect');
+                const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+
+                socket = new WebSocket(
+                    `${protocol}//${location.host}/ws/detect`
+                );
 
                 const currentSocket = socket;
 
@@ -125,6 +158,9 @@
                     if (socket !== currentSocket || !running) return;
 
                     status.textContent = 'Connected to AI';
+                    sessionInventory = null;
+                    reviewForm.hidden = true;
+                    confirmedInventory.hidden = true;
                     updateInventory({}, 0);
                     sendFrame();
                 };
@@ -140,12 +176,13 @@
                         return;
                     }
 
-                    drawDetections(data.detections || []);
+                    const detections = data.detections || [];
+                    const pendingDetections = data.pending_detections || [];
+                    visibleItems.textContent = detections.length + pendingDetections.length;
+                    drawDetections(detections, pendingDetections);
 
-                    updateInventory(
-                        data.inventory || {},
-                        data.total_items || 0
-                    );
+                    sessionInventory = data.inventory || {};
+                    updateInventory(sessionInventory, data.total_items || 0);
 
                     requestAnimationFrame(sendFrame);
                 };
@@ -192,44 +229,88 @@
                 ) {
                     currentSocket.send(blob);
                 }
-            }, 'image/jpeg', 0.7);
+            }, 'image/jpeg', 0.55);
         }
 
-        function drawDetections(detections) {
+        function drawDetections(detections, pendingDetections) {
             ctx.clearRect(0, 0, overlay.width, overlay.height);
 
-            detections.forEach(item => {
-                const [x1, y1, x2, y2] = item.bbox;
+            const scaleX = overlay.width / frame.width;
+            const scaleY = overlay.height / frame.height;
 
-                ctx.strokeStyle = '#00ff00';
+            [...pendingDetections, ...detections].forEach(item => {
+                const [x1, y1, x2, y2] = item.bbox;
+                const x = x1 * scaleX;
+                const y = y1 * scaleY;
+
+                const pending = item.object_id == null;
+                const color = pending ? '#ffcf4a' : '#00ff00';
+                ctx.strokeStyle = color;
                 ctx.lineWidth = 3;
 
-                ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+                ctx.strokeRect(x, y, (x2 - x1) * scaleX, (y2 - y1) * scaleY);
 
-                ctx.fillStyle = '#00ff00';
+                ctx.fillStyle = color;
                 ctx.font = '18px Arial';
 
                 const confidence = Math.round(item.confidence * 100);
+                const identity = pending ? 'pending' : `#${item.object_id}`;
 
                 ctx.fillText(
-                    `${item.label} #${item.object_id} ${confidence}%`,
-                    x1,
-                    Math.max(20, y1 - 8)
+                    `${item.label} ${identity} ${confidence}%`,
+                    x,
+                    Math.max(20, y - 8)
                 );
             });
         }
 
         function updateInventory(inventory, total) {
-            inventoryList.replaceChildren();
-
-            Object.entries(inventory).forEach(([label, quantity]) => {
-                const li = document.createElement('li');
-                li.textContent = `${label}: ${quantity}`;
-                inventoryList.appendChild(li);
-            });
-
+            renderInventory(inventoryList, Object.entries(inventory));
             totalItems.textContent = total;
         }
+
+        function renderInventory(list, entries) {
+            list.replaceChildren();
+            entries.forEach(([label, quantity]) => {
+                const li = document.createElement('li');
+                li.textContent = `${label}: ${quantity}`;
+                list.appendChild(li);
+            });
+        }
+
+        function showReview() {
+            if (sessionInventory === null || !confirmedInventory.hidden || !reviewForm.hidden) return;
+
+            reviewList.replaceChildren();
+            for (const [label, quantity] of Object.entries(sessionInventory)) {
+                const row = document.createElement('li');
+                const fieldLabel = document.createElement('label');
+                const input = document.createElement('input');
+                input.type = 'number';
+                input.name = label;
+                input.min = '0';
+                input.max = String(Number.MAX_SAFE_INTEGER);
+                input.step = '1';
+                input.required = true;
+                input.value = quantity;
+                input.className = 'review-quantity';
+                fieldLabel.append(label, input);
+                row.appendChild(fieldLabel);
+                reviewList.appendChild(row);
+            }
+            reviewForm.hidden = false;
+        }
+
+        reviewForm.onsubmit = (event) => {
+            event.preventDefault();
+            const entries = [...new FormData(reviewForm)]
+                .map(([label, quantity]) => [label, Number(quantity)])
+                .filter(([, quantity]) => quantity > 0);
+            renderInventory(confirmedList, entries);
+            confirmedTotal.textContent = entries.reduce((total, [, quantity]) => total + quantity, 0);
+            confirmedInventory.hidden = false;
+            reviewForm.hidden = true;
+        };
 
         function stopCamera() {
             running = false;
@@ -248,6 +329,8 @@
             video.srcObject = null;
 
             ctx.clearRect(0, 0, overlay.width, overlay.height);
+            visibleItems.textContent = '0';
+            showReview();
 
             startButton.disabled = false;
             stopButton.disabled = true;
