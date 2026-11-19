@@ -15,9 +15,14 @@ class VehicleController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $driver = $this->managingDriver(request());
+        $user = $request->user();
+        if ($user->role === 'driver' && $user->driverProfile?->status !== 'approved') {
+            return redirect()->route($user->driverProfile ? 'driver.dashboard' : 'driver.profile.edit');
+        }
+
+        $driver = $this->managingDriver($request);
         $vehicles = Vehicle::with(['vehicleType', 'driver'])
             ->when($driver, fn ($query) => $query->where('driver_id', $driver->id))
             ->withCount('bookings')

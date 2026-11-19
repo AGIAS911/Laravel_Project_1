@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Booking;
 use App\Models\MoveItNotification;
 use App\Models\Payment;
+use App\Models\PlatformSetting;
 use App\Models\User;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
@@ -12,6 +13,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
+use App\Models\Service;
+use App\Models\Vehicle;
+use Carbon\Carbon;
 /**
  * Customer side of CliQ deposit payments (upload receipt, see payment history).
  */
@@ -47,7 +51,10 @@ class PaymentController extends Controller
                 ->with('success', __('payments.already_pending'));
         }
 
-        return view('payments.create', compact('booking'));
+        $beneficiary = PlatformSetting::values();
+        $previousProof = $booking->payments()->latest('id')->first();
+
+        return view('payments.create', compact('booking', 'beneficiary', 'previousProof'));
     }
 
     /**

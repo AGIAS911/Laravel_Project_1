@@ -1,12 +1,12 @@
-@extends('layouts.app')
+@extends('layouts.dashboard')
+
+@section('page-title', 'Review proof #' . $payment->id)
+
+@section('actions')
+    <a class="btn btn-outline-secondary" href="{{ route('admin.payments.index') }}">{{ __('payments.back') }}</a>
+@endsection
 
 @section('content')
-<div class="container">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1 class="h4 mb-0">{{ __('payments.details_title') }} #{{ $payment->id }}</h1>
-        <a class="btn btn-outline-secondary" href="{{ route('admin.payments.index') }}">{{ __('payments.back') }}</a>
-    </div>
-
     @if ($errors->any())
         <div class="alert alert-danger" role="alert">
             <ul class="mb-0">
@@ -17,7 +17,19 @@
         </div>
     @endif
 
-    <dl class="row border rounded bg-white p-3 p-md-4">
+    <div class="row g-4">
+        <section class="col-lg-7">
+            <div class="card card-body">
+                <h2 class="h5 workspace-heading">Receipt image</h2>
+                <a href="{{ route('payments.receipt', $payment->id) }}" target="_blank" rel="noopener">
+                    <img src="{{ route('payments.receipt', $payment->id) }}" alt="{{ __('payments.view_receipt') }}" class="img-fluid rounded" style="max-height:480px">
+                </a>
+            </div>
+        </section>
+        <div class="col-lg-5">
+            <section class="card card-body mb-3">
+                <h2 class="h5 workspace-heading">Transfer details</h2>
+    <dl class="row mb-0">
         @foreach ([
             __('payments.booking') => '#' . $payment->booking_id . ' · ' . ucfirst($payment->booking->status),
             __('payments.customer') => $payment->booking->customer?->name,
@@ -37,16 +49,12 @@
         @endforeach
     </dl>
 
-    <div class="border rounded bg-white p-3 mb-3">
-        <img src="{{ route('payments.receipt', $payment->id) }}" alt="{{ __('payments.view_receipt') }}"
-            class="img-fluid" style="max-height: 480px;">
-    </div>
-
+            </section>
     @if ($payment->status === 'pending')
-        <div class="row g-3">
-            <div class="col-md-6">
+        <div class="d-grid gap-3">
+            <div >
                 <form method="POST" action="{{ route('admin.payments.approve', $payment->id) }}"
-                    class="border rounded bg-white p-3">
+                    class="card card-body">
                     @csrf
                     <label class="form-label" for="amount">{{ __('payments.approve_amount') }}</label>
                     <input class="form-control mb-2" type="number" step="0.001" min="0.001" id="amount"
@@ -54,9 +62,9 @@
                     <button class="btn btn-success" type="submit">{{ __('payments.approve') }}</button>
                 </form>
             </div>
-            <div class="col-md-6">
+            <div >
                 <form method="POST" action="{{ route('admin.payments.reject', $payment->id) }}"
-                    class="border rounded bg-white p-3">
+                    class="card card-body">
                     @csrf
                     <label class="form-label" for="rejection_reason">{{ __('payments.reject_reason') }}</label>
                     <textarea class="form-control mb-2" id="rejection_reason" name="rejection_reason" rows="2"
@@ -66,5 +74,6 @@
             </div>
         </div>
     @endif
-</div>
+    </div>
+    </div>
 @endsection

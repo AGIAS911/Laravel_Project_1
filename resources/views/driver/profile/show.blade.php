@@ -12,7 +12,7 @@
         <p><strong>License Number:</strong> {{ $driver->license_number }}</p>
         <p><strong>Status:</strong> {{ $driver->status }}</p>
         @if($driver->license_image)
-            <p><img src="{{ asset('storage/' . $driver->license_image) }}" width="200"></p>
+            <p><img src="{{ route('drivers.license', $driver) }}" width="200" alt="Driver license"></p>
         @endif
 
         <div>

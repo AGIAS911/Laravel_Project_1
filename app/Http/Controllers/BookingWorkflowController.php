@@ -6,6 +6,7 @@ use App\Models\Booking;
 use App\Models\DriverProfile;
 use App\Models\MoveItNotification;
 use App\Models\PricingRule;
+use App\Models\PlatformSetting;
 use App\Models\Review;
 use App\Models\Service;
 use App\Models\Vehicle;
@@ -50,14 +51,25 @@ class BookingWorkflowController extends Controller
 
     public function submit(Request $request, Booking $booking)
     {
+        return $this->priceDraft($request, $booking, true);
+    }
+
+    public function quote(Request $request, Booking $booking)
+    {
+        return $this->priceDraft($request, $booking, false);
+    }
+
+    private function priceDraft(Request $request, Booking $booking, bool $submit)
+    {
         abort_unless($booking->customer_id === $request->user()->id, 404);
         abort_unless($booking->status === 'draft', 409);
+        $expected = $submit ? $request->validate(['expected_total' => 'sometimes|regex:/^\d{1,7}\.\d{3}$/D']) : [];
 
         $coordinates = $booking->only(['pickup_latitude', 'pickup_longitude', 'destination_latitude', 'destination_longitude']);
         abort_if(in_array(null, $coordinates, true), 422, 'Both locations are required.');
         $meters = $this->routeDistance($coordinates);
 
-        return DB::transaction(function () use ($booking, $coordinates, $meters) {
+        return DB::transaction(function () use ($booking, $coordinates, $meters, $submit, $expected) {
             $booking = Booking::lockForUpdate()->findOrFail($booking->id);
             abort_unless($booking->status === 'draft' && $booking->only(array_keys($coordinates)) === $coordinates, 409);
             abort_unless($booking->scheduled_start_at?->isFuture()
@@ -78,8 +90,9 @@ class BookingWorkflowController extends Controller
             abort_unless($vehicle->driver_id === $driver->id, 409);
             $this->ensureAvailable($booking, $driver, $vehicle);
 
-            $deposit = $this->percentage('deposit_percent', 0.01);
-            $commission = $this->percentage('commission_percent', 0);
+            $settings = PlatformSetting::values();
+            $deposit = $this->percentage($settings['deposit_percent'], 0.01);
+            $commission = $this->percentage($settings['commission_percent'], 0);
             $time = $booking->scheduled_start_at->copy()->timezone('Asia/Amman');
             $rules = PricingRule::where('is_active', true)
                 ->where(fn ($query) => $query->whereNull('day_of_week')->orWhere('day_of_week', $time->dayOfWeek))
@@ -92,8 +105,10 @@ class BookingWorkflowController extends Controller
             $total = intdiv($transport * $this->milli($rules->first()?->multiplier ?? '1') + 500, 1000)
                 + $services->sum(fn ($line) => $this->milli($line->unit_price) * $line->quantity);
             abort_unless($total > 0 && $total <= 9999999999, 422, 'The booking total is outside the supported range.');
+            abort_if(isset($expected['expected_total']) && $expected['expected_total'] !== $this->formatMilli($total),
+                409, 'The quote changed. Calculate it again before sending.');
 
-            $booking->update([
+            $values = [
                 'driver_id' => $driver->id,
                 'distance_km' => number_format($meters / 1000, 2, '.', ''),
                 'total_price' => $this->formatMilli($total),
@@ -101,10 +116,16 @@ class BookingWorkflowController extends Controller
                 'commission_rate' => number_format($commission / 100, 2, '.', ''),
                 'commission_amount' => $this->formatMilli(intdiv($total * $commission + 5000, 10000)),
                 'status' => 'pending',
-            ]);
-            MoveItNotification::bookingEvent($driver->user_id, $booking, 'A new booking request was submitted.');
+            ];
+            if ($submit) {
+                $booking->update($values);
+                MoveItNotification::bookingEvent($driver->user_id, $booking, 'A new booking request was submitted.');
+            }
 
-            return response()->json($booking->only(['id', 'status', 'distance_km', 'total_price', 'deposit_amount']));
+            return response()->json([
+                'id' => $booking->id, 'status' => $booking->status,
+                ...\Illuminate\Support\Arr::only($values, ['distance_km', 'total_price', 'deposit_amount']),
+            ]);
         }, 3);
     }
 
@@ -122,7 +143,7 @@ class BookingWorkflowController extends Controller
             abort_unless($vehicle->driver_id === $driver->id, 409);
             $this->ensureAvailable($booking, $driver, $vehicle);
 
-            $minutes = filter_var(config('booking.deposit_minutes'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+            $minutes = filter_var(PlatformSetting::values()['deposit_minutes'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
             abort_unless($minutes !== false, 503, 'Deposit deadline is not configured.');
             $booking->update([
                 'status' => 'awaiting_deposit',
@@ -238,9 +259,9 @@ class BookingWorkflowController extends Controller
         ]]];
     }
 
-    private function percentage(string $key, float $minimum): int
+    private function percentage($input, float $minimum): int
     {
-        $value = (string) config('booking.'.$key);
+        $value = (string) $input;
         abort_unless(preg_match('/^\d{1,3}(?:\.\d{1,2})?$/D', $value)
             && (float) $value >= $minimum && (float) $value <= 100, 503, 'Booking rates are not configured.');
 

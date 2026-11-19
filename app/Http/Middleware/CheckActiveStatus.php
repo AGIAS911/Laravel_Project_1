@@ -10,10 +10,17 @@ class CheckActiveStatus
 {
     public function handle(Request $request, Closure $next): Response
     {
-        if (Auth::check() && Auth::user()->is_active == false) {
+        $user = $request->user();
+        $profile = $user?->role === 'driver' ? $user->driverProfile : null;
+
+        if ($user && (!$user->is_active || ($profile && $profile->status !== 'approved'))) {
             Auth::logout();
             $request->session()->invalidate();
             $request->session()->regenerateToken();
+
+            if ($profile?->status === 'pending') {
+                return redirect()->route('driver.application.pending');
+            }
 
             return redirect('/login')->withErrors([
                 'email' => 'Your account is being modified or has been suspended by the administration.'

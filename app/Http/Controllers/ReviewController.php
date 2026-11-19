@@ -168,6 +168,10 @@ class ReviewController extends Controller
             );
         });
 
-        return view('admin.drivers.index', compact('drivers'));
+        $recentReviews = Review::with(['booking.customer', 'booking.driver.user'])
+            ->whereHas('booking', fn ($bookings) => $bookings->where('status', 'completed'))
+            ->latest()->paginate(20, ['*'], 'reviews');
+
+        return view('admin.drivers.index', compact('drivers', 'recentReviews'));
     }
 }

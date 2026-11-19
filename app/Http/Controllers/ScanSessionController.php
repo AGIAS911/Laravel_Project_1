@@ -53,6 +53,7 @@ class ScanSessionController extends Controller
             'scan_url' => $scanUrl,
             'expires_at' => $scanSession->pairing_expires_at,
             'status_url' => route('scan-sessions.show', [$booking, $scanSession], false),
+            'close_url' => route('scan-sessions.close', [$booking, $scanSession], false),
         ], 201)->header('Cache-Control', 'no-store');
     }
 
@@ -129,18 +130,16 @@ class ScanSessionController extends Controller
             $booking = Booking::lockForUpdate()->findOrFail($session->booking_id);
             abort_unless($booking->status === 'draft', 409);
             $session = $this->deviceSession($request, lock: true);
-            $keys = [];
             foreach ($data['items'] as $item) {
                 $key = 'summary:'.$item['item_type'];
-                $keys[] = $key;
                 $saved = $session->inventoryItems()->firstOrNew(['tracking_key' => $key]);
                 if (!$saved->exists || $saved->status === 'suggested') {
+                    $item['quantity'] = max($item['quantity'], $saved->quantity ?? 0);
                     $saved->fill($item + [
                         'booking_id' => $booking->id, 'source' => 'ai', 'status' => 'suggested',
                     ])->save();
                 }
             }
-            $session->inventoryItems()->where('status', 'suggested')->whereNotIn('tracking_key', $keys)->delete();
         });
 
         return response()->noContent();

@@ -11,13 +11,22 @@ use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $pendingDrivers = User::with('driverProfile')->where('role', 'driver')->where('is_active', false)->get();
-        $activeDrivers = User::with('driverProfile')->where('role', 'driver')->where('is_active', true)->get();
-        $customers = User::where('role', 'customer')->get();
+        if (!$request->routeIs('admin.driver-approvals')) {
+            return view('admin.users.list', ['users' => User::latest('id')->paginate(20)]);
+        }
 
-        return view('admin.users.index', compact('pendingDrivers', 'activeDrivers', 'customers'));
+        $tabs = ['pending' => 'Pending approval', 'approved' => 'Approved', 'rejected' => 'Rejected', 'suspended' => 'Suspended'];
+        $status = $request->query('status');
+        $status = is_string($status) && isset($tabs[$status]) ? $status : 'pending';
+        $drivers = User::where('role', 'driver')
+            ->whereHas('driverProfile', fn ($profiles) => $profiles->where('status', $status))
+            ->with(['driverProfile' => fn ($profiles) => $profiles->withCount('vehicles')])
+            ->latest('id')->paginate(20)->withQueryString();
+        $pendingCount = \App\Models\DriverProfile::where('status', 'pending')->count();
+
+        return view('admin.users.index', compact('drivers', 'tabs', 'status', 'pendingCount'));
     }
 
     public function store(Request $request)
@@ -72,6 +81,7 @@ class UserController extends Controller
     {
         abort_unless($user->role === 'driver', 404);
         DB::transaction(function () use ($user, $status, $reason) {
+            $user = User::lockForUpdate()->findOrFail($user->id);
             $driver = $user->driverProfile()->lockForUpdate()->firstOrFail();
             $changed = $driver->status !== $status || $driver->status_reason !== $reason;
             $driver->forceFill(['status' => $status, 'status_reason' => $reason])->save();

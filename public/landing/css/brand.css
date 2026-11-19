@@ -1,0 +1,21 @@
+/* Shared MoveIt wordmark. The surrounding surface controls the text color. */
+.moveit-brand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 29px;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -.09em;
+  white-space: nowrap;
+  color: #123342;
+}
+.moveit-brand span { color: #cc343b; }
+.moveit-brand::after { content: "→"; color: #cc343b; margin-left: 5px; }
+.masthead .moveit-brand { color: #fff; }
+.auth-box .moveit-brand { margin-bottom: 24px; }
+.site-footer .moveit-brand { margin-bottom: 12px; }
+@media (max-width: 560px) {
+  .moveit-brand { font-size: 24px; }
+}

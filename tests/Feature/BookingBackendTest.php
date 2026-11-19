@@ -18,6 +18,44 @@ class BookingBackendTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_contact_messages_and_platform_settings_are_available_only_to_admins(): void
+    {
+        $this->from(route('info.contact'))->post(route('info.contact.store'), [
+            'name' => 'Test Customer', 'email' => 'customer@example.test',
+            'subject' => 'Availability', 'message' => 'Do you serve Amman?',
+        ])->assertRedirect(route('info.contact'));
+        $customer = User::factory()->create();
+        $this->actingAs($customer)->get(route('admin.inbox'))->assertForbidden();
+        $this->get(route('notifications.index'))->assertOk();
+
+        $this->actingAs(User::factory()->create(['role' => 'admin']));
+        $this->get(route('admin.inbox'))->assertOk()->assertSee('Do you serve Amman?');
+        $booking = Booking::factory()->for($customer, 'customer')->create(['created_at' => now()]);
+        $this->get(route('admin.dashboard'))->assertOk()
+            ->assertSee('Pending receipts')
+            ->assertSee('Bookings in the last 7 days')
+            ->assertSee(now('Asia/Amman')->format('d M Y') . ': 1 bookings')
+            ->assertSee('Latest bookings')
+            ->assertSee(route('booking.show', $booking));
+        $this->get(route('admin.reports'))->assertOk()->assertSee('Approved deposits');
+        foreach ([
+            'admin.users.index', 'admin.driver-approvals', 'vehicle-types.index', 'vehicles.index',
+            'services.index', 'booking.index', 'admin.payments.index', 'admin.driver-reviews.index',
+            'admin.reports', 'admin.settings', 'admin.inbox', 'notifications.index',
+        ] as $screen) {
+            $this->get(route($screen))->assertOk()
+                ->assertSee('id="admin-sidebar"', false)
+                ->assertSee('class="admin-topbar"', false);
+        }
+        $this->get(route('admin.pricing-rules.index'))->assertOk()->assertSee('New pricing rule');
+        $this->from(route('admin.settings'))->put(route('admin.settings.update'), [
+            'deposit_percent' => '20', 'commission_percent' => '10', 'deposit_minutes' => '30',
+            'clik_name' => 'Test Beneficiary', 'clik_id' => 'TEST',
+        ])->assertRedirect(route('admin.settings'))->assertSessionHasNoErrors();
+        $this->get(route('admin.settings'))->assertOk()->assertSee('Test Beneficiary');
+        $this->assertSame('TEST', \App\Models\PlatformSetting::values()['clik_id']);
+    }
+
     public function test_expiry_releases_only_holds_without_a_pending_receipt(): void
     {
         [$expired, $underReview] = Booking::factory()->count(2)->create([
@@ -84,6 +122,10 @@ class BookingBackendTest extends TestCase
         $this->actingAs($customer)->postJson(route('bookings.inventory.store', $booking), [
             'item_type' => 'sofa', 'quantity' => 1,
         ])->assertCreated();
+        $this->get(route('booking.show', $booking))->assertOk()->assertSee('Calculate quote');
+        $this->postJson(route('bookings.quote', $booking))
+            ->assertOk()->assertJsonPath('status', 'draft')->assertJsonPath('total_price', '20.000');
+        $this->postJson(route('bookings.submit', $booking), ['expected_total' => '19.000'])->assertConflict();
         $this->getJson(route('bookings.vehicles', $window))->assertOk()->assertJsonPath('data.0.id', $vehicle->id)
             ->assertJsonMissingPath('data.0.plate_number')->assertJsonMissingPath('data.0.driver_id');
         $this->postJson(route('bookings.submit', $booking))
@@ -92,12 +134,28 @@ class BookingBackendTest extends TestCase
         $this->patchJson(route('driver.bookings.accept', $booking))->assertOk()
             ->assertJsonPath('status', 'awaiting_deposit');
         $this->patchJson(route('driver.bookings.accept', $booking))->assertOk();
+        $this->get(route('driver.bookings.index', ['view' => 'requests']), ['Accept' => 'text/html'])
+            ->assertOk()->assertSee('New requests')->assertDontSee(route('booking.show', $booking));
+        $this->get(route('driver.schedule'))->assertOk()->assertSee(route('booking.show', $booking));
+
+        $this->actingAs($customer)->get(route('booking.index', ['status' => 'awaiting_deposit', 'q' => $booking->id]))
+            ->assertOk()->assertSee('My bookings')->assertSee(route('booking.show', $booking));
+        $this->get(route('booking.index', ['status' => 'draft', 'q' => $booking->id]))
+            ->assertOk()->assertDontSee(route('booking.show', $booking));
+        $this->get(route('booking.create'))->assertOk()->assertSee('Locations and schedule');
+        $this->get(route('payments.index'))->assertOk()->assertSee('Payment proof history');
+
+        $this->actingAs($customer)->get(route('booking.show', $booking))
+            ->assertOk()->assertSee(route('payments.create', ['booking_id' => $booking->id]));
+        $this->get(route('payments.create', ['booking_id' => $booking->id]))
+            ->assertOk()->assertSee('Transfer details')->assertSee(route('payments.store'));
+
         $this->assertSame(1, $customer->notifications()->count());
         $other = Booking::factory()->for($vehicle)->create([
             'driver_id' => $driver->id, 'status' => 'pending', 'deposit_amount' => '4.000',
             'scheduled_start_at' => $booking->scheduled_start_at, 'scheduled_end_at' => $booking->scheduled_end_at,
         ]);
-        $this->patchJson(route('driver.bookings.accept', $other))->assertConflict();
+        $this->actingAs($driver->user)->patchJson(route('driver.bookings.accept', $other))->assertConflict();
         $this->patchJson(route('driver.bookings.complete', $booking))->assertConflict();
 
         Storage::fake('local');
@@ -110,6 +168,10 @@ class BookingBackendTest extends TestCase
         $this->assertTrue(Payment::referenceInUse('test-123'));
         $payment = $booking->payments()->firstOrFail();
         Storage::disk('local')->assertExists($payment->receipt_image);
+        $this->actingAs(User::factory()->create(['role' => 'admin']))
+            ->get(route('admin.payments.show', $payment))->assertOk()
+            ->assertSee('Receipt image')->assertSee('Transfer details')
+            ->assertSee(route('payments.receipt', $payment));
         $this->actingAs(User::factory()->create(['role' => 'admin']))
             ->post(route('admin.payments.approve', $payment), ['amount' => '4.000'])
             ->assertRedirect(route('admin.payments.index'))->assertSessionHasNoErrors();
@@ -135,7 +197,13 @@ class BookingBackendTest extends TestCase
         $this->postJson('/api/scanner/pair', ['pairing_token' => $token])->assertNotFound();
         $items = ['items' => [['item_type' => 'sofa', 'quantity' => 1]]];
         $this->putJson('/api/scanner/inventory', $items)->assertUnauthorized();
-        $this->withToken($device)->putJson('/api/scanner/inventory', $items)->assertNoContent();
+        $this->withToken($device);
+        for ($frame = 0; $frame < 120; $frame++) {
+            $this->getJson('/api/scanner/device')->assertNoContent();
+        }
+        $this->putJson('/api/scanner/inventory', $items)->assertNoContent();
+        $this->putJson('/api/scanner/inventory', ['items' => [['item_type' => 'chair', 'quantity' => 1]]])->assertNoContent();
+        $this->assertDatabaseHas('inventory_items', ['booking_id' => $booking->id, 'item_type' => 'sofa', 'status' => 'suggested']);
         $item = $booking->inventoryItems()->firstOrFail();
         $this->assertSame('suggested', $item->status);
         $this->putJson(route('bookings.inventory.update', [$booking, $item]), [

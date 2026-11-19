@@ -21,8 +21,19 @@ class HomeController extends Controller
      *
      * @return \Illuminate\Contracts\Support\Renderable
      */
-    public function index()
+    public function index(Request $request)
     {
-        return view('home');
+        $user = $request->user();
+        $counts = [];
+        $recentBookings = collect();
+        $recentNotifications = collect();
+        if ($user->role === 'customer') {
+            $counts = $user->bookings()->selectRaw('status, COUNT(*) AS total')
+                ->groupBy('status')->pluck('total', 'status')->all();
+            $recentBookings = $user->bookings()->latest()->limit(5)->get();
+            $recentNotifications = $user->notifications()->latest()->limit(3)->get();
+        }
+
+        return view('home', compact('counts', 'recentBookings', 'recentNotifications'));
     }
 }

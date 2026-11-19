@@ -12,6 +12,11 @@ class VehicleTypeController extends Controller
 {
     public function index()
     {
+        if (request()->user()?->role !== 'admin') {
+            $vehicleTypes = VehicleType::where('is_active', true)->paginate(12);
+
+            return view('info.vehicles', compact('vehicleTypes'));
+        }
         $vehicleTypes = VehicleType::withCount('vehicles')->latest()->paginate(10);
 
         return view('vehicle-types.index', compact('vehicleTypes'));
