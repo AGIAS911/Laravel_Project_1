@@ -158,6 +158,7 @@ Route::middleware(['auth', 'active', 'role:admin'])->prefix('admin/payments')->n
 
 Route::middleware(['auth', 'active', 'role:customer'])->scopeBindings()->group(function () {
     Route::get('/bookings/{booking}/scan', [ScanSessionController::class, 'workspace'])->name('scan-sessions.workspace');
+    Route::get('/bookings/{booking}/scan/inventory', [ScanSessionController::class, 'inventory'])->name('scan-sessions.inventory');
     Route::post('/bookings/{booking}/scan-sessions', [ScanSessionController::class, 'store'])
         ->name('scan-sessions.store');
     Route::get('/bookings/{booking}/scan-sessions/{scanSession}', [ScanSessionController::class, 'show'])

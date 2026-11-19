@@ -12,6 +12,13 @@
     const submit = form.querySelector('button[type="submit"]');
     const copy = panel.querySelector('#scan-copy');
     const csrf = form.elements._token.value;
+    const mobile = navigator.userAgentData?.mobile
+        || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+        || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (mobile) {
+        submit.textContent = 'Scan with this phone';
+        panel.querySelector('#scan-instructions').textContent = 'Open the camera on this phone. Review detected items here after scanning.';
+    }
     let session;
     let timer;
     let busy = false;
@@ -77,11 +84,17 @@
             await endSession();
             submit.disabled = true;
             showState('Generating QR code…');
+            const body = new FormData(form);
+            if (mobile) body.append('direct', '1');
             const response = await fetch(panel.dataset.scanUrl, {
-                method: 'POST', headers: { Accept: 'application/json' }, body: new FormData(form),
+                method: 'POST', headers: { Accept: 'application/json' }, body,
             });
             const data = await response.json();
             if (!response.ok) throw new Error(data.errors?.room_name?.[0] || data.message);
+            if (mobile) {
+                location.assign(data.scan_url);
+                return;
+            }
             setSession(data);
             showState('Waiting for your phone…');
             watch(data);
@@ -120,18 +133,4 @@
         }
     });
 
-    const preview = document.getElementById('scan-demo-video');
-    const previewState = document.getElementById('scan-preview-state');
-    preview.addEventListener('play', () => previewState.textContent = 'Preview playing');
-    preview.addEventListener('pause', () => previewState.textContent = 'Preview paused');
-    for (const button of document.querySelectorAll('[data-scan-preview]')) {
-        button.addEventListener('click', async () => {
-            if (button.dataset.scanPreview === 'play') {
-                try { await preview.play(); } catch { previewState.textContent = 'Preview unavailable'; }
-                return;
-            }
-            preview.pause();
-            if (button.dataset.scanPreview === 'stop') preview.currentTime = 0;
-        });
-    }
 })();

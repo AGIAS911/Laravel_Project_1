@@ -14,6 +14,14 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
+use App\Models\VehicleType;
+use App\Models\PlatformSetting;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
+use App\Models\ScanSession;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Auth;
+use Carbon\Carbon;
 class BookingBackendTest extends TestCase
 {
     use RefreshDatabase;
@@ -189,6 +197,8 @@ class BookingBackendTest extends TestCase
         $this->assertTrue(Payment::referenceInUse('test-123'));
         $payment = $booking->payments()->firstOrFail();
         Storage::disk('local')->assertExists($payment->receipt_image);
+        $this->get(route('booking.show', $booking))->assertOk()
+            ->assertSee('Receipt under review')->assertSee('View payment status');
         $this->actingAs(User::factory()->create(['role' => 'admin']))
             ->get(route('admin.payments.show', $payment))->assertOk()
             ->assertSee('Receipt image')->assertSee('Transfer details')->assertSee('Verified amount')
@@ -229,6 +239,8 @@ class BookingBackendTest extends TestCase
         $this->putJson('/api/scanner/inventory', $items)->assertNoContent();
         $this->putJson('/api/scanner/inventory', ['items' => [['item_type' => 'chair', 'quantity' => 1]]])->assertNoContent();
         $this->assertDatabaseHas('inventory_items', ['booking_id' => $booking->id, 'item_type' => 'sofa', 'status' => 'suggested']);
+        $this->get(route('scan-sessions.inventory', ['booking' => $booking, 'scan_only' => 1]))
+            ->assertOk()->assertSee('2 suggested')->assertSee('chair')->assertSee('sofa');
         $item = $booking->inventoryItems()->firstOrFail();
         $this->assertSame('suggested', $item->status);
         $this->putJson(route('bookings.inventory.update', [$booking, $item]), [
@@ -238,6 +250,13 @@ class BookingBackendTest extends TestCase
         $this->assertSame(2, $item->refresh()->quantity);
         $this->deleteJson(route('scan-sessions.close', [$booking, $session['scan_session_id']]))->assertNoContent();
         $this->getJson('/api/scanner/device')->assertUnauthorized();
+
+        $direct = $this->postJson(route('scan-sessions.store', $booking), [
+            'room_name' => 'Study', 'direct' => true,
+        ])->assertCreated()->assertJsonPath('qr_code', null)->json();
+        parse_str(parse_url($direct['scan_url'], PHP_URL_FRAGMENT), $fragment);
+        $this->assertSame((string) $booking->id, $fragment['booking']);
+        $this->postJson('/api/scanner/pair', ['pairing_token' => $fragment['token']])->assertOk();
     }
 
     public function test_commission_report_export_respects_booking_search(): void
@@ -275,7 +294,7 @@ class BookingBackendTest extends TestCase
 
         $this->post(route('booking.store'))->assertRedirect();
         $draft = $customer->bookings()->sole();
-        $page = $this->get(route('booking.show', $draft))->assertOk()->assertSee('Furniture inventory');
+        $page = $this->get(route('booking.show', $draft))->assertOk()->assertSee('Furniture inventory')->assertSee('Confirm furniture')->assertSee('Draft checklist');
         $page->assertSee(route('scan-sessions.workspace', $draft));
         $this->assertSame(1, substr_count($page->getContent(), 'id="inventory"'));
         $edit = route('booking.edit', $draft);
@@ -312,7 +331,11 @@ class BookingBackendTest extends TestCase
         $response->assertRedirect(route('scan-sessions.workspace', $scanDraft));
         $this->get(route('scan-sessions.workspace', $scanDraft))->assertOk()
             ->assertSee('Use your phone camera')->assertSee('Detected items')
+            ->assertSee('Continue to locations and schedule')
+            ->assertSee(route('booking.edit', $scanDraft))
+            ->assertDontSee('scan-demo-video')
             ->assertSee(route('scan-sessions.store', $scanDraft, false));
+        $this->get(route('booking.edit', $scanDraft))->assertOk();
 
         $scanDraft->inventoryItems()->create([
             'source' => 'ai', 'status' => 'suggested', 'item_type' => 'sofa', 'quantity' => 2,

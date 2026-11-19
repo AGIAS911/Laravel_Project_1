@@ -16,13 +16,11 @@
 @endsection
 
 @section('content')
-    <p data-workflow-status class="fw-semibold" role="status"></p>
-    @if ($draft)
-        @include('booking._steps', [
-            'current' => 'inventory',
-            'links' => ['locations' => route('booking.edit', $booking), 'vehicle' => route('booking.edit', $booking).'#vehicle-selection', 'services' => '#services', 'review' => '#review'],
-        ])
+    <p data-workflow-status class="booking-workflow-message" role="status"></p>
+    @if ($owner)
+        @include('booking._journey')
     @endif
+
 
     <div class="row g-4">
         <div class="col-lg-8">
@@ -103,6 +101,12 @@
     <section class="card mb-3">
             <div class="card-body">
                 <h2 class="h5 workspace-heading" id="review">Review and send</h2>
+                <p class="small text-body-secondary">Calculate your quote to see the total and required deposit before sending the request.</p>
+                <div class="booking-quote mb-3" data-booking-quote hidden aria-live="polite">
+                    <div><span>Road distance</span><strong data-quote-distance></strong></div>
+                    <div><span>Total</span><strong data-quote-total></strong></div>
+                    <div><span>Deposit</span><strong data-quote-deposit></strong></div>
+                </div>
                 <div class="d-flex flex-wrap gap-2">
                     <form data-workflow-form="quote" method="POST" action="{{ route('bookings.quote', $booking, false) }}">
                         @csrf
@@ -145,16 +149,17 @@
             </div>
 
     @if ($owner && in_array($booking->status, ['pending', 'awaiting_deposit'], true))
-        @if ($booking->status === 'awaiting_deposit')
-            <a class="btn btn-primary w-100" href="{{ route('payments.create', ['booking_id' => $booking->id]) }}">Pay deposit or view receipt status</a>
-        @endif
-        <form data-workflow-form method="POST" action="{{ route('bookings.cancel', $booking, false) }}">
+
+                <details class="card card-body">
+            <summary class="text-danger fw-semibold">Cancel this booking</summary>
+        <form class="mt-2" data-workflow-form method="POST" action="{{ route('bookings.cancel', $booking, false) }}">
             @csrf @method('PATCH')
-            <button class="btn btn-outline-danger">Cancel booking</button>
+            <button class="btn btn-outline-danger">Confirm cancellation</button>
         </form>
+        </details>
     @endif
     @if ($owner && $booking->status === 'completed')
-        <form class="card card-body" data-workflow-form method="POST" action="{{ route($booking->review ? 'booking.reviews.update' : 'booking.reviews.store', $booking, false) }}">
+        <form class="card card-body" id="booking-review" data-workflow-form method="POST" action="{{ route($booking->review ? 'booking.reviews.update' : 'booking.reviews.store', $booking, false) }}">
             @csrf
             @if ($booking->review) @method('PUT') @endif
             <h2 class="h5">Rate your move</h2>

@@ -28,13 +28,23 @@
                 const submit = document.getElementById('submit-booking');
                 submit.elements.expected_total.value = data.total_price;
                 submit.hidden = false;
-                pageToast.textContent = `Distance ${data.distance_km} km · Total ${data.total_price} JOD · Deposit ${data.deposit_amount} JOD`;
+                const quote = document.querySelector('[data-booking-quote]');
+                if (quote) {
+                    quote.querySelector('[data-quote-distance]').textContent = data.distance_km + ' km';
+                    quote.querySelector('[data-quote-total]').textContent = data.total_price + ' JOD';
+                    quote.querySelector('[data-quote-deposit]').textContent = data.deposit_amount + ' JOD';
+                    quote.hidden = false;
+                }
             } else {
                 location.reload();
             }
         } catch (error) {
             if (pageToast) pageToast.textContent = error.message;
-            if (form.id === 'submit-booking') form.hidden = true;
+            if (form.id === 'submit-booking' || form.dataset.workflowForm === 'quote') {
+                document.getElementById('submit-booking').hidden = true;
+                const quote = document.querySelector('[data-booking-quote]');
+                if (quote) quote.hidden = true;
+            }
         } finally {
             if (button) button.disabled = false;
         }
@@ -108,7 +118,7 @@
             || inventory.querySelector('button:disabled')) return;
         refreshing = true;
         try {
-            const response = await fetch(location.href, { cache: 'no-store' });
+            const response = await fetch(inventory.dataset.liveInventory, { cache: 'no-store' });
             if (!response.ok || response.redirected) return;
             const page = new DOMParser().parseFromString(await response.text(), 'text/html');
             const updated = page.querySelector('[data-live-inventory]');

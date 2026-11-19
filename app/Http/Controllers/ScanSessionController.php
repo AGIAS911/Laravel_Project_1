@@ -32,6 +32,7 @@ class ScanSessionController extends Controller
 
         $validated = $request->validate([
             'room_name' => 'required|string|max:100',
+            'direct' => 'sometimes|boolean',
         ]);
 
         $baseUrl = rtrim((string) config('scanner.base_url'), '/');
@@ -44,8 +45,10 @@ class ScanSessionController extends Controller
 
         $token = Str::random(64);
         $scanUrl = $baseUrl.'/scan-test.html#token='.$token;
-        $qrCode = new QrCode(data: $scanUrl, size: 300, margin: 10);
-        $result = (new SvgWriter())->write($qrCode);
+        $direct = $request->boolean('direct');
+        if ($direct) {
+            $scanUrl .= '&booking='.$booking->id;
+        }
 
         $scanSession = $booking->scanSessions()->create([
             'room_name' => $validated['room_name'],
@@ -58,12 +61,23 @@ class ScanSessionController extends Controller
         return response()->json([
             'scan_session_id' => $scanSession->id,
             'room_name' => $scanSession->room_name,
-            'qr_code' => $result->getDataUri(),
+            'qr_code' => $direct ? null : (new SvgWriter())->write(new QrCode(data: $scanUrl, size: 300, margin: 10))->getDataUri(),
             'scan_url' => $scanUrl,
             'expires_at' => $scanSession->pairing_expires_at,
             'status_url' => route('scan-sessions.show', [$booking, $scanSession], false),
             'close_url' => route('scan-sessions.close', [$booking, $scanSession], false),
         ], 201)->header('Cache-Control', 'no-store');
+    }
+
+    public function inventory(Request $request, Booking $booking)
+    {
+        abort_unless($booking->customer_id === $request->user()->id, 404);
+        abort_unless($booking->status === 'draft', 409);
+        $booking->load('inventoryItems');
+
+        return response()->view('booking._inventory-list', [
+            'booking' => $booking, 'scanOnly' => $request->boolean('scan_only'),
+        ])->header('Cache-Control', 'no-store');
     }
 
     public function show(Request $request, Booking $booking, ScanSession $scanSession)

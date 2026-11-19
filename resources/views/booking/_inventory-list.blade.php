@@ -1,5 +1,11 @@
-<div data-live-inventory>
-    @forelse ((($scanOnly ?? false) ? $booking->inventoryItems->where('source', 'ai') : $booking->inventoryItems) as $item)
+@php
+    $items = ($scanOnly ?? false) ? $booking->inventoryItems->where('source', 'ai') : $booking->inventoryItems;
+@endphp
+<div data-live-inventory="{{ route('scan-sessions.inventory', ['booking' => $booking, 'scan_only' => (int) ($scanOnly ?? false)], false) }}">
+    @if ($items->isNotEmpty())
+        <p class="small fw-semibold">{{ $items->where('status', 'suggested')->sum('quantity') }} suggested · {{ $items->where('status', 'confirmed')->sum('quantity') }} confirmed</p>
+    @endif
+    @forelse ($items as $item)
         <div class="border-bottom py-2 d-flex flex-wrap gap-2 align-items-center">
             <form class="d-flex flex-wrap gap-2 align-items-center" data-workflow-form method="POST"
                   action="{{ route('bookings.inventory.update', [$booking, $item], false) }}">

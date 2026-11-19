@@ -198,11 +198,6 @@
     .inventory-type-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
 
-.scan-preview { position:relative; overflow:hidden; aspect-ratio:16/10; border-radius:22px; background:#123342; }
-.scan-preview video { display:block; width:100%; height:100%; object-fit:cover; }
-.scan-preview-label,.scan-preview-state { position:absolute; top:12px; padding:.35rem .65rem; border-radius:999px; color:white; font-size:.78rem; font-weight:700; }
-.scan-preview-label { left:12px; background:#14212cd9; }
-.scan-preview-state { right:12px; background:#a62530; }
 .scan-pair-panel #scan-qr { display:block; max-width:100%; height:auto; margin-inline:auto; }
 .scan-pair-status::before { content:""; display:inline-block; width:.55rem; height:.55rem; margin-inline-end:.35rem; border-radius:50%; background:#94a3b8; }
 .scan-pair-status.is-connected::before { background:#198754; box-shadow:0 0 0 3px #e0f1e7; }
@@ -210,3 +205,16 @@
 .move-editor #booking-map-panel { padding:0 0 2px; }
 .move-editor #booking-map { height:clamp(275px,30vw,400px); border-radius:20px; }
 .route-summary-note { padding:.75rem .85rem; border-radius:12px; background:#fff3d6; color:#864300; font-size:.875rem; }
+
+.booking-journey { padding:clamp(16px,2.3vw,27px); border:1px solid var(--line); border-radius:20px; background:#fff; }
+.booking-journey-header { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:16px; }
+.booking-journey-label { margin:0 0 5px; color:#a62530; font-size:.75rem; font-weight:800; text-transform:uppercase; letter-spacing:.06em; }
+.booking-checklist { display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; padding-top:14px; border-top:1px solid var(--line); }
+.booking-checklist a { display:inline-flex; gap:6px; align-items:center; padding:6px 10px; border-radius:9px; background:#f4f7f8; color:var(--navy); font-size:.85rem; text-decoration:none; }
+.booking-checklist a:hover { text-decoration:underline; }
+.booking-quote:not([hidden]) { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:8px; }
+.booking-quote > div { display:grid; gap:2px; padding:10px; border-radius:10px; background:#e8f0f3; color:var(--navy); }
+.booking-quote span { font-size:.78rem; }
+.booking-workflow-message:empty { display:none; }
+.booking-workflow-message:not(:empty) { position:sticky; top:76px; z-index:5; padding:10px 14px; border:1px solid var(--line); border-radius:10px; background:white; color:var(--navy); }
+#booking-review { scroll-margin-top:90px; }

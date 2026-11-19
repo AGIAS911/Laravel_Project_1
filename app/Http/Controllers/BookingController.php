@@ -116,12 +116,15 @@ class BookingController extends Controller
             return response()->json($details);
         }
 
-        $booking->load(['inventoryItems', 'bookingServices', 'review']);
+        $booking->load(['inventoryItems', 'bookingServices.service', 'review']);
         $services = $user->id === $booking->customer_id && $booking->status === 'draft'
             ? Service::where('is_active', true)->orderBy('name')->get()
             : collect();
 
-        return view('booking.show', compact('booking', 'services'));
+        $receiptUnderReview = $user->id === $booking->customer_id && $booking->status === 'awaiting_deposit'
+            && $booking->payments()->where('status', 'pending')->where('purpose', 'deposit')->exists();
+
+        return view('booking.show', compact('booking', 'services', 'receiptUnderReview'));
     }
 
     /**
