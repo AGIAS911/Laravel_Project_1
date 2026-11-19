@@ -24,8 +24,6 @@ class Vehicle extends Model
     protected function casts(): array
     {
         return [
-            'capacity_kg' => 'decimal:2',
-            'capacity_m3' => 'decimal:2',
             'base_price' => 'decimal:3',
             'price_per_km' => 'decimal:3',
         ];
