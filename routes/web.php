@@ -63,7 +63,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
-    
+
     Route::resource('services', ServiceController::class);
 
     Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead'])
@@ -98,6 +98,26 @@ Route::middleware(['auth', 'active', 'role:admin'])->group(function () {
 });
 
 //------------------------------------------------------
+// Payments: customer uploads CliQ proof, admin reviews it.
+Route::middleware(['auth', 'active'])->group(function () {
+    Route::get('/payments/{payment}/receipt', [\App\Http\Controllers\PaymentController::class, 'receipt'])
+        ->name('payments.receipt');
+});
+
+Route::middleware(['auth', 'active', 'role:customer'])->prefix('payments')->name('payments.')->group(function () {
+    Route::get('/', [\App\Http\Controllers\PaymentController::class, 'index'])->name('index');
+    Route::get('/create', [\App\Http\Controllers\PaymentController::class, 'create'])->name('create');
+    Route::post('/', [\App\Http\Controllers\PaymentController::class, 'store'])->name('store');
+});
+
+Route::middleware(['auth', 'active', 'role:admin'])->prefix('admin/payments')->name('admin.payments.')->group(function () {
+    $review = \App\Http\Controllers\Admin\PaymentReviewController::class;
+    Route::get('/', [$review, 'index'])->name('index');
+    Route::get('/{payment}', [$review, 'show'])->name('show');
+    Route::post('/{payment}/approve', [$review, 'approve'])->name('approve');
+    Route::post('/{payment}/reject', [$review, 'reject'])->name('reject');
+});
+
 Auth::routes();
 
 Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
