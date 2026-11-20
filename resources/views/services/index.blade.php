@@ -4,7 +4,9 @@
 @section('page-description', 'Transport and add-on catalog.')
 
 @section('actions')
-    <a class="btn btn-primary" href="{{ route('services.create') }}">Add service</a>
+    @if (auth()->user()?->role === 'admin')
+        <a class="btn btn-primary" href="{{ route('services.create') }}">Add service</a>
+    @endif
 @endsection
 
 @section('content')
@@ -18,15 +20,23 @@
                         <td>{{ $service->type === \App\Models\Service::TYPE_TRANSPORT ? 'Basic' : 'Add-on' }}</td>
                         <td>{{ $service->type === \App\Models\Service::TYPE_TRANSPORT ? 'By distance' : number_format((float) $service->price, 3) . ' JOD' }}</td>
                         <td>{{ str($service->unit)->headline() }}</td>
-                        <td>@include('booking._status', ['state' => $service->is_active ? 'approved' : 'draft', 'label' => $service->is_active ? 'Active' : 'Inactive'])</td>
+                        <td>
+                            <div class="d-flex flex-wrap align-items-center gap-2">
+                                @include('booking._status', ['state' => $service->is_active ? 'approved' : 'draft', 'label' => $service->is_active ? 'Active' : 'Inactive'])
+                                <a class="btn btn-outline-secondary btn-sm" href="{{ route('services.show', $service) }}">Details</a>
+                                @if (auth()->check())
+                                    <form class="d-inline-flex m-0" method="POST" action="{{ route('services.destroy', $service) }}">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button class="btn btn-outline-danger btn-sm" type="submit"
+                                                onclick="return confirm('Delete this service?')">Delete</button>
+                                    </form>
+                                @endif
+                            </div>
+                        </td>
                         <td class="text-end text-nowrap">
-                            <a class="btn btn-outline-secondary btn-sm" href="{{ route('services.show', $service) }}">Details</a>
-                            <a class="btn btn-outline-secondary btn-sm" href="{{ route('services.edit', $service) }}">Edit</a>
-                            @if ($service->type !== \App\Models\Service::TYPE_TRANSPORT)
-                            <form class="d-inline" method="POST" action="{{ route('admin.services.status', $service) }}">
-                                @csrf @method('PATCH')
-                                <button class="btn btn-outline-danger btn-sm" name="is_active" value="{{ $service->is_active ? 0 : 1 }}">{{ $service->is_active ? 'Disable' : 'Enable' }}</button>
-                            </form>
+                            @if (auth()->user()?->role === 'admin')
+                                <a class="btn btn-outline-secondary btn-sm" href="{{ route('services.edit', $service) }}">Edit</a>
                             @endif
                         </td>
                     </tr>

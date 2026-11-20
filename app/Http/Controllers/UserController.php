@@ -90,7 +90,11 @@ class UserController extends Controller
                 $user->notify(new DriverApprovedNotification());
             } elseif ($changed) {
                 $user->notifications()->create([
-                    'type' => 'driver_status', 'title' => 'Driver account updated', 'message' => $reason,
+                    'type' => 'driver_status',
+                    'data' => [
+                        'title' => 'Driver account updated',
+                        'message' => $reason,
+                    ],
                 ]);
             }
         });

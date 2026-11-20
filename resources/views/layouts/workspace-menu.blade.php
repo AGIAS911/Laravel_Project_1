@@ -18,12 +18,14 @@
         'driver' => [
             'driver.dashboard' => 'Dashboard',
             ...((auth()->user()->driverProfile?->status === 'approved') ? ['driver.bookings.index' => 'Bookings', 'driver.schedule' => 'Schedule', 'vehicles.index' => 'Vehicles'] : []),
+            'services.index' => 'Services',
             'driver.profile.edit' => 'Driver profile',
         ],
         default => [
             'home' => 'Dashboard',
             'booking.create' => 'New booking',
             'booking.index' => 'My bookings',
+            'services.index' => 'Services',
             'payments.index' => 'Payments',
         ],
     };
@@ -43,7 +45,8 @@
             'Driver reviews' => 'fa-star',
             default => 'fa-id-card',
         })
-        <a href="{{ route($name) }}" @if (request()->routeIs($name)) aria-current="page" @endif>
+        <a href="{{ route($name) }}"
+           @if (request()->routeIs($name) || ($name === 'services.index' && request()->routeIs('services.*'))) aria-current="page" @endif>
             <i class="fa-solid {{ $icon }}" aria-hidden="true"></i>
             {{ __($label) }}
         </a>
