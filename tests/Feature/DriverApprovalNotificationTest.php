@@ -28,7 +28,8 @@ class DriverApprovalNotificationTest extends TestCase
 
         $this->assertDatabaseHas('notifications', [
             'type' => DriverApprovedNotification::class,
-            'user_id' => $driver->id,
+            'notifiable_type' => User::class,
+            'notifiable_id' => $driver->id,
         ]);
         $this->assertTrue($driver->fresh()->is_active);
 

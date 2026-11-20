@@ -3,42 +3,40 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Notifications\DatabaseNotification;
 
-class MoveItNotification extends Model
+class MoveItNotification extends DatabaseNotification
 {
-    use HasUuids;
+    use HasFactory, HasUuids;
 
-    protected $table = 'notifications';
-
-    protected $fillable = ['user_id', 'booking_id', 'type', 'title', 'message', 'url', 'read_at'];
-
-    protected function casts(): array
+    public function getTitleAttribute(): ?string
     {
-        return ['read_at' => 'datetime'];
+        return $this->data['title'] ?? null;
     }
 
-    public function getDataAttribute(): array
+    public function getMessageAttribute(): ?string
     {
-        return ['title' => $this->title, 'message' => $this->message, 'url' => $this->url];
+        return $this->data['message'] ?? null;
     }
 
-    public function markAsRead(): void
+    public function getUrlAttribute(): ?string
     {
-        if ($this->read_at === null) {
-            $this->update(['read_at' => now()]);
-        }
+        return $this->data['url'] ?? null;
     }
 
-    public static function bookingEvent(int $userId, Booking $booking, string $message): void
+    public static function bookingEvent(int $userId, Booking $booking, string $message): static
     {
-        static::create([
-            'user_id' => $userId,
-            'booking_id' => $booking->id,
+        $user = User::findOrFail($userId);
+
+        return $user->notifications()->create([
             'type' => 'booking',
-            'title' => 'Booking #'.$booking->id,
-            'message' => $message,
-            'url' => route('booking.show', $booking, false),
+            'data' => [
+                'title' => 'Booking #'.$booking->id,
+                'message' => $message,
+                'url' => route('booking.show', $booking, false),
+                'booking_id' => $booking->id,
+            ],
         ]);
     }
 }

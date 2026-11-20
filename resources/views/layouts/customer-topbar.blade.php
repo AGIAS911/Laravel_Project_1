@@ -14,6 +14,7 @@
                         ['home', 'home', 'Dashboard', 'fa-house'],
                         ['booking.index', 'booking.*', 'Bookings', 'fa-box'],
                         ['payments.index', 'payments.*', 'Payments', 'fa-receipt'],
+                        ['services.index', 'services.*', 'Services', 'fa-boxes-stacked'],
                         ['notifications.index', 'notifications.*', 'Notifications', 'fa-bell'],
                         ['profile.edit', 'profile.*', 'Profile', 'fa-user'],
                     ] as [$route, $pattern, $label, $icon])

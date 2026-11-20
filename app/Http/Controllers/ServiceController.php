@@ -19,15 +19,26 @@ class ServiceController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        if (request()->user()?->role !== 'admin') {
-            $services = Service::where('is_active', true)->paginate(12);
+        $user = $request->user();
+        $isAdmin = $user?->role === 'admin';
+
+        if ($user === null) {
+            $services = Service::query()
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->paginate(12);
 
             return view('info.services', compact('services'));
         }
-        $services = Service::latest()->paginate(10);
-        return view('services.index',compact('services'));
+
+        $services = Service::query()
+            ->when(!$isAdmin, fn ($query) => $query->where('is_active', true))
+            ->latest()
+            ->paginate($isAdmin ? 10 : 12);
+
+        return view('services.index', compact('services'));
     }
 
     /**
@@ -36,35 +47,36 @@ class ServiceController extends Controller
     public function create()
     {
         return view('services.create');
-    
     }
 
     /**
      * Store a newly created resource in storage.
      */
-  public function store(Request $request)
+    public function store(Request $request)
     {
         $validated = $request->validate([
-            'name'        => 'required|string|max:255',
+            'name' => 'required|string|max:150',
             'description' => 'nullable|string',
-            'type'        => 'required|string|max:255',
-            'unit'        => 'required|string|max:255',
-            'price'       => 'required|numeric|min:0',
-            'is_active'   => 'boolean',
+            'type' => 'required|string|max:20',
+            'unit' => 'required|string|max:20',
+            'price' => 'required|numeric|decimal:0,3|min:0|max:9999999.999',
+            'is_active' => 'boolean',
         ]);
-        $validated['is_active'] = $request->has('is_active');
+        $validated['is_active'] = $request->boolean('is_active');
 
         Service::create($validated);
 
         return redirect()->route('services.index')
-        ->with('success', 'The service has been created successfully.');   
-         }
+            ->with('success', 'The service has been created successfully.');
+    }
 
     /**
      * Display the specified resource.
      */
     public function show(Service $service)
     {
+        abort_unless($service->is_active || request()->user()?->role === 'admin', 404);
+
         return view('services.show', compact('service'));
     }
 
@@ -79,23 +91,23 @@ class ServiceController extends Controller
     /**
      * Update the specified resource in storage.
      */
-   public function update(Request $request, Service $service)
+    public function update(Request $request, Service $service)
     {
         $validated = $request->validate([
-            'name'        => 'required|string|max:255',
+            'name' => 'required|string|max:150',
             'description' => 'nullable|string',
-            'type'        => 'required|string|max:255',
-            'unit'        => 'required|string|max:255',
-            'price'       => 'required|numeric|min:0',
-            'is_active'   => 'boolean',
+            'type' => 'required|string|max:20',
+            'unit' => 'required|string|max:20',
+            'price' => 'required|numeric|decimal:0,3|min:0|max:9999999.999',
+            'is_active' => 'boolean',
         ]);
 
-        $validated['is_active'] = $request->has('is_active');
+        $validated['is_active'] = $request->boolean('is_active');
 
         $service->update($validated);
 
         return redirect()->route('services.index')
-                         ->with('success', '  Updated Successfully .');
+            ->with('success', 'The service has been updated successfully.');
     }
 
     /**
@@ -104,8 +116,8 @@ class ServiceController extends Controller
     public function destroy(Service $service)
     {
         $service->delete();
-        return redirect()->route('services.index')
-        ->with('success','deleted successfully!');
 
+        return redirect()->route('services.index')
+            ->with('success', 'The service has been deleted successfully.');
     }
 }

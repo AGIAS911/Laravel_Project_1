@@ -80,8 +80,23 @@
                     <ul class="list-group list-group-flush">
                         @forelse ($recentNotifications as $notification)
                             <li class="list-group-item">
-                                <div @class(['fw-bold' => !$notification->read_at])>{{ $notification->title }}</div>
-                                <time class="small text-body-secondary" datetime="{{ $notification->created_at->toISOString() }}">{{ $notification->created_at->diffForHumans() }}</time>
+                                <div class="d-flex align-items-start justify-content-between gap-3">
+                                    <div>
+                                        <div @class(['fw-bold' => !$notification->read_at])>
+                                            {{ $notification->title ?? 'Notification' }}
+                                            @unless ($notification->read_at)
+                                                <span class="badge text-bg-primary">New</span>
+                                            @endunless
+                                        </div>
+                                        @if ($notification->message)
+                                            <p class="mb-1">{{ $notification->message }}</p>
+                                        @endif
+                                        <time class="small text-body-secondary" datetime="{{ $notification->created_at->toISOString() }}">{{ $notification->created_at->diffForHumans() }}</time>
+                                    </div>
+                                    @if ($notification->url)
+                                        <a class="btn btn-outline-secondary btn-sm flex-shrink-0" href="{{ $notification->url }}">Open</a>
+                                    @endif
+                                </div>
                             </li>
                         @empty
                             <li class="list-group-item text-body-secondary">No notifications yet.</li>
@@ -90,6 +105,14 @@
                 </section>
             </div>
         </div>
+        <a class="customer-chatbot-fab" href="{{ route('chatbot.index') }}"
+           aria-label="Open MoveIt chatbot" title="Chat with MoveIt">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8z"/>
+                <path d="M8 12h.01M12 12h.01M16 12h.01"/>
+            </svg>
+        </a>
     @else
         <a class="btn btn-primary" href="{{ route(auth()->user()->role === 'admin' ? 'admin.dashboard' : 'driver.dashboard') }}">
             Open your dashboard
