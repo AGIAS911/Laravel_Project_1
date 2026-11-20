@@ -4,7 +4,9 @@
 
 @section('actions')
     <a class="btn btn-outline-secondary" href="{{ route('services.index') }}">Back to services</a>
-    <a class="btn btn-primary" href="{{ route('services.edit', $service) }}">Edit service</a>
+    @if (auth()->user()?->role === 'admin')
+        <a class="btn btn-primary" href="{{ route('services.edit', $service) }}">Edit service</a>
+    @endif
 @endsection
 
 @section('content')
@@ -30,15 +32,18 @@
             <dd class="col-sm-9">{{ $service->unit }}</dd>
 
             <dt class="col-sm-3">Price</dt>
-            <dd class="col-sm-9">{{ number_format((float) $service->price, 2) }}</dd>
+            <dd class="col-sm-9">{{ number_format((float) $service->price, 3) }} JOD</dd>
         </dl>
 
-        <div class="card-footer text-end">
-            <form action="{{ route('services.destroy', $service) }}" method="POST">
-                @csrf
-                @method('DELETE')
-                <button class="btn btn-outline-danger" type="submit">Delete service</button>
-            </form>
-        </div>
+        @if (auth()->user()?->role === 'admin')
+            <div class="card-footer text-end">
+                <form action="{{ route('services.destroy', $service) }}" method="POST">
+                    @csrf
+                    @method('DELETE')
+                    <button class="btn btn-outline-danger" type="submit"
+                            onclick="return confirm('Delete this service?')">Delete service</button>
+                </form>
+            </div>
+        @endif
     </div>
 @endsection

@@ -22,11 +22,14 @@
                         </span>
                         @if ($booking->receipt_under_review)
                             @include('booking._status', ['state' => 'pending', 'label' => 'Receipt under review', 'icon' => 'fa-clock'])
-                        @elseif (!$booking->deposit_due_at?->isPast())
-                        <a class="btn btn-primary btn-sm"
-                            href="{{ route('payments.create', ['booking_id' => $booking->id]) }}">{{ __('Pay deposit') }}</a>
-                        @else
+                        @elseif ($booking->deposit_due_at?->isPast())
                             <span class="badge text-bg-warning">Deposit deadline passed</span>
+                        @elseif (!$cliqConfigured)
+                            <a class="btn btn-outline-secondary btn-sm"
+                                href="{{ route('payments.create', ['booking_id' => $booking->id]) }}">Payment unavailable · Get help</a>
+                        @else
+                            <a class="btn btn-primary btn-sm"
+                                href="{{ route('payments.create', ['booking_id' => $booking->id]) }}">{{ __('Pay deposit') }}</a>
                         @endif
                     </li>
                 @endforeach

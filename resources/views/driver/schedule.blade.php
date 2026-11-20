@@ -8,7 +8,7 @@
             <div class="border-bottom py-2">
                 <a href="{{ route('booking.show', $booking) }}">Booking #{{ $booking->id }}</a>
                 <p class="mb-0">{{ $booking->scheduled_start_at->timezone('Asia/Amman')->format('D, d M · H:i') }}
-                    – {{ $booking->scheduled_end_at->timezone('Asia/Amman')->format('D, d M · H:i') }}
+
                     · {{ str($booking->status)->headline() }}</p>
             </div>
         @empty

@@ -16,6 +16,15 @@ use Illuminate\Validation\ValidationException;
 use App\Models\Service;
 use App\Models\Vehicle;
 use Carbon\Carbon;
+use App\Models\DriverProfile;
+use App\Models\BookingService;
+use App\Models\ScanSession;
+use App\Models\InventoryItem;
+use App\Models\Review;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 /**
  * Customer side of CliQ deposit payments (upload receipt, see payment history).
  */
@@ -37,7 +46,7 @@ class PaymentController extends Controller
             ->orderByDesc('id')
             ->get();
 
-        return view('payments.index', compact('payments', 'awaiting'));
+        return view('payments.index', compact('payments', 'awaiting') + ['cliqConfigured' => PlatformSetting::cliqConfigured()]);
     }
 
     /**
@@ -55,7 +64,7 @@ class PaymentController extends Controller
         $beneficiary = PlatformSetting::values();
         $previousProof = $booking->payments()->latest('id')->first();
 
-        return view('payments.create', compact('booking', 'beneficiary', 'previousProof'));
+        return view('payments.create', compact('booking', 'beneficiary', 'previousProof') + ['cliqConfigured' => PlatformSetting::cliqConfigured($beneficiary)]);
     }
 
     /**
@@ -76,6 +85,9 @@ class PaymentController extends Controller
                 $booking = $this->payableBooking($request, $data['booking_id'], true);
                 if ($this->hasPending($booking)) {
                     $this->fail('receipt_image', __('payments.already_pending'));
+                }
+                if (!PlatformSetting::cliqConfigured()) {
+                    $this->fail('receipt_image', 'CliQ is temporarily unavailable. Contact support for help with your deposit.');
                 }
                 if (Payment::referenceInUse($data['transfer_reference'] ?? null)) {
                     $this->fail('transfer_reference', __('payments.reference_used'));
