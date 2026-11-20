@@ -13,7 +13,7 @@
                 <tbody>
                     @forelse ($bookings as $booking)
                         <tr>
-                            <td>#{{ $booking->id }}</td>
+                            <td>{{ $booking->id }}</td>
                             <td>{{ $booking->customer->name }}</td>
                             <td>{{ $booking->vehicle?->name ?? '—' }}</td>
                             <td>{{ str($booking->status)->replace('_', ' ')->headline() }}</td>

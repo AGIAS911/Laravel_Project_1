@@ -14,7 +14,7 @@
 
     <dl class="row border rounded bg-white p-3 p-md-4">
         @foreach ([
-            __('booking_services.booking') => '#' . $bookingService->booking_id . ' · ' . ucfirst($bookingService->booking->status),
+            __('booking_services.booking') => $bookingService->booking_id . ' · ' . ucfirst($bookingService->booking->status),
             __('booking_services.service') => $bookingService->service_name,
             __('booking_services.unit') => $bookingService->unit,
             __('booking_services.quantity') => $bookingService->quantity,

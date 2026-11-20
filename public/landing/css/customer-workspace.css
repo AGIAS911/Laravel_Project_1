@@ -21,7 +21,7 @@
 .customer-header .moveit-brand { margin-inline-end:18px; color:var(--navy); }
 .customer-menu-toggle { color:var(--navy); border:1px solid var(--line); padding:8px 11px; }
 .customer-skip { position:absolute; z-index:2; padding:8px 12px; background:white; color:var(--navy); }
-.customer-nav-links { gap:3px; }
+.customer-nav-links { gap:3px; margin-inline-start:auto; }
 .customer-nav-links .nav-link {
     display:flex;
     align-items:center;
@@ -54,13 +54,15 @@
 .customer-workspace-content .workspace-notification-icon { display:grid; place-items:center; flex:0 0 42px; height:42px; border-radius:50%; background:#e8f0f3; color:var(--navy); }
 .customer-workspace-content .workspace-notification-dot { display:inline-block; width:.45em; height:.45em; margin-inline-start:.25rem; border-radius:50%; background:var(--blue); }
 .customer-workspace-content .badge { font-weight:650; }
+.customer-workspace-content .table .badge { color:#fff !important; background-color:#4b5563 !important; }
+.customer-workspace-content .table .badge .text-secondary-emphasis { color:inherit !important; }
 
 @media(max-width:1199px) and (min-width:992px) {
     .customer-nav-links .nav-link { padding-inline:.5rem; }
     .customer-nav-links .nav-link i { display:none; }
 }
 @media(max-width:991px) {
-    .customer-nav-links { padding-top:8px; }
+    .customer-nav-links { padding-top:8px; margin-inline-start:0; }
     .customer-nav-links .nav-link { border-radius:10px; padding:.65rem .8rem; }
     .customer-nav-actions { margin:12px 0 4px; justify-content:space-between; }
     .customer-nav-actions .dropdown-menu { position:absolute; }

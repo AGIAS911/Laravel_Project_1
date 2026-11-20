@@ -1,7 +1,7 @@
 @extends('layouts.dashboard')
 
-@section('title', 'Booking #' . $booking->id)
-@section('page-title', 'Booking #' . $booking->id)
+@section('title', 'Booking ' . $booking->id)
+@section('page-title', 'Booking ' . $booking->id)
 @section('page-icon', 'fa-clipboard-list')
 @section('page-description', 'Track your move, furniture inventory, and payment status.')
 
@@ -149,13 +149,13 @@
 
         </div>
         <aside class="col-lg-4 d-grid gap-3 align-content-start">
-            <div class="card card-body">
+            <div class="card card-body" data-booking-summary>
                 <h2 class="h5 workspace-heading">Booking summary</h2>
                 <p>@include('booking._status', ['state' => $booking->status])</p>
                 <dl class="row mb-0">
-                    <dt class="col-6">Distance</dt><dd class="col-6">{{ $booking->distance_km !== null ? $booking->distance_km . ' km' : '—' }}</dd>
-                    <dt class="col-6">Total</dt><dd class="col-6">{{ $booking->total_price !== null ? $booking->total_price . ' JOD' : '—' }}</dd>
-                    <dt class="col-6">Deposit</dt><dd class="col-6">{{ $booking->deposit_amount !== null ? $booking->deposit_amount . ' JOD' : '—' }}</dd>
+                    <dt class="col-6">Distance</dt><dd class="col-6" data-summary-distance>{{ $booking->distance_km !== null ? $booking->distance_km . ' km' : '—' }}</dd>
+                    <dt class="col-6">Total</dt><dd class="col-6" data-summary-total>{{ $booking->total_price !== null ? $booking->total_price . ' JOD' : '—' }}</dd>
+                    <dt class="col-6">Deposit</dt><dd class="col-6" data-summary-deposit>{{ $booking->deposit_amount !== null ? $booking->deposit_amount . ' JOD' : '—' }}</dd>
                 </dl>
             </div>
 

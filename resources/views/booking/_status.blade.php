@@ -8,6 +8,6 @@
     };
 @endphp
 <span @class(['badge rounded-pill', "text-{$tone}-emphasis bg-{$tone}-subtle", 'admin-completed' => $state === 'completed', 'badge-with-icon' => !empty($icon)])>
-    @if (!empty($icon))<i class="fa-regular {{ $icon }} me-1" aria-hidden="true"></i>@endif
+    @if (!empty($icon))<i class="fa-regular {{ $icon }} me-1 text-secondary-emphasis" aria-hidden="true"></i>@endif
     {{ $label ?? str($state)->headline() }}
 </span>

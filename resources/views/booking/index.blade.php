@@ -79,7 +79,7 @@
                 <tbody>
                     @forelse ($bookings as $booking)
                         <tr>
-                            <th scope="row">#{{ $booking->id }}</th>
+                            <th scope="row">{{ $booking->id }}</th>
                             @if ($admin)
                                 <td>{{ $booking->customer?->name ?? '—' }}</td>
                                 <td>{{ $booking->driver?->user?->name ?? '—' }}</td>
@@ -89,7 +89,12 @@
                                 <td>{{ $booking->vehicle?->vehicleType?->name ?? $booking->vehicle?->name ?? '—' }}</td>
                             @endunless
                             <td class="text-nowrap">{{ $booking->total_price !== null ? $booking->total_price . ' JOD' : '—' }}</td>
-                            <td>@include('booking._status', ['state' => $booking->status])</td>
+                            <td>
+                                @include('booking._status', [
+                                    'state' => $booking->status,
+                                    'icon' => $booking->status === 'draft' ? 'fa-pen-to-square' : null,
+                                ])
+                            </td>
                             <td class="text-end">
                                 <a class="btn btn-outline-secondary btn-sm" href="{{ route('booking.show', $booking) }}">
                                     {{ $customer && $booking->status === 'draft' ? 'Continue' : 'Details' }}

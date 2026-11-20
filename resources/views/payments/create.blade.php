@@ -9,6 +9,7 @@
 @endsection
 
 @section('content')
+    <p class="text-body-secondary"><a href="{{ route('booking.show', $booking) }}">Booking {{ $booking->id }}</a> · Transfer the deposit via CliQ and upload the receipt.</p>
     <p class="text-body-secondary"><a href="{{ route('booking.show', $booking) }}">Booking #{{ $booking->id }}</a>@if ($cliqConfigured) · Transfer the deposit via CliQ and upload the receipt.@endif</p>
     @if ($errors->any())
         <div class="alert alert-danger" role="alert">
@@ -39,7 +40,7 @@
                     <dt class="col-sm-5">{{ __('Required deposit') }}</dt>
                     <dd class="col-sm-7"><strong class="customer-deposit-amount"><bdi>{{ $booking->deposit_amount }} {{ config('payments.currency') }}</bdi></strong></dd>
                     <dt class="col-sm-5">{{ __('Booking') }}</dt>
-                    <dd class="col-sm-7 mb-0">#{{ $booking->id }}</dd>
+                    <dd class="col-sm-7 mb-0">{{ $booking->id }}</dd>
                 </dl>
             </section>
             <section class="card">

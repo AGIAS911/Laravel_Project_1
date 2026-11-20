@@ -20,6 +20,12 @@ class MoveItNotification extends DatabaseNotification
         return $this->data['message'] ?? null;
     }
 
+    public function getTitleAttribute($value): string
+    {
+        return preg_replace('/\bBooking #(?=\d)/', 'Booking ', (string) $value);
+    }
+
+    public function markAsRead(): void
     public function getUrlAttribute(): ?string
     {
         return $this->data['url'] ?? null;
@@ -31,6 +37,9 @@ class MoveItNotification extends DatabaseNotification
 
         return $user->notifications()->create([
             'type' => 'booking',
+            'title' => 'Booking '.$booking->id,
+            'message' => $message,
+            'url' => route('booking.show', $booking, false),
             'data' => [
                 'title' => 'Booking #'.$booking->id,
                 'message' => $message,
