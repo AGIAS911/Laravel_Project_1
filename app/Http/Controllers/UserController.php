@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\DriverProfile;
 use App\Models\User;
 use App\Notifications\DriverApprovedNotification;
 use Illuminate\Http\Request;
@@ -13,7 +14,7 @@ class UserController extends Controller
 {
     public function index(Request $request)
     {
-        if (!$request->routeIs('admin.driver-approvals')) {
+        if (! $request->routeIs('admin.driver-approvals')) {
             return view('admin.users.list', ['users' => User::latest('id')->paginate(20)]);
         }
 
@@ -24,7 +25,7 @@ class UserController extends Controller
             ->whereHas('driverProfile', fn ($profiles) => $profiles->where('status', $status))
             ->with(['driverProfile' => fn ($profiles) => $profiles->withCount('vehicles')])
             ->latest('id')->paginate(20)->withQueryString();
-        $pendingCount = \App\Models\DriverProfile::where('status', 'pending')->count();
+        $pendingCount = DriverProfile::where('status', 'pending')->count();
 
         return view('admin.users.index', compact('drivers', 'tabs', 'status', 'pendingCount'));
     }
@@ -87,7 +88,7 @@ class UserController extends Controller
             $driver->forceFill(['status' => $status, 'status_reason' => $reason])->save();
             $user->forceFill(['is_active' => $status === 'approved'])->save();
             if ($changed && $status === 'approved') {
-                $user->notify(new DriverApprovedNotification());
+                $user->notify(new DriverApprovedNotification);
             } elseif ($changed) {
                 $user->notifications()->create([
                     'type' => 'driver_status', 'title' => 'Driver account updated', 'message' => $reason,
