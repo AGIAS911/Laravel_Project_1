@@ -31,6 +31,18 @@ class ChatbotFlowTest extends TestCase
             ->assertSee('المساعد الذكي');
     }
 
+    public function test_customer_dashboard_has_a_floating_chatbot_link(): void
+    {
+        $customer = User::factory()->create(['role' => 'customer']);
+
+        $this->actingAs($customer)
+            ->get(route('home'))
+            ->assertOk()
+            ->assertSee(route('chatbot.index'), false)
+            ->assertSee('customer-chatbot-fab', false)
+            ->assertSee('aria-label="Open MoveIt chatbot"', false);
+    }
+
     public function test_homepage_has_a_floating_link_to_the_chatbot(): void
     {
         $this->get('/')

@@ -51,9 +51,9 @@
         <aside class="col-12 col-md-4 col-lg-3">
             <div class="card h-100 shadow-sm">
                 <div class="card-header d-flex align-items-center justify-content-between">
-                    <h2 class="h6 mb-0">محادثاتي</h2>
+                    <h2 class="h6 mb-0">My Chats</h2>
                     <a class="btn btn-sm btn-outline-primary" href="{{ route('chatbot.index', ['new' => 1]) }}">
-                        محادثة جديدة
+                        New Chat
                     </a>
                 </div>
                 <div class="list-group list-group-flush" id="conversation-list">
@@ -67,7 +67,7 @@
                         </a>
                     @empty
                         <span class="list-group-item text-muted" id="no-conversations">
-                            لا توجد محادثات سابقة.
+                            No previous conversations.
                         </span>
                     @endforelse
                 </div>
@@ -78,10 +78,10 @@
             <div class="card shadow-sm">
                 <div class="card-header d-flex align-items-center justify-content-between">
                     <div>
-                        <h1 class="h5 mb-1">المساعد الذكي</h1>
-                        <p class="small text-muted mb-0">أرسل سؤالك وسأحاول مساعدتك.</p>
+                        <h1 class="h5 mb-1">AI Assistant</h1>
+                        <p class="small text-muted mb-0">Ask your question and I'll do my best to help.</p>
                     </div>
-                    <span class="badge text-bg-success">متصل محليًا</span>
+                    <span class="badge text-bg-success">Online</span></span>
                 </div>
 
                 <div id="chat-messages" class="card-body chatbot-messages p-3" role="log" aria-live="polite">
@@ -91,7 +91,7 @@
                         </div>
                     @empty
                         <div class="chat-message chat-message-assistant">
-                            <div class="chat-bubble">مرحبًا! كيف يمكنني مساعدتك؟</div>
+                            <div class="chat-bubble">Hello! How can I help you?</div>
                         </div>
                     @endforelse
                 </div>
@@ -105,7 +105,7 @@
                     >
                         @csrf
                         <div class="input-group">
-                            <label class="visually-hidden" for="chat-message">اكتب رسالتك</label>
+                            <label class="visually-hidden" for="chat-message">Type your message</label>
                             <input
                                 id="chat-message"
                                 name="message"
@@ -113,10 +113,10 @@
                                 type="text"
                                 maxlength="2000"
                                 autocomplete="off"
-                                placeholder="اكتب رسالتك هنا..."
+                                placeholder="Type your message here..."
                                 required
                             >
-                            <button id="chat-send" class="btn btn-primary" type="submit">إرسال</button>
+                            <button id="chat-send" class="btn btn-primary" type="submit">Send</button>
                         </div>
                         <div id="chat-status" class="small text-muted mt-2" aria-live="polite"></div>
                     </form>
@@ -163,7 +163,7 @@
             input.value = '';
             input.disabled = true;
             sendButton.disabled = true;
-            status.textContent = 'جارٍ إعداد الرد...';
+            status.textContent = 'Generating response...';
             const waitingMessage = addMessage('...', 'assistant');
 
             try {
@@ -183,7 +183,7 @@
 
                 if (!response.ok || !data.success) {
                     const validationMessage = data.errors?.message?.[0];
-                    throw new Error(validationMessage || data.message || 'تعذر الحصول على رد.');
+                    throw new Error(validationMessage || data.message || 'Unable to get a response.');
                 }
 
                 waitingMessage.remove();
@@ -212,7 +212,7 @@
                 status.textContent = '';
             } catch (error) {
                 waitingMessage.remove();
-                addMessage(error.message || 'حدث خطأ أثناء الاتصال بالمساعد.', 'assistant', true);
+                addMessage(error.message || 'An error occurred while connecting to the assistant.', 'assistant', true);
                 status.textContent = '';
             } finally {
                 input.disabled = false;
