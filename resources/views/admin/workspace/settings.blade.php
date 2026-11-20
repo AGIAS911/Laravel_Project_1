@@ -3,6 +3,11 @@
 @section('page-title', 'Settings and commission')
 
 @section('content')
+    @if (blank(config('booking.google_routes_key')))
+        <div class="alert alert-warning" role="alert">
+            Booking quotes are unavailable. Set <code>GOOGLE_ROUTES_API_KEY</code> in the environment with access to Google Routes API.
+        </div>
+    @endif
     <form method="POST" action="{{ route('admin.settings.update') }}">
         @csrf @method('PUT')
 

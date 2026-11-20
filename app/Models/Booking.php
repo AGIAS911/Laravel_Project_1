@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Carbon;
 
 class Booking extends Model
 {
@@ -63,6 +64,11 @@ class Booking extends Model
     public function customer(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public static function slotEnd(Carbon $appointment): Carbon
+    {
+        return $appointment->copy()->addMinutes(config('booking.slot_minutes'));
     }
 
     public function scopeOccupyingWindow(Builder $query, $start, $end): Builder

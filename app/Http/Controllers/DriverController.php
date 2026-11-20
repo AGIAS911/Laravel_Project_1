@@ -73,9 +73,11 @@ class DriverController extends Controller
                 $profile->forceFill([
                     'license_number' => $validated['license_number'],
                     'license_image' => $image,
-                    'status' => $profile->exists ? $profile->status : 'approved',
+                    'status' => 'pending',
                     'status_reason' => null,
                 ])->save();
+
+                $account->forceFill(['is_active' => false])->save();
 
                 return $previousImage;
             });
@@ -88,7 +90,11 @@ class DriverController extends Controller
             Storage::disk('local')->delete($previousImage);
         }
 
-        return redirect()->route('driver.profile.show')->with('success', 'Driver license updated successfully.');
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+
+        return redirect()->route('driver.application.pending');
     }
     public function destroy()
     {

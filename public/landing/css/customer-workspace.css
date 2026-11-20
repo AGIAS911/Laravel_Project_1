@@ -131,7 +131,7 @@
     --step-size: 42px;
     position: relative;
     display: grid;
-    grid-template-columns: repeat(5,minmax(0,1fr));
+    grid-template-columns: repeat(3,minmax(0,1fr));
     gap: 0;
     padding-block: 10px 16px;
 }
@@ -139,7 +139,7 @@
     content:"";
     position:absolute;
     top:calc(10px + var(--step-size) / 2);
-    inset-inline:10%;
+    inset-inline:16.6667%;
     height:3px;
     background:var(--line);
 }
