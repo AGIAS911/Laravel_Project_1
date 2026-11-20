@@ -16,42 +16,51 @@
     <div class="row g-4 align-items-start">
         <div class="col-lg-8 d-grid gap-3">
             <div id="booking-map-panel" hidden>
-                    <fieldset class="move-map-target">
-                        <legend class="small text-body-secondary mb-2">Choose a stop, then click or tap the map.</legend>
-                        @foreach (['pickup' => 'Pickup', 'destination' => 'Destination'] as $key => $label)
-                            <input class="btn-check" type="radio" name="map_target" value="{{ $key }}" id="map-{{ $key }}" @checked($loop->first)>
-                            <label class="btn btn-outline-secondary btn-sm" for="map-{{ $key }}">
-                                <span class="move-stop-dot move-stop-{{ $key }}" aria-hidden="true"></span>{{ $label }}
-                            </label>
-                        @endforeach
-                    </fieldset>
-                    <button class="btn btn-outline-secondary btn-sm mt-2" type="button" data-current-location hidden>
-                        <i class="fa-solid fa-crosshairs me-1" aria-hidden="true"></i> Use my location for pickup
-                    </button>
-                    <div id="booking-map" class="move-editor-map" aria-label="Pickup and destination map"></div>
-                    <p class="small text-body-secondary mb-0 mt-2" data-location-status role="status"></p>
-                </div>
+                <fieldset class="move-map-target">
+                    <legend class="small text-body-secondary mb-2">Choose a stop, then click or tap the map.</legend>
+                    @foreach (['pickup' => 'Pickup', 'destination' => 'Destination'] as $key => $label)
+                        <input class="btn-check" type="radio" name="map_target" value="{{ $key }}" id="map-{{ $key }}" @checked($loop->first)>
+                        <label class="btn btn-outline-secondary btn-sm" for="map-{{ $key }}">
+                            <span class="move-stop-dot move-stop-{{ $key }}" aria-hidden="true"></span>{{ $label }}
+                        </label>
+                    @endforeach
+                </fieldset>
+                <button class="btn btn-outline-secondary btn-sm mt-2" type="button" data-current-location hidden>
+                    <i class="fa-solid fa-crosshairs me-1" aria-hidden="true"></i> Use my location for pickup
+                </button>
+                <div id="booking-map" class="move-editor-map" aria-label="Pickup and destination map"></div>
+                <p class="small text-body-secondary mb-0 mt-2" data-location-status role="status"></p>
+            </div>
+
             <section class="card card-body move-editor-panel" aria-labelledby="move-route-title">
                 <h2 class="h5 workspace-heading" id="move-route-title">Pickup and destination</h2>
-
 
                 <div class="row g-3 mt-1">
                     @foreach (['pickup' => 'Pickup', 'destination' => 'Destination'] as $key => $label)
                         <div class="col-md-6">
                             <fieldset class="move-stop-fields">
                                 <legend class="h6 workspace-heading"><span class="move-stop-dot move-stop-{{ $key }}" aria-hidden="true"></span>{{ $label }}</legend>
+
+                                @foreach (['latitude', 'longitude'] as $field)
+                                    @php($name = $key.'_'.$field)
+                                    <input type="hidden" id="{{ $name }}" name="{{ $name }}" value="{{ old($name, $draft->{$name}) }}">
+                                @endforeach
+
                                 <div class="row g-2">
-                                    @foreach (['latitude' => 'Latitude', 'longitude' => 'Longitude', 'floor' => 'Floor'] as $field => $fieldLabel)
-                                        @php($name = $key.'_'.$field)
-                                        <div class="col-6">
-                                            <label class="form-label small" for="{{ $name }}">{{ $fieldLabel }}</label>
-                                            <input @class(['form-control', 'is-invalid' => $errors->has($name)]) id="{{ $name }}" name="{{ $name }}"
-                                                inputmode="{{ $field === 'floor' ? 'numeric' : 'decimal' }}"
-                                                value="{{ old($name, $draft->{$name} ?? ($field === 'floor' ? 0 : '')) }}"
-                                                @error($name) aria-describedby="{{ $name }}-error" @enderror>
-                                            @error($name)<div id="{{ $name }}-error" class="invalid-feedback">{{ $message }}</div>@enderror
-                                        </div>
-                                    @endforeach
+                                    @if ($errors->has($key.'_latitude') || $errors->has($key.'_longitude'))
+                                        <div class="col-12 text-danger small">Please choose the {{ strtolower($label) }} on the map.</div>
+                                    @endif
+
+                                    @php($name = $key.'_floor')
+                                    <div class="col-6">
+                                        <label class="form-label small" for="{{ $name }}">Floor</label>
+                                        <input @class(['form-control', 'is-invalid' => $errors->has($name)]) id="{{ $name }}" name="{{ $name }}"
+                                            inputmode="numeric"
+                                            value="{{ old($name, $draft->{$name} ?? 0) }}"
+                                            @error($name) aria-describedby="{{ $name }}-error" @enderror>
+                                        @error($name)<div id="{{ $name }}-error" class="invalid-feedback">{{ $message }}</div>@enderror
+                                    </div>
+
                                     @php($name = $key.'_has_elevator')
                                     <div class="col-6">
                                         <label class="form-label small" for="{{ $name }}">Elevator</label>
@@ -65,26 +74,33 @@
                         </div>
                     @endforeach
                 </div>
-                <p class="small text-body-secondary mt-3 mb-0">You can enter coordinates directly. Enter both latitude and longitude for each stop.</p>
-            <div class="mt-3">
-        <label class="h6 workspace-heading" for="notes">Access notes <span class="small fw-normal text-body-secondary">(optional)</span></label>
-        <textarea @class(['form-control', 'is-invalid' => $errors->has('notes')]) id="notes" name="notes" rows="3"
-            placeholder="Parking, building access, or other details for the move">{{ old('notes', $draft->notes) }}</textarea>
-        @error('notes')<div class="invalid-feedback">{{ $message }}</div>@enderror
-    </div>
-</section>
+
+                <p class="small text-body-secondary mt-3 mb-0">Choose the pickup and destination on the map above.</p>
+
+                <div class="mt-3">
+                    <label class="h6 workspace-heading" for="notes">Access notes <span class="small fw-normal text-body-secondary">(optional)</span></label>
+                    <textarea @class(['form-control', 'is-invalid' => $errors->has('notes')]) id="notes" name="notes" rows="3"
+                        placeholder="Parking, building access, or other details for the move">{{ old('notes', $draft->notes) }}</textarea>
+                    @error('notes')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                </div>
+            </section>
+
             <section class="card card-body move-editor-panel" aria-labelledby="move-time-title">
-                <h2 class="h5 workspace-heading" id="move-time-title">Booking appointment</h2>
-                <div class="col-md-6">
-                    <label class="form-label small" for="scheduled_start_at">Booking date and time (Amman)</label>
-                    <input @class(['form-control', 'is-invalid' => $errors->has('scheduled_start_at')])
-                        type="datetime-local" step="1" id="scheduled_start_at" name="scheduled_start_at"
-                        value="{{ old('scheduled_start_at', $draft->scheduled_start_at?->timezone(config('booking.timezone'))->format('Y-m-d\TH:i:s')) }}"
-                        @error('scheduled_start_at') aria-describedby="booking-time-error" @enderror>
-                    @error('scheduled_start_at')<div id="booking-time-error" class="invalid-feedback">{{ $message }}</div>@enderror
+                <h2 class="h5 workspace-heading" id="move-time-title">Date and time</h2>
+                <div class="row g-3">
+                    @foreach (['scheduled_start_at' => 'Start', 'scheduled_end_at' => 'End'] as $name => $label)
+                        <div class="col-md-6">
+                            <label class="form-label small" for="{{ $name }}">{{ $label }}</label>
+                            <input @class(['form-control', 'is-invalid' => $errors->has($name)]) type="datetime-local" step="1" id="{{ $name }}" name="{{ $name }}"
+                                value="{{ old($name, $draft->{$name}?->timezone(config('app.timezone'))->format('Y-m-d\TH:i:s')) }}"
+                                @error($name) aria-describedby="{{ $name }}-error" @enderror>
+                            @error($name)<div id="{{ $name }}-error" class="invalid-feedback">{{ $message }}</div>@enderror
+                        </div>
+                    @endforeach
                 </div>
             </section>
         </div>
+
         <aside class="col-lg-4 d-grid gap-3">
             <section class="card card-body move-editor-panel">
                 <h2 class="h5 workspace-heading"><i class="fa-solid fa-route me-1" aria-hidden="true"></i> Route</h2>
@@ -96,6 +112,7 @@
                     <i class="fa-solid fa-circle-info me-1" aria-hidden="true"></i> Changes to either stop require a new quote before you send the booking.
                 </p>
             </section>
+
             <section class="card card-body move-editor-panel" id="vehicle-selection" aria-labelledby="move-vehicle-title">
                 <h2 class="h5 workspace-heading" id="move-vehicle-title">Vehicle</h2>
                 <p class="small text-body-secondary">Choose a booking time to check availability.</p>
