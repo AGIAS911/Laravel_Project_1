@@ -36,7 +36,8 @@ class OllamaService
             $catalog,
         ]);
 
-        $response = Http::timeout(60)
+        $response = Http::connectTimeout(5)
+            ->timeout(config('services.ollama.timeout', 90))
             ->post(config('services.ollama.url') . '/api/chat', [
                 'model' => config('services.ollama.model'),
                 'messages' => array_merge([

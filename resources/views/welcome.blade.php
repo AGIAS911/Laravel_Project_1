@@ -52,10 +52,4 @@
 <section class="bottom-cta reveal"><div><span class="micro">READY WHEN YOU ARE</span><h2>LET'S GET MOVING.</h2></div><a class="action red" href="{{ route($bookingRoute) }}">Start your move <span>●</span></a></section>
 <footer class="landing-footer"><a class="moveit-brand" href="{{ url('/') }}" aria-label="MoveIt">MOVE<span>IT</span></a><p>Smart moving. Clear pricing. Trusted connections.</p><div><a href="{{ route('info.contact') }}">Contact</a><a href="{{ route('info.policies') }}">Policies</a><a href="{{ route($accountRoute) }}">{{ $accountLabel }}</a></div><small>© 2026 MoveIt · Prices in JOD</small></footer>
 </main>
-<a class="chatbot-fab" href="{{ route('chatbot.index') }}" aria-label="Open MoveIt chatbot" title="Chat with MoveIt">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8z"/>
-        <path d="M8 12h.01M12 12h.01M16 12h.01"/>
-    </svg>
-</a>
 @endsection

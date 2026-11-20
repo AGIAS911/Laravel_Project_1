@@ -70,6 +70,16 @@ Route::middleware(['auth', 'active', 'role:customer'])->scopeBindings()->group(f
     Route::post('/bookings/{booking}/submit', [BookingWorkflowController::class, 'submit'])->name('bookings.submit');
     Route::post('/bookings/{booking}/quote', [BookingWorkflowController::class, 'quote'])->name('bookings.quote');
     Route::patch('/bookings/{booking}/cancel', [BookingWorkflowController::class, 'cancel'])->name('bookings.cancel');
+    Route::get('/bookings/{booking}/scan', [ScanSessionController::class, 'workspace'])
+        ->name('scan-sessions.workspace');
+    Route::post('/bookings/{booking}/scan-sessions', [ScanSessionController::class, 'store'])
+        ->name('scan-sessions.store');
+    Route::get('/bookings/{booking}/scan-sessions/inventory', [ScanSessionController::class, 'inventory'])
+        ->name('scan-sessions.inventory');
+    Route::get('/bookings/{booking}/scan-sessions/{scanSession}', [ScanSessionController::class, 'show'])
+        ->name('scan-sessions.show');
+    Route::delete('/bookings/{booking}/scan-sessions/{scanSession}', [ScanSessionController::class, 'close'])
+        ->name('scan-sessions.close');
     Route::get('/bookings/{booking}/inventory', [InventoryController::class, 'index'])->name('bookings.inventory.index');
     Route::get('/bookings/{booking}/inventory/{inventoryItem}/image', [InventoryController::class, 'image'])->name('bookings.inventory.image');
     Route::post('/bookings/start-inventory', [InventoryController::class, 'startBooking'])->name('bookings.inventory.start');
@@ -151,6 +161,9 @@ Auth::routes();
 Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
 
 Route::get('/chatbot', [ChatbotController::class, 'index'])->name('chatbot.index');
+Route::get('/chatbot/conversations/{conversation}', [ChatbotController::class, 'history'])
+    ->whereNumber('conversation')
+    ->name('chatbot.history');
 
 Route::post('/chatbot/message', [ChatbotController::class, 'send'])
     ->name('chatbot.message');

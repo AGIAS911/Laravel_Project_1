@@ -9,9 +9,11 @@
 
     <link rel="icon" href="{{ asset('landing/img/favicon.svg') }}">
     <link rel="stylesheet" href="{{ asset('landing/css/landing.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/chatbot-widget.css') }}">
     <script src="{{ asset('landing/js/landing.js') }}" defer></script>
 </head>
 <body>
     @yield('content')
+    @include('chatbot.widget')
 </body>
 </html>
