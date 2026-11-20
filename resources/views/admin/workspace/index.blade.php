@@ -66,11 +66,18 @@
                         <tbody>
                             @forelse ($latestBookings as $booking)
                                 <tr>
-                                    <th scope="row"><a href="{{ route('booking.show', $booking) }}">#{{ $booking->id }}</a></th>
+                                    <th scope="row"><a href="{{ route('booking.show', $booking) }}">{{ $booking->id }}</a></th>
                                     <td>{{ $booking->customer?->name ?? '—' }}</td>
                                     <td>{{ $booking->driver?->user?->name ?? '—' }}</td>
                                     <td>{{ $booking->total_price !== null ? $booking->total_price . ' JOD' : '—' }}</td>
-                                    <td><span class="admin-status">{{ str($booking->status)->headline() }}</span></td>
+                                    <td>
+                                        <span class="admin-status">
+                                            @if ($booking->status === 'draft')
+                                                <i class="fa-regular fa-pen-to-square me-1 text-secondary-emphasis" aria-hidden="true"></i>
+                                            @endif
+                                            {{ str($booking->status)->headline() }}
+                                        </span>
+                                    </td>
                                 </tr>
                             @empty
                                 <tr><td colspan="5">No bookings yet.</td></tr>

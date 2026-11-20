@@ -51,9 +51,14 @@
                             <tbody>
                                 @forelse ($recentBookings as $booking)
                                     <tr>
-                                        <td><strong>#{{ $booking->id }}</strong></td>
+                                        <td><strong>{{ $booking->id }}</strong></td>
                                         <td>{{ $booking->scheduled_start_at?->timezone('Asia/Amman')->format('d M Y, H:i') ?? '—' }}</td>
-                                        <td>@include('booking._status', ['state' => $booking->status])</td>
+                                        <td>
+                                            @include('booking._status', [
+                                                'state' => $booking->status,
+                                                'icon' => $booking->status === 'draft' ? 'fa-pen-to-square' : null,
+                                            ])
+                                        </td>
                                         <td><a class="btn btn-outline-secondary btn-sm" href="{{ route('booking.show', $booking) }}">Details</a></td>
                                     </tr>
                                 @empty

@@ -1,7 +1,7 @@
 @extends('layouts.dashboard')
 
-@section('title', 'Edit booking #' . $booking->id . ' | MoveIt')
-@section('page-title', 'Edit booking #' . $booking->id)
+@section('title', 'Edit booking ' . $booking->id . ' | MoveIt')
+@section('page-title', 'Edit booking ' . $booking->id)
 @section('page-icon', 'fa-route')
 @section('page-description', 'Step 2: Locations and schedule.')
 

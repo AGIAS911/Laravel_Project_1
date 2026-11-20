@@ -1,7 +1,7 @@
 @extends('layouts.dashboard')
 
-@section('title', 'Booking #' . $booking->id)
-@section('page-title', 'Booking #' . $booking->id)
+@section('title', 'Booking ' . $booking->id)
+@section('page-title', 'Booking ' . $booking->id)
 @section('page-icon', 'fa-clipboard-list')
 @section('page-description', 'Track your move, furniture inventory, and payment status.')
 

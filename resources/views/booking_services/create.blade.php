@@ -30,7 +30,7 @@
                     <option value="">{{ __('booking_services.select_booking') }}</option>
                     @foreach ($bookings as $booking)
                         <option value="{{ $booking->id }}" @selected(old('booking_id') == $booking->id)>
-                            #{{ $booking->id }} · {{ ucfirst($booking->status) }}
+                            {{ $booking->id }} · {{ ucfirst($booking->status) }}
                         </option>
                     @endforeach
                 </select>

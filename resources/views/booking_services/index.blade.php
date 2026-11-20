@@ -36,7 +36,7 @@
                 @forelse ($bookingServices as $bookingService)
                     <tr>
                         <td>{{ $bookingService->id }}</td>
-                        <td>#{{ $bookingService->booking_id }}</td>
+                        <td>{{ $bookingService->booking_id }}</td>
                         <td>{{ $bookingService->service_name }}</td>
                         <td>{{ $bookingService->unit }}</td>
                         <td>{{ $bookingService->quantity }}</td>

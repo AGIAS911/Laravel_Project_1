@@ -10,7 +10,7 @@
                 <tbody>
                     @forelse ($recentReviews as $review)
                         <tr>
-                            <th scope="row"><a href="{{ route('booking.show', $review->booking) }}">#{{ $review->booking_id }}</a></th>
+                            <th scope="row"><a href="{{ route('booking.show', $review->booking) }}">{{ $review->booking_id }}</a></th>
                             <td>{{ $review->booking?->customer?->name ?? '—' }}</td>
                             <td>{{ $review->booking?->driver?->user?->name ?? '—' }}</td>
                             <td class="text-nowrap"><span class="text-warning" aria-hidden="true">{{ str_repeat('★', $review->rating) }}{{ str_repeat('☆', 5 - $review->rating) }}</span><span class="visually-hidden">{{ $review->rating }} / 5</span></td>

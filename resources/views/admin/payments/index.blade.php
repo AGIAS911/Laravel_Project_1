@@ -66,7 +66,7 @@
                             @php($overdue = $payment->status === 'pending' && $payment->booking->deposit_due_at?->isPast())
                             <tr>
                                 <th scope="row">
-                                    <a class="fw-bold" href="{{ route('booking.show', $payment->booking_id) }}">#{{ $payment->booking_id }}</a>
+                                    <a class="fw-bold" href="{{ route('booking.show', $payment->booking_id) }}">{{ $payment->booking_id }}</a>
                                     <span class="d-block small fw-normal text-body-secondary">{{ $payment->booking->customer?->name ?? '—' }}</span>
                                 </th>
                                 <td class="text-nowrap fw-semibold"><bdi>{{ $payment->amount }} {{ config('payments.currency') }}</bdi></td>

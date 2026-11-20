@@ -23,6 +23,11 @@ class MoveItNotification extends Model
         return ['title' => $this->title, 'message' => $this->message, 'url' => $this->url];
     }
 
+    public function getTitleAttribute($value): string
+    {
+        return preg_replace('/\bBooking #(?=\d)/', 'Booking ', (string) $value);
+    }
+
     public function markAsRead(): void
     {
         if ($this->read_at === null) {
@@ -36,7 +41,7 @@ class MoveItNotification extends Model
             'user_id' => $userId,
             'booking_id' => $booking->id,
             'type' => 'booking',
-            'title' => 'Booking #'.$booking->id,
+            'title' => 'Booking '.$booking->id,
             'message' => $message,
             'url' => route('booking.show', $booking, false),
         ]);

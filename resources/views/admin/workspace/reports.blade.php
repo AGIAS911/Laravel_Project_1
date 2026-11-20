@@ -55,7 +55,7 @@
                     <tbody>
                         @foreach ($completedBookings as $booking)
                             <tr>
-                                <th scope="row"><a href="{{ route('booking.show', $booking) }}">#{{ $booking->id }}</a></th>
+                                <th scope="row"><a href="{{ route('booking.show', $booking) }}">{{ $booking->id }}</a></th>
                                 <td class="text-end text-nowrap">{{ $booking->total_price === null ? '—' : $booking->total_price . ' JOD' }}</td>
                                 <td class="text-end text-nowrap">{{ $booking->commission_rate === null ? '—' : $booking->commission_rate . '%' }}</td>
                                 <td class="text-end text-nowrap fw-semibold">{{ $booking->commission_amount === null ? '—' : $booking->commission_amount . ' JOD' }}</td>

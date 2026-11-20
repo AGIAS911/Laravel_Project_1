@@ -232,31 +232,20 @@ class BookingWorkflowController extends Controller
 
     private function routeDistance(array $coordinates): int
     {
-        $key = config('booking.google_routes_key');
-        abort_unless($key, 503, 'Google Routes is not configured.');
+        $origin = sprintf('%.7F,%.7F', (float) $coordinates['pickup_longitude'], (float) $coordinates['pickup_latitude']);
+        $destination = sprintf('%.7F,%.7F', (float) $coordinates['destination_longitude'], (float) $coordinates['destination_latitude']);
+        $url = rtrim((string) config('booking.osrm_base_url'), '/')."/route/v1/driving/{$origin};{$destination}";
+
         try {
-            $response = Http::withHeaders(['X-Goog-Api-Key' => $key, 'X-Goog-FieldMask' => 'routes.distanceMeters'])
-                ->timeout(8)->post('https://routes.googleapis.com/directions/v2:computeRoutes', [
-                    'origin' => $this->waypoint($coordinates, 'pickup'),
-                    'destination' => $this->waypoint($coordinates, 'destination'),
-                    'travelMode' => 'DRIVE',
-                ]);
+            $response = Http::timeout(8)->get($url, ['overview' => 'false']);
         } catch (ConnectionException) {
             abort(503, 'Route calculation failed. Try again.');
         }
-        $meters = $response->json('routes.0.distanceMeters');
-        abort_unless($response->successful() && is_int($meters) && $meters > 0 && $meters <= 10000000,
+        $meters = $response->json('routes.0.distance');
+        abort_unless($response->successful() && is_numeric($meters) && $meters > 0 && $meters <= 10000000,
             503, 'Route calculation failed. Try again.');
 
-        return $meters;
-    }
-
-    private function waypoint(array $coordinates, string $prefix): array
-    {
-        return ['location' => ['latLng' => [
-            'latitude' => (float) $coordinates[$prefix.'_latitude'],
-            'longitude' => (float) $coordinates[$prefix.'_longitude'],
-        ]]];
+        return (int) round((float) $meters);
     }
 
     private function percentage($input, float $minimum): int

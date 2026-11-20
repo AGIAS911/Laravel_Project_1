@@ -122,12 +122,12 @@ class BookingBackendTest extends TestCase
     public function test_booking_cannot_skip_payment_or_double_book_a_driver(): void
     {
         config([
-            'booking.google_routes_key' => 'test-key',
+            'booking.osrm_base_url' => 'https://router.project-osrm.org',
             'booking.deposit_percent' => '20',
             'booking.commission_percent' => '10',
             'booking.deposit_minutes' => '30',
         ]);
-        Http::fake(['routes.googleapis.com/*' => Http::response(['routes' => [['distanceMeters' => 2500]]])]);
+        Http::fake(['router.project-osrm.org/*' => Http::response(['code' => 'Ok', 'routes' => [['distance' => 2500]]])]);
         $customer = User::factory()->create();
         $driver = DriverProfile::factory()->create();
         $vehicle = Vehicle::factory()->for($driver, 'driver')->create([
@@ -154,6 +154,8 @@ class BookingBackendTest extends TestCase
         $this->get(route('booking.show', $booking))->assertOk()->assertSee('Calculate quote');
         $this->postJson(route('bookings.quote', $booking))
             ->assertOk()->assertJsonPath('status', 'draft')->assertJsonPath('total_price', '20.000');
+        Http::assertSent(fn ($request) => $request->method() === 'GET'
+            && str_contains($request->url(), '/route/v1/driving/35.0000000,31.0000000;35.0000000,32.0000000'));
         $this->postJson(route('bookings.submit', $booking), ['expected_total' => '19.000'])->assertConflict();
         $this->getJson(route('bookings.vehicles', $window))->assertOk()->assertJsonPath('data.0.id', $vehicle->id)
             ->assertJsonMissingPath('data.0.plate_number')->assertJsonMissingPath('data.0.driver_id');
