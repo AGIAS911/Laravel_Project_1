@@ -1,26 +1,33 @@
 @extends('layouts.dashboard')
 
-@section('title', __('payments.title'))
-@section('page-title', __('payments.title'))
+@section('title', __('Payments'))
+@section('page-title', __('Payments'))
+@section('page-icon', 'fa-receipt')
 
 @section('content')
     <p class="text-body-secondary">Payment proof history and deposits awaiting payment.</p>
 
     @if ($awaiting->isNotEmpty())
-        <div class="card card-body mb-4">
-            <h2 class="h6">{{ __('payments.awaiting') }}</h2>
+        <div class="card card-body customer-panel mb-4">
+            <h2 class="h6">{{ __('Deposits awaiting payment') }}</h2>
             <ul class="list-unstyled mb-0">
                 @foreach ($awaiting as $booking)
-                    <li class="d-flex justify-content-between align-items-center py-1">
+                    <li class="customer-payment-due d-flex flex-wrap justify-content-between align-items-center gap-2 py-2">
                         <span>
-                            #{{ $booking->id }} · {{ __('payments.deposit_required') }}:
-                            <bdi>{{ $booking->deposit_amount ?? '—' }}</bdi>
+                            #{{ $booking->id }} · {{ __('Required deposit') }}:
+                            <bdi>{{ $booking->deposit_amount ?? '—' }} {{ config('payments.currency') }}</bdi>
                             @if ($booking->deposit_due_at)
-                                · {{ __('payments.deposit_due') }}: {{ $booking->deposit_due_at->format('Y-m-d H:i') }}
+                                · {{ __('Due') }}: {{ $booking->deposit_due_at->timezone('Asia/Amman')->format('Y-m-d H:i') }}
                             @endif
                         </span>
+                        @if ($booking->receipt_under_review)
+                            @include('booking._status', ['state' => 'pending', 'label' => 'Receipt under review', 'icon' => 'fa-clock'])
+                        @elseif (!$booking->deposit_due_at?->isPast())
                         <a class="btn btn-primary btn-sm"
-                            href="{{ route('payments.create', ['booking_id' => $booking->id]) }}">{{ __('payments.pay_now') }}</a>
+                            href="{{ route('payments.create', ['booking_id' => $booking->id]) }}">{{ __('Pay deposit') }}</a>
+                        @else
+                            <span class="badge text-bg-warning">Deposit deadline passed</span>
+                        @endif
                     </li>
                 @endforeach
             </ul>
@@ -33,12 +40,12 @@
             <thead>
                 <tr>
                     <th>#</th>
-                    <th>{{ __('payments.booking') }}</th>
-                    <th>{{ __('payments.amount') }}</th>
-                    <th>{{ __('payments.transfer_reference') }}</th>
-                    <th>{{ __('payments.status') }}</th>
-                    <th>{{ __('payments.created_at') }}</th>
-                    <th class="text-end">{{ __('payments.actions') }}</th>
+                    <th>{{ __('Booking') }}</th>
+                    <th>{{ __('Amount') }}</th>
+                    <th>{{ __('Transfer reference') }}</th>
+                    <th>{{ __('Status') }}</th>
+                    <th>{{ __('Uploaded') }}</th>
+                    <th class="text-end">{{ __('Actions') }}</th>
                 </tr>
             </thead>
             <tbody>
@@ -49,7 +56,7 @@
                         <td><bdi>{{ $payment->amount }} {{ config('payments.currency') }}</bdi></td>
                         <td><bdi>{{ $payment->transfer_reference ?? '—' }}</bdi></td>
                         <td>
-                            @include('booking._status', ['state' => $payment->status, 'label' => __('payments.status_' . $payment->status)])
+                            @include('payments._status')
                             @if ($payment->status === 'rejected' && $payment->rejection_reason)
                                 <div class="text-danger small">{{ $payment->rejection_reason }}</div>
                             @endif
@@ -57,12 +64,12 @@
                         <td>{{ $payment->created_at?->format('Y-m-d H:i') }}</td>
                         <td class="text-end">
                             <a class="btn btn-outline-secondary btn-sm" target="_blank"
-                                href="{{ route('payments.receipt', $payment->id) }}">{{ __('payments.view_receipt') }}</a>
+                                href="{{ route('payments.receipt', $payment->id) }}">{{ __('View receipt') }}</a>
                         </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="7" class="text-center py-3">{{ __('payments.empty') }}</td>
+                        <td colspan="7" class="text-center py-3">{{ __('No payment receipts yet.') }}</td>
                     </tr>
                 @endforelse
             </tbody>

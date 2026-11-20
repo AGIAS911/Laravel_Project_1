@@ -31,6 +31,14 @@ class ChatbotFlowTest extends TestCase
             ->assertSee('المساعد الذكي');
     }
 
+    public function test_homepage_has_a_floating_link_to_the_chatbot(): void
+    {
+        $this->get('/')
+            ->assertOk()
+            ->assertSee(route('chatbot.index'), false)
+            ->assertSee('aria-label="Open MoveIt chatbot"', false);
+    }
+
     public function test_guest_message_is_saved_to_a_session_owned_conversation(): void
     {
         Http::fake([

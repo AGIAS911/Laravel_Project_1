@@ -10,6 +10,14 @@ use Illuminate\Support\Str;
 
 class VehicleTypeController extends Controller
 {
+    public function setStatus(Request $request, VehicleType $vehicleType)
+    {
+        $data = $request->validate(['is_active' => 'required|boolean']);
+        $vehicleType->update(['is_active' => $data['is_active']]);
+
+        return back()->with('success', 'Status updated.');
+    }
+
     public function index()
     {
         if (request()->user()?->role !== 'admin') {

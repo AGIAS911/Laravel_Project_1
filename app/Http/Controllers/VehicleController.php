@@ -23,13 +23,20 @@ class VehicleController extends Controller
         }
 
         $driver = $this->managingDriver($request);
-        $vehicles = Vehicle::with(['vehicleType', 'driver'])
+        $status = $request->query('status');
+        $status = in_array($status, ['active', 'maintenance', 'inactive'], true) ? $status : null;
+        $search = $request->query('q');
+        $search = is_string($search) ? trim(substr($search, 0, 100)) : '';
+        $vehicles = Vehicle::with(['vehicleType', 'driver.user'])
             ->when($driver, fn ($query) => $query->where('driver_id', $driver->id))
+            ->when($status, fn ($query) => $query->where('status', $status))
+            ->when($search !== '', fn ($query) => $query->where(fn ($rows) => $rows
+                ->where('name', 'like', '%'.$search.'%')->orWhere('plate_number', 'like', '%'.$search.'%')))
             ->withCount('bookings')
             ->latest()
-            ->paginate(10);
+            ->paginate(10)->withQueryString();
 
-        return view('vehicles.index', compact('vehicles'));
+        return view('vehicles.index', compact('vehicles', 'status', 'search'));
     }
 
     /**

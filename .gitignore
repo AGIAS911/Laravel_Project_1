@@ -23,6 +23,7 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 /ai-service/venv/
+/ai-service/.venv/
 /ai-service/**/__pycache__/
 /ai-service/*.pt
 /ai-service/.env

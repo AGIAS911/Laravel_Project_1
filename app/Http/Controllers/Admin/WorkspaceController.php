@@ -46,16 +46,45 @@ class WorkspaceController extends Controller
         return view('admin.workspace.index', compact('metrics', 'activity', 'expiredWithProof', 'latestBookings'));
     }
 
-    public function reports()
+    public function reports(Request $request)
     {
         $groups = Booking::selectRaw('status, COUNT(*) AS total')
-            ->groupBy('status')->orderBy('status')->get();
+            ->groupBy('status')->orderByDesc('total')->get();
         $approvedDeposits = Payment::where('status', 'approved')->where('purpose', 'deposit')->sum('amount');
-        $recordedCommission = Booking::where('status', 'completed')->sum('commission_amount');
+        $completed = Booking::where('status', 'completed');
+        $recordedCommission = (clone $completed)->sum('commission_amount');
+        $search = $this->reportSearch($request);
+        $completedBookings = $this->reportRows($search)->paginate(15)->withQueryString();
 
-        $completedBookings = Booking::where('status', 'completed')->latest('id')->paginate(15);
+        return view('admin.workspace.reports', compact('groups', 'approvedDeposits', 'recordedCommission', 'completedBookings', 'search'));
+    }
 
-        return view('admin.workspace.reports', compact('groups', 'approvedDeposits', 'recordedCommission', 'completedBookings'));
+    public function exportReports(Request $request)
+    {
+        $rows = $this->reportRows($this->reportSearch($request));
+
+        return response()->streamDownload(function () use ($rows) {
+            $output = fopen('php://output', 'w');
+            fputcsv($output, ['Booking ID', 'Total (JOD)', 'Locked commission (JOD)'], escape: '');
+            foreach ($rows->cursor() as $booking) {
+                fputcsv($output, [$booking->id, $booking->total_price, $booking->commission_amount], escape: '');
+            }
+            fclose($output);
+        }, 'moveit-commissions.csv', ['Content-Type' => 'text/csv']);
+    }
+
+    private function reportSearch(Request $request): string
+    {
+        $search = $request->query('q');
+
+        return is_string($search) ? trim(substr($search, 0, 24)) : '';
+    }
+
+    private function reportRows(string $search): \Illuminate\Database\Eloquent\Builder
+    {
+        return Booking::where('status', 'completed')
+            ->when($search !== '', fn ($query) => $query->where('id', ctype_digit($search) && strlen($search) <= 18 ? $search : 0))
+            ->latest('id');
     }
 
     public function settings()

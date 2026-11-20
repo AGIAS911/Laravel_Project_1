@@ -1,6 +1,7 @@
 @extends('layouts.dashboard')
 
 @section('page-title', 'Services')
+@section('page-description', 'Transport and add-on catalog.')
 
 @section('actions')
     @if (auth()->user()?->role === 'admin')
@@ -16,8 +17,8 @@
                 @forelse ($services as $service)
                     <tr>
                         <th scope="row">{{ $service->name }}</th>
-                        <td>{{ str($service->type)->headline() }}</td>
-                        <td>{{ number_format((float) $service->price, 3) }} JOD</td>
+                        <td>{{ $service->type === \App\Models\Service::TYPE_TRANSPORT ? 'Basic' : 'Add-on' }}</td>
+                        <td>{{ $service->type === \App\Models\Service::TYPE_TRANSPORT ? 'By distance' : number_format((float) $service->price, 3) . ' JOD' }}</td>
                         <td>{{ str($service->unit)->headline() }}</td>
                         <td>
                             <div class="d-flex flex-wrap align-items-center gap-2">

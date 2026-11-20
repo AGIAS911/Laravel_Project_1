@@ -32,6 +32,7 @@ class PaymentController extends Controller
             ->paginate(10);
 
         $awaiting = $request->user()->bookings()
+            ->withExists(['payments as receipt_under_review' => fn ($payments) => $payments->where('status', Payment::STATUS_PENDING)->where('purpose', Payment::PURPOSE_DEPOSIT)])
             ->where('status', 'awaiting_deposit')
             ->orderByDesc('id')
             ->get();

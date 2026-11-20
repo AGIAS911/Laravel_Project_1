@@ -13,7 +13,7 @@ class InventoryController extends Controller
 {
     public const ITEM_TYPES = [
         'chair', 'sofa', 'bed', 'dining table', 'tv', 'refrigerator',
-        'microwave', 'oven', 'laptop', 'potted plant', 'wardrobe', 'other',
+        'microwave', 'oven', 'laptop', 'potted plant', 'wardrobe', 'washing machine', 'desk', 'mirror', 'other',
     ];
 
     public function index(Request $request, Booking $booking)
@@ -29,6 +29,16 @@ class InventoryController extends Controller
             && Storage::disk('local')->exists($inventoryItem->image), 404);
 
         return Storage::disk('local')->response($inventoryItem->image, null, ['Cache-Control' => 'private, no-store']);
+    }
+
+    public function startBooking(Request $request)
+    {
+        return $this->save($request, function (array $data) use ($request) {
+            $booking = $request->user()->bookings()->create(['status' => 'draft']);
+            $booking->inventoryItems()->create(array_merge($data, ['source' => 'manual', 'status' => 'confirmed']));
+
+            return redirect()->route('booking.show', $booking)->with('success', 'Item added to your booking draft.');
+        });
     }
 
     public function store(Request $request, Booking $booking)
