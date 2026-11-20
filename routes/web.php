@@ -178,3 +178,11 @@ Route::middleware(['auth', 'active', 'role:customer'])->group(function () {
 
 Route::middleware(['auth', 'active'])->get('/payments/{id}/receipt', [PaymentController::class, 'receipt'])
     ->name('payments.receipt');
+
+Route::middleware(['auth', 'active', 'role:customer'])->scopeBindings()->group(function () {
+    Route::get('/bookings/{booking}/scan', [ScanSessionController::class, 'workspace'])->name('scan-sessions.workspace');
+    Route::get('/bookings/{booking}/scan/inventory', [ScanSessionController::class, 'inventory'])->name('scan-sessions.inventory');
+    Route::post('/bookings/{booking}/scan-sessions', [ScanSessionController::class, 'store'])->name('scan-sessions.store');
+    Route::get('/bookings/{booking}/scan-sessions/{scanSession}', [ScanSessionController::class, 'show'])->name('scan-sessions.show');
+    Route::delete('/bookings/{booking}/scan-sessions/{scanSession}', [ScanSessionController::class, 'close'])->name('scan-sessions.close');
+});

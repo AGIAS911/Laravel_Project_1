@@ -1,3 +1,5 @@
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Auth;
 <form class="move-editor" method="POST" action="{{ route('booking.update', $draft) }}">
     @csrf
     @method('PUT')

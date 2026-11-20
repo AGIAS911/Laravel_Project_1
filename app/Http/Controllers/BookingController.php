@@ -2,24 +2,17 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-
+use App\Enums\BookingStatus;
 use App\Models\Booking;
+use App\Models\DriverProfile;
 use App\Models\PlatformSetting;
-use App\Models\Vehicle;
 use App\Models\Service;
+use App\Models\Vehicle;
+use Illuminate\Http\Request;
+use Illuminate\Support\Carbon as LaravelCarbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Carbon;
 
-use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Str;
-use App\Models\ScanSession;
-use App\Models\DriverProfile;
-use App\Models\Payment;
-use App\Models\User;
-use App\Models\MoveItNotification;
 class BookingController extends Controller
 {
     /**
@@ -29,21 +22,17 @@ class BookingController extends Controller
     {
         $user = $request->user();
 
-        $statuses = [
-            'draft' => 'Drafts',
-            'pending' => 'Awaiting driver',
-            'awaiting_deposit' => 'Awaiting deposit',
-            'confirmed' => 'Confirmed',
-            'completed' => 'Completed',
-            'cancelled' => 'Cancelled',
-        ];
-        $status = $request->query('status');
-        $status = is_string($status) && isset($statuses[$status]) ? $status : null;
+        $statuses = [];
+        foreach (BookingStatus::cases() as $case) {
+            $statuses[$case->value] = $case->filterLabel();
+        }
+        $requestedStatus = $request->query('status');
+        $status = is_string($requestedStatus) ? BookingStatus::tryFrom($requestedStatus)?->value : null;
         $search = $request->query('q', '');
         $search = is_string($search) ? trim(substr($search, 0, 40)) : '';
         $query = $user->role === 'admin' ? Booking::query() : $user->bookings();
         $drivers = $user->role === 'admin'
-            ? \App\Models\DriverProfile::with('user:id,name')->orderBy('id')->get(['id', 'user_id'])
+            ? DriverProfile::with('user:id,name')->orderBy('id')->get(['id', 'user_id'])
             : collect();
         $driverFilter = $request->query('driver');
         $driverFilter = is_string($driverFilter) && $drivers->contains('id', $driverFilter) ? $driverFilter : null;
@@ -74,7 +63,7 @@ class BookingController extends Controller
         abort_unless($request->user()->role === 'customer', 403);
         $data = $request->validate($this->bookingRules());
         $data['customer_id'] = $request->user()->id;
-        $data['status'] = 'draft';
+        $data['status'] = BookingStatus::Draft->value;
         $data = $this->draftValues($data);
 
         $booking = Booking::create($data);
@@ -92,7 +81,7 @@ class BookingController extends Controller
         $user = $request->user();
         $booking = match ($user->role) {
             'admin' => Booking::findOrFail($id),
-            'driver' => $user->driverProfile?->bookings()->where('status', '!=', 'draft')->findOrFail($id),
+            'driver' => $user->driverProfile?->bookings()->where('status', '!=', BookingStatus::Draft->value)->findOrFail($id),
             default => $user->bookings()->findOrFail($id),
         };
         abort_unless($booking, 404);
@@ -114,7 +103,11 @@ class BookingController extends Controller
                     ]),
                 ];
             }
-            if ($user->role === 'admin' || in_array($booking->status, ['confirmed', 'in_progress', 'completed'], true)) {
+            if ($user->role === 'admin' || in_array($booking->status, [
+                BookingStatus::Confirmed->value,
+                BookingStatus::InProgress->value,
+                BookingStatus::Completed->value,
+            ], true)) {
                 $details['driver'] = $booking->driver?->user?->only(['name', 'phone']);
             }
 
@@ -122,18 +115,18 @@ class BookingController extends Controller
         }
 
         $booking->load(['inventoryItems', 'bookingServices.service', 'review']);
-        $services = $user->id === $booking->customer_id && $booking->status === 'draft'
+        $services = $user->id === $booking->customer_id && $booking->status === BookingStatus::Draft->value
             ? Service::where('is_active', true)->orderBy('name')->get()
             : collect();
 
-        $receiptUnderReview = $user->id === $booking->customer_id && $booking->status === 'awaiting_deposit'
+        $receiptUnderReview = $user->id === $booking->customer_id && $booking->status === BookingStatus::AwaitingDeposit->value
             && $booking->payments()->where('status', 'pending')->where('purpose', 'deposit')->exists();
 
         $cancellationRequiresReview = $user->id === $booking->customer_id
-            && in_array($booking->status, ['pending', 'awaiting_deposit'], true)
+            && in_array($booking->status, [BookingStatus::Pending->value, BookingStatus::AwaitingDeposit->value], true)
             && ($receiptUnderReview || $booking->payments()->whereIn('status', ['pending', 'approved'])->exists());
 
-        $cliqConfigured = $booking->status === 'awaiting_deposit' && PlatformSetting::cliqConfigured();
+        $cliqConfigured = $booking->status === BookingStatus::AwaitingDeposit->value && PlatformSetting::cliqConfigured();
 
         return view('booking.show', compact('booking', 'services', 'receiptUnderReview', 'cancellationRequiresReview', 'cliqConfigured'));
     }
@@ -144,7 +137,7 @@ class BookingController extends Controller
     public function edit(Request $request, string $id)
     {
         abort_unless($request->user()->role === 'customer', 403);
-        $booking = $request->user()->bookings()->where('status', 'draft')->findOrFail($id);
+        $booking = $request->user()->bookings()->where('status', BookingStatus::Draft->value)->findOrFail($id);
 
         return view("booking.edit", compact("booking"));
     }
@@ -160,7 +153,7 @@ class BookingController extends Controller
         $data = $this->draftValues($data);
 
         DB::transaction(function () use ($request, $id, $data) {
-            $booking = $request->user()->bookings()->where('status', 'draft')->lockForUpdate()->findOrFail($id);
+            $booking = $request->user()->bookings()->where('status', BookingStatus::Draft->value)->lockForUpdate()->findOrFail($id);
             $booking->fill($data);
             if ($booking->isDirty([
                 'vehicle_id', 'pickup_latitude', 'pickup_longitude',
@@ -191,7 +184,7 @@ class BookingController extends Controller
             'destination_floor' => ['sometimes', 'required', 'integer', 'between:-32768,32767'],
             'destination_has_elevator' => ['sometimes', 'required', 'boolean'],
             'scheduled_start_at' => ['nullable', 'bail', 'date', function ($attribute, $value, $fail) {
-                if (!\Illuminate\Support\Carbon::parse($value, config('booking.timezone'))->isFuture()) {
+                if (!LaravelCarbon::parse($value, config('booking.timezone'))->isFuture()) {
                     $fail('Choose a booking time in the future (Amman time).');
                 }
             }],
@@ -208,7 +201,7 @@ class BookingController extends Controller
         if (array_key_exists('scheduled_start_at', $data)) {
             $appointment = $data['scheduled_start_at'] === null
                 ? null
-                : Carbon::parse($data['scheduled_start_at'], config('booking.timezone'))->utc();
+                : LaravelCarbon::parse($data['scheduled_start_at'], config('booking.timezone'))->utc();
 
             $data['scheduled_start_at'] = $appointment;
             $data['scheduled_end_at'] = $appointment ? Booking::slotEnd($appointment) : null;
@@ -224,7 +217,7 @@ class BookingController extends Controller
     {
         abort_unless($request->user()->role === 'customer', 403);
         DB::transaction(function () use ($request, $id) {
-            $booking = $request->user()->bookings()->where('status', 'draft')->lockForUpdate()->findOrFail($id);
+            $booking = $request->user()->bookings()->where('status', BookingStatus::Draft->value)->lockForUpdate()->findOrFail($id);
             $images = $booking->inventoryItems()->whereNotNull('image')->pluck('image')->all();
             $booking->inventoryItems()->delete();
             $booking->scanSessions()->delete();
