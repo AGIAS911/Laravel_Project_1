@@ -35,6 +35,12 @@
                     quote.querySelector('[data-quote-deposit]').textContent = data.deposit_amount + ' JOD';
                     quote.hidden = false;
                 }
+                const summary = document.querySelector('[data-booking-summary]');
+                if (summary) {
+                    summary.querySelector('[data-summary-distance]').textContent = data.distance_km + ' km';
+                    summary.querySelector('[data-summary-total]').textContent = data.total_price + ' JOD';
+                    summary.querySelector('[data-summary-deposit]').textContent = data.deposit_amount + ' JOD';
+                }
             } else {
                 location.reload();
             }

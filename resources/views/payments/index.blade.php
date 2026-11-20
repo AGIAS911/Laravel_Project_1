@@ -14,7 +14,7 @@
                 @foreach ($awaiting as $booking)
                     <li class="customer-payment-due d-flex flex-wrap justify-content-between align-items-center gap-2 py-2">
                         <span>
-                            #{{ $booking->id }} · {{ __('Required deposit') }}:
+                            {{ $booking->id }} · {{ __('Required deposit') }}:
                             <bdi>{{ $booking->deposit_amount ?? '—' }} {{ config('payments.currency') }}</bdi>
                             @if ($booking->deposit_due_at)
                                 · {{ __('Due') }}: {{ $booking->deposit_due_at->timezone('Asia/Amman')->format('Y-m-d H:i') }}
@@ -55,7 +55,7 @@
                 @forelse ($payments as $payment)
                     <tr>
                         <td>{{ $payment->id }}</td>
-                        <td><a href="{{ route('booking.show', $payment->booking_id) }}">#{{ $payment->booking_id }}</a></td>
+                        <td><a href="{{ route('booking.show', $payment->booking_id) }}">{{ $payment->booking_id }}</a></td>
                         <td><bdi>{{ $payment->amount }} {{ config('payments.currency') }}</bdi></td>
                         <td><bdi>{{ $payment->transfer_reference ?? '—' }}</bdi></td>
                         <td>

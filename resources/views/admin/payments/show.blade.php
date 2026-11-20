@@ -46,7 +46,7 @@
                     </a>
                 </div>
                 <a class="payment-receipt" href="{{ $receiptUrl }}" target="_blank" rel="noopener" aria-label="Open receipt image full size">
-                    <img src="{{ $receiptUrl }}" alt="CliQ receipt for booking #{{ $booking->id }}">
+                    <img src="{{ $receiptUrl }}" alt="CliQ receipt for booking {{ $booking->id }}">
                 </a>
             </section>
         </div>
@@ -57,7 +57,7 @@
                     @include('payments._status')
                 </div>
                 <dl class="payment-details mb-0">
-                    <dt>Booking</dt><dd><a href="{{ route('booking.show', $booking) }}">#{{ $booking->id }}</a> · {{ str($booking->status)->headline() }}</dd>
+                    <dt>Booking</dt><dd><a href="{{ route('booking.show', $booking) }}">{{ $booking->id }}</a> · {{ str($booking->status)->headline() }}</dd>
                     <dt>Customer</dt><dd>{{ $booking->customer?->name ?? '—' }}</dd>
                     <dt>Transfer reference</dt><dd><bdi>{{ $payment->transfer_reference ?: '—' }}</bdi></dd>
                     <dt>Uploaded</dt><dd>{{ $payment->created_at?->timezone('Asia/Amman')->format('d M Y · H:i') ?? '—' }}</dd>

@@ -26,7 +26,7 @@
         <div class="row g-3">
             <div class="col-md-6">
                 <label class="form-label">{{ __('booking_services.booking') }}</label>
-                <input class="form-control" value="#{{ $bookingService->booking_id }}" disabled>
+                <input class="form-control" value="{{ $bookingService->booking_id }}" disabled>
             </div>
 
             <div class="col-md-6">

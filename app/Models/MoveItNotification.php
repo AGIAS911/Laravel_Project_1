@@ -10,19 +10,23 @@ class MoveItNotification extends DatabaseNotification
 {
     use HasFactory, HasUuids;
 
-    public function getTitleAttribute(): ?string
+    public function getTitleAttribute($value = null): ?string
     {
-        return $this->data['title'] ?? null;
+        $title = $value ?? ($this->data['title'] ?? null);
+
+        return $title !== null
+            ? preg_replace('/\bBooking #(?=\d)/', 'Booking ', (string) $title)
+            : null;
     }
 
-    public function getMessageAttribute(): ?string
+    public function getMessageAttribute($value = null): ?string
     {
-        return $this->data['message'] ?? null;
+        return $value ?? ($this->data['message'] ?? null);
     }
 
-    public function getUrlAttribute(): ?string
+    public function getUrlAttribute($value = null): ?string
     {
-        return $this->data['url'] ?? null;
+        return $value ?? ($this->data['url'] ?? null);
     }
 
     public static function bookingEvent(int $userId, Booking $booking, string $message): static
@@ -31,6 +35,9 @@ class MoveItNotification extends DatabaseNotification
 
         return $user->notifications()->create([
             'type' => 'booking',
+            'title' => 'Booking '.$booking->id,
+            'message' => $message,
+            'url' => route('booking.show', $booking, false),
             'data' => [
                 'title' => 'Booking #'.$booking->id,
                 'message' => $message,

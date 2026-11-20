@@ -24,31 +24,34 @@ class ChatbotFlowTest extends TestCase
         ]);
     }
 
-    public function test_chatbot_page_can_be_opened(): void
+    public function test_chatbot_url_redirects_to_the_main_page_with_the_widget_open(): void
     {
         $this->get(route('chatbot.index'))
+            ->assertRedirect(url('/').'?chat=open');
+
+        $this->get('/?chat=open')
             ->assertOk()
-            ->assertSee('المساعد الذكي');
+            ->assertSee('data-chatbot-widget', false)
+            ->assertSee('data-chatbot-panel', false);
     }
 
-    public function test_customer_dashboard_has_a_floating_chatbot_link(): void
+    public function test_customer_dashboard_renders_the_floating_chat_widget(): void
     {
         $customer = User::factory()->create(['role' => 'customer']);
 
         $this->actingAs($customer)
             ->get(route('home'))
             ->assertOk()
-            ->assertSee(route('chatbot.index'), false)
-            ->assertSee('customer-chatbot-fab', false)
-            ->assertSee('aria-label="Open MoveIt chatbot"', false);
+            ->assertSee('data-chatbot-widget', false)
+            ->assertSee('data-chatbot-open', false);
     }
 
-    public function test_homepage_has_a_floating_link_to_the_chatbot(): void
+    public function test_homepage_has_a_floating_chat_widget(): void
     {
         $this->get('/')
             ->assertOk()
-            ->assertSee(route('chatbot.index'), false)
-            ->assertSee('aria-label="Open MoveIt chatbot"', false);
+            ->assertSee('data-chatbot-widget', false)
+            ->assertSee('data-chatbot-open', false);
     }
 
     public function test_guest_message_is_saved_to_a_session_owned_conversation(): void
@@ -152,12 +155,12 @@ class ChatbotFlowTest extends TestCase
         $this->assertSame($owner->id, $conversation->user_id);
         $this->assertNull($conversation->session_key);
 
-        $this->get(route('chatbot.index', ['conversation_id' => $conversationId]))
+        $this->get(route('chatbot.history', $conversationId))
             ->assertOk()
-            ->assertSee('Remember this detail.')
-            ->assertSee('First answer.')
-            ->assertSee('What was the detail?')
-            ->assertSee('Second answer.');
+            ->assertJsonPath('messages.0.content', 'Remember this detail.')
+            ->assertJsonPath('messages.1.content', 'First answer.')
+            ->assertJsonPath('messages.2.content', 'What was the detail?')
+            ->assertJsonPath('messages.3.content', 'Second answer.');
 
         $otherUser = User::create([
             'name' => 'Other User',
@@ -165,7 +168,10 @@ class ChatbotFlowTest extends TestCase
             'password' => 'password',
         ]);
         $this->actingAs($otherUser)
-            ->get(route('chatbot.index', ['conversation_id' => $conversationId]))
+            ->get(route('chatbot.history', $conversationId))
+            ->assertNotFound();
+
+        $this->get(route('chatbot.index', ['conversation_id' => $conversationId]))
             ->assertNotFound();
     }
 

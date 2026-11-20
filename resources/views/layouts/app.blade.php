@@ -17,6 +17,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" defer></script>
     <link rel="stylesheet" href="{{ asset('landing/css/brand.css') }}">
     <link rel="stylesheet" href="{{ asset('landing/css/workspace.css') }}">
+    <link rel="stylesheet" href="{{ asset('css/chatbot-widget.css') }}">
     @if (auth()->user()?->role === 'admin')
         <link rel="stylesheet" href="{{ asset('landing/css/admin-dashboard.css') }}">
         <script src="{{ asset('landing/js/admin-navigation.js') }}" defer></script>
@@ -156,5 +157,6 @@
         </div>
         @endif
     </div>
+    @include('chatbot.widget')
 </body>
 </html>

@@ -7,7 +7,9 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 
 class DriverController extends Controller
 {
@@ -26,18 +28,20 @@ class DriverController extends Controller
 
     public function show(Request $request)
     {
-        $driver = $request->user()->driverProfile;
+        $user = $request->user();
+        $driver = $user->driverProfile;
 
         return $driver
-            ? view('driver.profile.show', compact('driver'))
+            ? view('driver.profile.show', compact('driver', 'user'))
             : redirect()->route('driver.profile.edit');
     }
 
     public function edit(Request $request)
     {
-        $driver = $request->user()->driverProfile;
+        $user = $request->user();
+        $driver = $user->driverProfile;
 
-        return view('driver.profile.edit', compact('driver'));
+        return view('driver.profile.edit', compact('driver', 'user'));
     }
 
     public function update(Request $request)
@@ -46,6 +50,10 @@ class DriverController extends Controller
         $driver = $user->driverProfile;
 
         $validated = $request->validate([
+            'name' => ['required', 'string', 'max:150'],
+            'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
+            'current_password' => $request->filled('password') ? ['required', 'current_password'] : ['nullable'],
+            'password' => ['nullable', 'string', 'min:8', 'confirmed'],
             'license_number' => ['required', 'string', 'max:100'],
             'license_image' => [
                 !$driver || $driver->license_number !== $request->input('license_number') ? 'required' : 'nullable',
@@ -55,34 +63,48 @@ class DriverController extends Controller
             ],
         ]);
 
-        if (!$request->hasFile('license_image')) {
-            return redirect()->route('driver.profile.show');
+        $image = null;
+        if ($request->hasFile('license_image')) {
+            $image = $request->file('license_image')->store('licenses', 'local');
+            abort_unless($image, 503, 'Could not save the driver license.');
         }
-
-        $image = $request->file('license_image')->store('licenses', 'local');
-        abort_unless($image, 503, 'Could not save the driver license.');
 
         try {
             $previousImage = DB::transaction(function () use ($user, $validated, $image) {
                 $account = User::lockForUpdate()->findOrFail($user->id);
                 abort_unless($account->is_active && $account->role === 'driver', 403);
 
+                $accountData = [
+                    'name' => $validated['name'],
+                    'email' => $validated['email'],
+                ];
+                if ($account->email !== $validated['email']) {
+                    $accountData['email_verified_at'] = null;
+                }
+                if (!empty($validated['password'])) {
+                    $accountData['password'] = Hash::make($validated['password']);
+                }
+                $account->forceFill($accountData)->save();
+
                 $profile = $account->driverProfile()->firstOrNew();
                 $previousImage = $profile->license_image;
 
-                $profile->forceFill([
+                $profileData = [
                     'license_number' => $validated['license_number'],
-                    'license_image' => $image,
-                    'status' => 'pending',
-                    'status_reason' => null,
-                ])->save();
+                    'status' => $profile->exists ? $profile->status : 'approved',
+                    'status_reason' => $image ? null : $profile->status_reason,
+                ];
+                if ($image) {
+                    $profileData['license_image'] = $image;
+                }
+                $profile->forceFill($profileData)->save();
 
-                $account->forceFill(['is_active' => false])->save();
-
-                return $previousImage;
+                return $image ? $previousImage : null;
             });
         } catch (\Throwable $error) {
-            Storage::disk('local')->delete($image);
+            if ($image) {
+                Storage::disk('local')->delete($image);
+            }
             throw $error;
         }
 
@@ -90,12 +112,13 @@ class DriverController extends Controller
             Storage::disk('local')->delete($previousImage);
         }
 
-        Auth::logout();
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
+        if (!empty($validated['password'])) {
+            $request->session()->regenerate();
+        }
 
-        return redirect()->route('driver.application.pending');
+        return redirect()->route('driver.profile.show')->with('success', 'Driver profile updated successfully.');
     }
+
     public function destroy()
     {
         $user = User::findOrFail(Auth::id());
