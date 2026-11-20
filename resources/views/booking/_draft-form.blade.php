@@ -74,19 +74,16 @@
     </div>
 </section>
             <section class="card card-body move-editor-panel" aria-labelledby="move-time-title">
-                <h2 class="h5 workspace-heading" id="move-time-title">Date and time</h2>
-                <div class='row g-3'>
-                @foreach (['scheduled_start_at' => 'Start', 'scheduled_end_at' => 'End'] as $name => $label)
-                    <div class="col-md-6">
-                        <label class="form-label small" for="{{ $name }}">{{ $label }}</label>
-                        <input @class(['form-control', 'is-invalid' => $errors->has($name)]) type="datetime-local" step="1" id="{{ $name }}" name="{{ $name }}"
-                            value="{{ old($name, $draft->{$name}?->timezone(config('app.timezone'))->format('Y-m-d\TH:i:s')) }}"
-                            @error($name) aria-describedby="{{ $name }}-error" @enderror>
-                        @error($name)<div id="{{ $name }}-error" class="invalid-feedback">{{ $message }}</div>@enderror
-                    </div>
-                @endforeach
-            </div>
-</section>
+                <h2 class="h5 workspace-heading" id="move-time-title">Booking appointment</h2>
+                <div class="col-md-6">
+                    <label class="form-label small" for="scheduled_start_at">Booking date and time (Amman)</label>
+                    <input @class(['form-control', 'is-invalid' => $errors->has('scheduled_start_at')])
+                        type="datetime-local" step="1" id="scheduled_start_at" name="scheduled_start_at"
+                        value="{{ old('scheduled_start_at', $draft->scheduled_start_at?->timezone(config('booking.timezone'))->format('Y-m-d\TH:i:s')) }}"
+                        @error('scheduled_start_at') aria-describedby="booking-time-error" @enderror>
+                    @error('scheduled_start_at')<div id="booking-time-error" class="invalid-feedback">{{ $message }}</div>@enderror
+                </div>
+            </section>
         </div>
         <aside class="col-lg-4 d-grid gap-3">
             <section class="card card-body move-editor-panel">
@@ -101,7 +98,7 @@
             </section>
             <section class="card card-body move-editor-panel" id="vehicle-selection" aria-labelledby="move-vehicle-title">
                 <h2 class="h5 workspace-heading" id="move-vehicle-title">Vehicle</h2>
-                <p class="small text-body-secondary">Set the start and end times to check availability.</p>
+                <p class="small text-body-secondary">Choose a booking time to check availability.</p>
                 @php($selectedVehicle = old('vehicle_id', $draft->vehicle_id))
                 <label class="form-label small" for="vehicle_id">Selected vehicle</label>
                 <select @class(['form-select', 'is-invalid' => $errors->has('vehicle_id')]) id="vehicle_id" name="vehicle_id">
@@ -116,6 +113,7 @@
                 </button>
                 <p data-vehicle-status class="small mb-0 mt-2" role="status"></p>
                 <div class="customer-vehicle-options mt-3" data-vehicle-options></div>
+                <button type="button" class="btn btn-outline-secondary btn-sm mt-3 align-self-start" data-more-vehicles hidden>Load more vehicles</button>
             </section>
         </aside>
     </div>
