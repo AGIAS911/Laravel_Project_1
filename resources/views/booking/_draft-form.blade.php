@@ -115,7 +115,7 @@
 
             <section class="card card-body move-editor-panel" id="vehicle-selection" aria-labelledby="move-vehicle-title">
                 <h2 class="h5 workspace-heading" id="move-vehicle-title">Vehicle</h2>
-                <p class="small text-body-secondary">Set the start and end times to check availability.</p>
+                <p class="small text-body-secondary">Choose a booking time to check availability.</p>
                 @php($selectedVehicle = old('vehicle_id', $draft->vehicle_id))
                 <label class="form-label small" for="vehicle_id">Selected vehicle</label>
                 <select @class(['form-select', 'is-invalid' => $errors->has('vehicle_id')]) id="vehicle_id" name="vehicle_id">
@@ -130,6 +130,7 @@
                 </button>
                 <p data-vehicle-status class="small mb-0 mt-2" role="status"></p>
                 <div class="customer-vehicle-options mt-3" data-vehicle-options></div>
+                <button type="button" class="btn btn-outline-secondary btn-sm mt-3 align-self-start" data-more-vehicles hidden>Load more vehicles</button>
             </section>
         </aside>
     </div>

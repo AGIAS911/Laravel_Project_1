@@ -14,15 +14,24 @@ class UserController extends Controller
     public function index(Request $request)
     {
         if (!$request->routeIs('admin.driver-approvals')) {
-            return view('admin.users.list', ['users' => User::latest('id')->paginate(20)]);
+            $role = $request->query('role');
+            $role = in_array($role, ['customer', 'driver'], true) ? $role : null;
+
+            $users = User::with('driverProfile')
+                ->when($role, fn($query) => $query->where('role', $role))
+                ->latest('id')
+                ->paginate(20)
+                ->withQueryString();
+
+            return view('admin.users.list', compact('users', 'role'));
         }
 
         $tabs = ['pending' => 'Pending approval', 'approved' => 'Approved', 'rejected' => 'Rejected', 'suspended' => 'Suspended'];
         $status = $request->query('status');
         $status = is_string($status) && isset($tabs[$status]) ? $status : 'pending';
         $drivers = User::where('role', 'driver')
-            ->whereHas('driverProfile', fn ($profiles) => $profiles->where('status', $status))
-            ->with(['driverProfile' => fn ($profiles) => $profiles->withCount('vehicles')])
+            ->whereHas('driverProfile', fn($profiles) => $profiles->where('status', $status))
+            ->with(['driverProfile' => fn($profiles) => $profiles->withCount('vehicles')])
             ->latest('id')->paginate(20)->withQueryString();
         $pendingCount = \App\Models\DriverProfile::where('status', 'pending')->count();
 
@@ -90,7 +99,9 @@ class UserController extends Controller
                 $user->notify(new DriverApprovedNotification());
             } elseif ($changed) {
                 $user->notifications()->create([
-                    'type' => 'driver_status', 'title' => 'Driver account updated', 'message' => $reason,
+                    'type' => 'driver_status',
+                    'title' => 'Driver account updated',
+                    'message' => $reason,
                 ]);
             }
         });

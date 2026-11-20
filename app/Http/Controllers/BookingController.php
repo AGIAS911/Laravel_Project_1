@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 
 use App\Models\Booking;
+use App\Models\PlatformSetting;
 use App\Models\Vehicle;
 use App\Models\Service;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +16,10 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use App\Models\ScanSession;
+use App\Models\DriverProfile;
+use App\Models\Payment;
+use App\Models\User;
+use App\Models\MoveItNotification;
 class BookingController extends Controller
 {
     /**
@@ -124,7 +129,13 @@ class BookingController extends Controller
         $receiptUnderReview = $user->id === $booking->customer_id && $booking->status === 'awaiting_deposit'
             && $booking->payments()->where('status', 'pending')->where('purpose', 'deposit')->exists();
 
-        return view('booking.show', compact('booking', 'services', 'receiptUnderReview'));
+        $cancellationRequiresReview = $user->id === $booking->customer_id
+            && in_array($booking->status, ['pending', 'awaiting_deposit'], true)
+            && ($receiptUnderReview || $booking->payments()->whereIn('status', ['pending', 'approved'])->exists());
+
+        $cliqConfigured = $booking->status === 'awaiting_deposit' && PlatformSetting::cliqConfigured();
+
+        return view('booking.show', compact('booking', 'services', 'receiptUnderReview', 'cancellationRequiresReview', 'cliqConfigured'));
     }
 
     /**
@@ -179,8 +190,12 @@ class BookingController extends Controller
             'pickup_has_elevator' => ['sometimes', 'required', 'boolean'],
             'destination_floor' => ['sometimes', 'required', 'integer', 'between:-32768,32767'],
             'destination_has_elevator' => ['sometimes', 'required', 'boolean'],
-            'scheduled_start_at' => ['required_with:scheduled_end_at', 'nullable', 'date', 'after:now'],
-            'scheduled_end_at' => ['nullable', 'date', 'after:scheduled_start_at'],
+            'scheduled_start_at' => ['nullable', 'bail', 'date', function ($attribute, $value, $fail) {
+                if (!\Illuminate\Support\Carbon::parse($value, config('booking.timezone'))->isFuture()) {
+                    $fail('Choose a booking time in the future (Amman time).');
+                }
+            }],
+
             'notes' => ['nullable', 'string', 'max:16383'],
         ];
     }
@@ -190,10 +205,13 @@ class BookingController extends Controller
         if (array_key_exists('vehicle_id', $data)) {
             $data['driver_id'] = isset($data['vehicle_id']) ? Vehicle::findOrFail($data['vehicle_id'])->driver_id : null;
         }
-        foreach (['scheduled_start_at', 'scheduled_end_at'] as $field) {
-            if (isset($data[$field])) {
-                $data[$field] = Carbon::parse($data[$field], config('app.timezone'))->utc();
-            }
+        if (array_key_exists('scheduled_start_at', $data)) {
+            $appointment = $data['scheduled_start_at'] === null
+                ? null
+                : Carbon::parse($data['scheduled_start_at'], config('booking.timezone'))->utc();
+
+            $data['scheduled_start_at'] = $appointment;
+            $data['scheduled_end_at'] = $appointment ? Booking::slotEnd($appointment) : null;
         }
 
         return $data;

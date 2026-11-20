@@ -7,6 +7,7 @@ use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -61,17 +62,17 @@ class User extends Authenticatable implements MustVerifyEmail
         return $this->hasMany(Booking::class, 'customer_id');
     }
 
-    public function notifications(): HasMany
+    public function notifications(): MorphMany
     {
-        return $this->hasMany(MoveItNotification::class)->latest();
+        return $this->morphMany(MoveItNotification::class, 'notifiable')->latest();
     }
 
-    public function unreadNotifications(): HasMany
+    public function unreadNotifications(): MorphMany
     {
         return $this->notifications()->whereNull('read_at');
     }
 
-    public function readNotifications(): HasMany
+    public function readNotifications(): MorphMany
     {
         return $this->notifications()->whereNotNull('read_at');
     }

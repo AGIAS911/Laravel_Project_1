@@ -243,6 +243,41 @@ body{background:#fff}
   }
 }
 
+.chatbot-fab {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 50;
+  display: grid;
+  width: 60px;
+  height: 60px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 8px 24px #0b181f40;
+  transition: transform .2s, background .2s;
+}
+
+.chatbot-fab:hover {
+  transform: translateY(-3px);
+  background: #a8242c;
+}
+
+.chatbot-fab svg {
+  width: 28px;
+  height: 28px;
+}
+
+@media (max-width: 560px) {
+  .chatbot-fab {
+    right: 16px;
+    bottom: 16px;
+    width: 54px;
+    height: 54px;
+  }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .section-intro.reveal.ready { opacity: 1; transform: none; }
   .section-intro.ready .service-copy { clip-path: inset(0 100% 0 0); }

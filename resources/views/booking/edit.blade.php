@@ -3,7 +3,7 @@
 @section('title', 'Edit booking ' . $booking->id . ' | MoveIt')
 @section('page-title', 'Edit booking ' . $booking->id)
 @section('page-icon', 'fa-route')
-@section('page-description', 'Step 2: Locations and schedule.')
+@section('page-description', 'Step 2: Locations, schedule and vehicle.')
 
 @section('actions')
     <a class="btn btn-outline-secondary" href="{{ route('booking.show', $booking) }}">
@@ -15,7 +15,7 @@
     @include('booking._steps', [
         'current' => 'locations',
         'line' => true,
-        'links' => ['inventory' => route('booking.show', $booking).'#inventory', 'vehicle' => '#vehicle-selection'],
+        'links' => ['inventory' => route('booking.show', $booking).'#inventory', 'review' => route('booking.show', $booking).'#services'],
     ])
     @include('booking._draft-form', ['draft' => $booking])
 @endsection
