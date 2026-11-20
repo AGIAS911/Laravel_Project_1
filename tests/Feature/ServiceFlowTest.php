@@ -111,7 +111,7 @@ class ServiceFlowTest extends TestCase
         $this->actingAs(User::factory()->create(['role' => 'customer']))
             ->get(route('services.index'))
             ->assertOk()
-            ->assertSee('workspace-menu')
+            ->assertSee('customer-nav-links')
             ->assertSee('Services')
             ->assertSee('Active service')
             ->assertDontSee('Inactive service')
@@ -126,6 +126,15 @@ class ServiceFlowTest extends TestCase
             ->assertRedirect(route('services.index'))
             ->assertSessionHas('success');
         $this->assertSoftDeleted('services', ['id' => $activeService->id]);
+    }
+
+    public function test_customer_dashboard_navigation_links_to_services(): void
+    {
+        $this->actingAs(User::factory()->create(['role' => 'customer']))
+            ->get(route('home'))
+            ->assertOk()
+            ->assertSee(route('services.index'))
+            ->assertSee('Services');
     }
 
     public function test_service_cannot_be_created_with_a_negative_price(): void
