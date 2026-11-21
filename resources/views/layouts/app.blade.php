@@ -23,6 +23,8 @@
         <script src="{{ asset('landing/js/admin-navigation.js') }}" defer></script>
     @elseif (auth()->user()?->role === 'customer')
         <link rel="stylesheet" href="{{ asset('landing/css/customer-workspace.css') }}">
+    @elseif (auth()->user()?->role === 'driver')
+        <link rel="stylesheet" href="{{ asset('landing/css/driver-workspace.css') }}">
     @endif
     @stack('styles')
 </head>
@@ -42,6 +44,13 @@
             <div class="customer-shell">
                 @include('layouts.customer-topbar')
                 <main class="customer-workspace-content" id="customer-main">
+                    @include('layouts.workspace-content')
+                </main>
+            </div>
+        @elseif (auth()->user()?->role === 'driver')
+            <div class="driver-shell">
+                @include('layouts.driver-topbar')
+                <main class="driver-workspace" id="driver-main" tabindex="-1">
                     @include('layouts.workspace-content')
                 </main>
             </div>
