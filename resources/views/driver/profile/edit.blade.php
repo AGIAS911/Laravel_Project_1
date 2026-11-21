@@ -54,7 +54,7 @@
                 <label class="form-label" for="license_image">{{ $driver ? 'New license image (optional)' : 'License image' }}</label>
                 <input type="file" id="license_image" name="license_image" class="form-control @error('license_image') is-invalid @enderror"
                        accept="image/jpeg,image/png" @required(!$driver)>
-                <p class="form-text">A new license number requires a new photo.</p>
+                <p class="form-text">A new license number requires a new photo. Submitting a photo sends your license to the admin for review.</p>
                 @error('license_image')
                     <div class="invalid-feedback">{{ $message }}</div>
                 @enderror

@@ -61,13 +61,15 @@ class BookingWorkflowController extends Controller
 
         $coordinates = $booking->only(['pickup_latitude', 'pickup_longitude', 'destination_latitude', 'destination_longitude']);
         abort_if(in_array(null, $coordinates, true), 422, 'Both locations are required.');
-        abort_unless(PlatformSetting::bookingConfigured(), 503, 'Booking quotes are temporarily unavailable. Your draft is saved.');
+        abort_unless(PlatformSetting::quoteConfigured(), 503, 'Route pricing is temporarily unavailable. Your draft is saved.');
         $meters = $this->routeDistance($coordinates);
 
         return DB::transaction(function () use ($booking, $coordinates, $meters, $submit, $expected) {
             $booking = Booking::lockForUpdate()->findOrFail($booking->id);
             abort_unless($booking->status === 'draft' && $booking->only(array_keys($coordinates)) === $coordinates, 409);
             abort_unless($booking->scheduled_start_at?->isFuture(), 422, 'Choose a future booking time.');
+            $settings = PlatformSetting::values();
+            abort_if($submit && !PlatformSetting::bookingConfigured($settings), 503, 'CliQ checkout is temporarily unavailable. Your draft is saved.');
             $booking->scheduled_end_at ??= Booking::slotEnd($booking->scheduled_start_at);
             abort_unless(!$booking->needsInventory() || $booking->inventoryItems()->where('status', 'confirmed')->exists(),
                 422, 'Confirm at least one item.');
@@ -88,34 +90,35 @@ class BookingWorkflowController extends Controller
                 ->first();
             abort_unless($vehicle, 409, 'No vehicle of this type is available for your appointment. Try another time or vehicle type.');
 
-            $settings = PlatformSetting::values();
-            $deposit = $this->percentage($settings['deposit_percent'], 0.01);
-            $commission = $this->percentage($settings['commission_percent'], 0);
             $total = $this->transportPrice($vehicle, $meters, $this->timeMultiplier($booking->scheduled_start_at))
                 + $services->sum(fn ($line) => $this->milli($line->unit_price) * $line->quantity);
             abort_unless($total > 0 && $total <= 9999999999, 422, 'The booking total is outside the supported range.');
             abort_if(isset($expected['expected_total']) && $expected['expected_total'] !== $this->formatMilli($total),
                 409, 'The quote changed. Calculate it again before sending.');
 
-            $values = [
-                'vehicle_id' => null,
-                'driver_id' => null,
-                'preferred_vehicle_type_id' => $typeId,
+            $deposit = filled($settings['deposit_percent']) ? $this->percentage($settings['deposit_percent'], 0.01) : null;
+            $quote = [
                 'distance_km' => number_format($meters / 1000, 2, '.', ''),
                 'total_price' => $this->formatMilli($total),
-                'deposit_amount' => $this->formatMilli(max(1, intdiv($total * $deposit + 5000, 10000))),
-                'commission_rate' => number_format($commission / 100, 2, '.', ''),
-                'commission_amount' => $this->formatMilli(intdiv($total * $commission + 5000, 10000)),
-                'status' => 'awaiting_deposit',
+                'deposit_amount' => $deposit === null ? null : $this->formatMilli(max(1, intdiv($total * $deposit + 5000, 10000))),
             ];
             if ($submit) {
-                $booking->update($values + ['deposit_due_at' => $this->depositDeadline($booking)]);
+                $commission = $this->percentage($settings['commission_percent'], 0);
+                $booking->update($quote + [
+                    'vehicle_id' => null,
+                    'driver_id' => null,
+                    'preferred_vehicle_type_id' => $typeId,
+                    'commission_rate' => number_format($commission / 100, 2, '.', ''),
+                    'commission_amount' => $this->formatMilli(intdiv($total * $commission + 5000, 10000)),
+                    'status' => 'awaiting_deposit',
+                    'deposit_due_at' => $this->depositDeadline($booking, $settings),
+                ]);
             }
 
             return response()->json([
                 'id' => $booking->id, 'status' => $booking->status,
                 ...($submit ? ['payment_url' => route('payments.create', ['booking_id' => $booking->id])] : []),
-                ...\Illuminate\Support\Arr::only($values, ['distance_km', 'total_price', 'deposit_amount']),
+                ...$quote,
             ]);
         }, 3);
     }
@@ -242,9 +245,10 @@ class BookingWorkflowController extends Controller
         abort_if($conflict !== null, 409, 'The vehicle or driver is booked for that time.');
     }
 
-    private function depositDeadline(Booking $booking): \Illuminate\Support\Carbon
+    private function depositDeadline(Booking $booking, ?array $settings = null): \Illuminate\Support\Carbon
     {
-        $minutes = filter_var(PlatformSetting::values()['deposit_minutes'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        $settings ??= PlatformSetting::values();
+        $minutes = filter_var($settings['deposit_minutes'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
         abort_unless($minutes !== false, 503, 'Deposit deadline is not configured.');
 
         return now()->addMinutes($minutes)->min($booking->scheduled_start_at);

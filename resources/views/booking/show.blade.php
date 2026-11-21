@@ -19,6 +19,8 @@
 
         default => 'review',
     };
+    $showReview = $draft && (!$booking->booking_method || $wizardStep === 'review');
+    $checkoutReady = $showReview && \App\Models\PlatformSetting::bookingConfigured();
 @endphp
 
 @section('actions')
@@ -119,7 +121,7 @@
         </section>
     @endif
 
-    @if ($draft && (!$booking->booking_method || $wizardStep === 'review'))
+    @if ($showReview)
         <section class="card mb-3">
             <div class="card-body">
                 <h2 class="h5 workspace-heading" id="services">Services</h2>
@@ -159,13 +161,19 @@
                 </form>
             </div>
         </section>
-    <section class="card mb-3">
+    <section class="card mb-3" data-workflow-scope>
             <div class="card-body">
                 <h2 class="h5 workspace-heading" id="review">Review and send</h2>
-                @if (!\App\Models\PlatformSetting::bookingConfigured())
-                    <p class="alert alert-warning mb-0">Quotes are temporarily unavailable. Your draft is saved. <a href="{{ route('info.contact') }}">Contact support</a> for help.</p>
+                @if (!\App\Models\PlatformSetting::quoteConfigured())
+                    <p class="alert alert-warning mb-0">Route pricing is temporarily unavailable. Your draft is saved. <a href="{{ route('info.contact') }}">Contact support</a> for help.</p>
                 @else
-                <p class="small text-body-secondary">Calculate your quote to see the total and deposit. We will look for a driver once your full deposit is verified.</p>
+
+                @if ($checkoutReady)
+                    <p class="small text-body-secondary">Calculate your quote to see the total and deposit. We will look for a driver once your full deposit is verified.</p>
+                @else
+                    <p class="alert alert-warning">You can calculate the moving price now. CliQ checkout is temporarily unavailable, and your draft is saved.</p>
+                @endif
+                <p class="booking-workflow-message" data-workflow-status role="status"></p>
                 <div class="booking-quote mb-3" data-booking-quote hidden aria-live="polite">
                     <div><span>Road distance</span><strong data-quote-distance></strong></div>
                     <div><span>Total</span><strong data-quote-total></strong></div>
@@ -176,11 +184,13 @@
                         @csrf
                         <button class="btn btn-outline-primary">Calculate quote</button>
                     </form>
-                    <form id="submit-booking" data-workflow-form method="POST" action="{{ route('bookings.submit', $booking, false) }}" hidden>
-                        @csrf
-                        <input type="hidden" name="expected_total">
-                        <button class="btn btn-primary">Continue to CliQ payment</button>
-                    </form>
+                    @if ($checkoutReady)
+                        <form id="submit-booking" data-workflow-form method="POST" action="{{ route('bookings.submit', $booking, false) }}" hidden>
+                            @csrf
+                            <input type="hidden" name="expected_total">
+                            <button class="btn btn-primary">Continue to CliQ payment</button>
+                        </form>
+                    @endif
                 </div>
                 @endif
             </div>

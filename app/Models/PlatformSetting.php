@@ -15,11 +15,16 @@ class PlatformSetting extends Model
         return ['settings' => 'array'];
     }
 
-    public static function bookingConfigured(): bool
+    public static function quoteConfigured(): bool
     {
-        $settings = static::values();
+        return filled(config('booking.osrm_base_url'));
+    }
 
-        return filled(config('booking.osrm_base_url'))
+    public static function bookingConfigured(?array $settings = null): bool
+    {
+        $settings ??= static::values();
+
+        return static::quoteConfigured()
             && filled($settings['deposit_percent'])
             && filled($settings['commission_percent'])
             && filled($settings['deposit_minutes'])

@@ -43,20 +43,23 @@
             }
             if (form.dataset.workflowForm === 'quote') {
                 const submit = document.getElementById('submit-booking');
-                submit.elements.expected_total.value = data.total_price;
-                submit.hidden = false;
+                if (submit) {
+                    submit.elements.expected_total.value = data.total_price;
+                    submit.hidden = false;
+                }
+                const deposit = data.deposit_amount === null ? 'Not set yet' : data.deposit_amount + ' JOD';
                 const quote = document.querySelector('[data-booking-quote]');
                 if (quote) {
                     quote.querySelector('[data-quote-distance]').textContent = data.distance_km + ' km';
                     quote.querySelector('[data-quote-total]').textContent = data.total_price + ' JOD';
-                    quote.querySelector('[data-quote-deposit]').textContent = data.deposit_amount + ' JOD';
+                    quote.querySelector('[data-quote-deposit]').textContent = deposit;
                     quote.hidden = false;
                 }
                 const summary = document.querySelector('[data-booking-summary]');
                 if (summary) {
                     summary.querySelector('[data-summary-distance]').textContent = data.distance_km + ' km';
                     summary.querySelector('[data-summary-total]').textContent = data.total_price + ' JOD';
-                    summary.querySelector('[data-summary-deposit]').textContent = data.deposit_amount + ' JOD';
+                    summary.querySelector('[data-summary-deposit]').textContent = deposit;
                 }
             } else {
                 if (scope?.dataset.workflowReturn) {
@@ -70,7 +73,8 @@
                 if (scope) feedback.scrollIntoView({ block: 'nearest' });
             }
             if (form.id === 'submit-booking' || form.dataset.workflowForm === 'quote') {
-                document.getElementById('submit-booking').hidden = true;
+                const submit = document.getElementById('submit-booking');
+                if (submit) submit.hidden = true;
                 const quote = document.querySelector('[data-booking-quote]');
                 if (quote) quote.hidden = true;
             }
