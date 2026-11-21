@@ -13,6 +13,12 @@ class OllamaService
         array $serviceCatalog = []
     ): string
     {
+        $url = config('services.ollama.url');
+        $model = config('services.ollama.model');
+        if (blank($url) || blank($model)) {
+            throw new RuntimeException('Ollama URL and model must be configured.');
+        }
+
         $catalog = json_encode(
             $serviceCatalog,
             JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR
@@ -38,8 +44,8 @@ class OllamaService
 
         $response = Http::connectTimeout(5)
             ->timeout(config('services.ollama.timeout', 90))
-            ->post(config('services.ollama.url') . '/api/chat', [
-                'model' => config('services.ollama.model'),
+            ->post(rtrim($url, '/').'/api/chat', [
+                'model' => $model,
                 'messages' => array_merge([
                     [
                         'role' => 'system',
@@ -49,7 +55,8 @@ class OllamaService
                     'role' => 'user',
                     'content' => $message,
                 ]]),
-                'stream' => false
+                'stream' => false,
+                'think' => false,
             ]);
 
         $response->throw();

@@ -121,6 +121,45 @@ class BookingWizardTest extends TestCase
             ->assertJsonPath('driver.phone', '0791234567')->assertJsonPath('vehicle.plate_number', 'TEST-418');
     }
 
+    public function test_moving_price_is_available_before_cliq_checkout_is_configured(): void
+    {
+        config([
+            'booking.osrm_base_url' => 'https://routes.example.test',
+            'booking.deposit_percent' => null,
+            'booking.commission_percent' => null,
+            'booking.deposit_minutes' => null,
+            'payments.clik_name' => null,
+            'payments.clik_id' => null,
+        ]);
+        Http::fake(['routes.example.test/*' => Http::response(['routes' => [['distance' => 2500]]])]);
+        $customer = User::factory()->create();
+        $type = VehicleType::factory()->create(['is_active' => true]);
+        Vehicle::factory()->for($type)->create([
+            'status' => 'active', 'base_price' => '12.000', 'price_per_km' => '2.000',
+        ]);
+        $service = Service::factory()->create(['type' => Service::TYPE_TRANSPORT, 'unit' => 'fixed', 'price' => '3.000', 'is_active' => true]);
+        $booking = Booking::factory()->for($customer, 'customer')->create([
+            'booking_method' => 'quick', 'status' => 'draft', 'driver_id' => null,
+            'preferred_vehicle_type_id' => $type->id, 'scheduled_start_at' => now()->addDay(),
+            'pickup_latitude' => '31.91', 'pickup_longitude' => '35.9',
+            'destination_latitude' => '31.98', 'destination_longitude' => '35.92',
+        ]);
+        $booking->bookingServices()->create([
+            'service_id' => $service->id, 'service_name' => $service->name,
+            'unit' => 'fixed', 'quantity' => 1, 'unit_price' => '3.000',
+        ]);
+
+        $this->actingAs($customer)->get(route('booking.show', $booking))->assertOk()
+            ->assertSee('Calculate quote')->assertSee('CliQ checkout is temporarily unavailable')
+            ->assertDontSee('Continue to CliQ payment');
+        $this->postJson(route('bookings.quote', $booking))->assertOk()
+            ->assertJsonPath('total_price', '20.000')->assertJsonPath('deposit_amount', null);
+        $this->postJson(route('bookings.submit', $booking), ['expected_total' => '20.000'])->assertServiceUnavailable()
+            ->assertJsonPath('message', 'CliQ checkout is temporarily unavailable. Your draft is saved.');
+        $this->assertSame('draft', $booking->refresh()->status);
+        $this->assertNull($booking->total_price);
+    }
+
     public function test_paid_booking_retries_until_a_driver_accepts(): void
     {
         $customer = User::factory()->create();

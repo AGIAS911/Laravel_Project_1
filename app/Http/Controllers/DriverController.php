@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class DriverController extends Controller
 {
@@ -66,8 +67,8 @@ class DriverController extends Controller
         $driver = $user->driverProfile;
 
         $validated = $request->validate([
-            'name' => ['required', 'string', 'max:150'],
-            'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
+            'name' => ['sometimes', 'required', 'string', 'max:150'],
+            'email' => ['sometimes', 'required', 'string', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
             'current_password' => $request->filled('password') ? ['required', 'current_password'] : ['nullable'],
             'password' => ['nullable', 'string', 'min:8', 'confirmed'],
             'license_number' => ['required', 'string', 'max:100'],
@@ -90,33 +91,42 @@ class DriverController extends Controller
                 $account = User::lockForUpdate()->findOrFail($user->id);
                 abort_unless($account->is_active && $account->role === 'driver', 403);
 
-                $accountData = [
-                    'name' => $validated['name'],
-                    'email' => $validated['email'],
-                ];
-                if ($account->email !== $validated['email']) {
+                $profile = $account->driverProfile()->lockForUpdate()->firstOrNew();
+                if (!$image && (!$profile->exists || $profile->license_number !== $validated['license_number'])) {
+                    throw ValidationException::withMessages(['license_image' => 'Upload the license photo for this number.']);
+                }
+
+                if ($image && $profile->exists
+                    && $profile->bookings()->whereIn('status', ['confirmed', 'in_progress', 'awaiting_deposit'])->exists()) {
+                    throw ValidationException::withMessages(['license_image' => 'Finish your assigned moves before submitting a new license photo.']);
+                }
+
+                $accountData = array_intersect_key($validated, array_flip(['name', 'email']));
+                if (isset($accountData['email']) && $account->email !== $accountData['email']) {
                     $accountData['email_verified_at'] = null;
                 }
                 if (!empty($validated['password'])) {
                     $accountData['password'] = Hash::make($validated['password']);
                 }
+                if ($image) {
+                    $accountData['is_active'] = false;
+                }
                 $account->forceFill($accountData)->save();
 
-                $profile = $account->driverProfile()->firstOrNew();
-                $previousImage = $profile->license_image;
-
-                $profileData = [
-                    'license_number' => $validated['license_number'],
-                    'status' => $profile->exists ? $profile->status : 'approved',
-                    'status_reason' => $image ? null : $profile->status_reason,
-                ];
-                if ($image) {
-                    $profileData['license_image'] = $image;
+                if (!$image) {
+                    return null;
                 }
-                $profile->forceFill($profileData)->save();
 
-                return $image ? $previousImage : null;
-            });
+                $previousImage = $profile->license_image;
+                $profile->forceFill([
+                    'license_number' => $validated['license_number'],
+                    'license_image' => $image,
+                    'status' => 'pending',
+                    'status_reason' => null,
+                ])->save();
+
+                return $previousImage;
+            }, 3);
         } catch (\Throwable $error) {
             if ($image) {
                 Storage::disk('local')->delete($image);
@@ -126,6 +136,14 @@ class DriverController extends Controller
 
         if ($previousImage) {
             Storage::disk('local')->delete($previousImage);
+        }
+
+        if ($image) {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return redirect()->route('driver.application.pending');
         }
 
         if (!empty($validated['password'])) {

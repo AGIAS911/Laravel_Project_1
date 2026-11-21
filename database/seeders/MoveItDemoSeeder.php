@@ -110,6 +110,7 @@ class MoveItDemoSeeder extends Seeder
             }
 
             PricingRule::firstOrCreate(['name' => 'Demo morning rule'], PricingRule::factory()->raw(['name' => 'Demo morning rule']));
+            $this->seedCityMoves($admin, $customer, $vehicle, $transport, $workers, $receipt, $license, $password);
             if (! DB::table('contact_messages')->where('email', 'contact@moveit.test')->where('subject', 'Demo moving inquiry')->exists()) {
                 DB::table('contact_messages')->insert([
                     'name' => 'Demo Customer', 'email' => 'contact@moveit.test', 'subject' => 'Demo moving inquiry',
@@ -119,6 +120,114 @@ class MoveItDemoSeeder extends Seeder
         });
         if ($updatedAccounts) {
             $this->command?->info('Demo password for '.implode(', ', $updatedAccounts).': '.$password);
+        }
+    }
+
+    private function seedCityMoves(User $admin, User $customer, Vehicle $vehicle, Service $transport, Service $workers, string $receipt, string $license, string $password): void
+    {
+        $firstNames = ['Lina', 'Omar', 'Dana', 'Laith', 'Nour', 'Yazan', 'Rana', 'Ahmad'];
+        $lastNames = ['Haddad', 'Nasser', 'Khalil', 'Saleh', 'Awad', 'Masri'];
+        $customers = [$customer];
+        for ($i = 0; $i < 48; $i++) {
+            $customers[] = User::firstOrCreate(['email' => sprintf('amman.customer.%02d@moveit.test', $i + 1)], [
+                'name' => $firstNames[$i % 8].' '.$lastNames[intdiv($i, 8)],
+                'password' => $password, 'role' => 'customer', 'is_active' => true, 'email_verified_at' => now(),
+            ]);
+        }
+
+        $types = [];
+        foreach (['Compact Cargo Van' => 'small', 'Long Wheelbase Van' => 'medium', 'Box Truck' => 'large'] as $name => $capacity) {
+            $types[] = [VehicleType::firstOrCreate(['name' => $name], ['description' => "Suitable for a $capacity household move.", 'is_active' => true]), $capacity];
+        }
+        $fleet = [$vehicle];
+        for ($i = 0; $i < 15; $i++) {
+            $driver = User::firstOrCreate(['email' => sprintf('amman.driver.%02d@moveit.test', $i + 1)], [
+                'name' => ['Samer', 'Fadi', 'Tareq', 'Khaled', 'Bilal'][$i % 5].' '.$lastNames[intdiv($i, 5) + 3],
+                'password' => $password, 'role' => 'driver', 'is_active' => true, 'email_verified_at' => now(),
+            ]);
+            $profile = $driver->driverProfile()->firstOrCreate([], [
+                'license_number' => 'DEMO-AMMAN-'.($i + 1), 'license_image' => $license, 'status' => 'approved',
+            ]);
+            [$type, $capacity] = $types[$i % 3];
+            $fleet[] = Vehicle::firstOrCreate(['plate_number' => 'DEMO-AMMAN-'.($i + 1)], [
+                'driver_id' => $profile->id, 'vehicle_type_id' => $type->id, 'name' => $type->name.' '.($i + 1),
+                'capacity_kg' => $capacity, 'capacity_m3' => $capacity,
+                'base_price' => 20 + 8 * ($i % 3), 'price_per_km' => 0.85 + 0.20 * ($i % 3), 'status' => 'active',
+            ]);
+        }
+
+        $areas = [
+            ['Jabal Amman', 31.9480, 35.9250], ['Abdoun', 31.9410, 35.8880],
+            ['Sweifieh', 31.9532, 35.8649], ['Khalda', 31.9950, 35.8500],
+            ['Shmeisani', 31.9764, 35.9006], ['Tabarbour', 32.0110, 35.9450],
+            ['Tlaa Al Ali', 31.9969, 35.8699], ['Al Jubeiha', 32.0260, 35.8730],
+        ];
+        $inventories = [
+            ['sofa' => 1, 'tv' => 1, 'bed' => 1, 'chair' => 2],
+            ['dining table' => 1, 'chair' => 6, 'refrigerator' => 1, 'oven' => 1],
+            ['desk' => 2, 'chair' => 4, 'wardrobe' => 1],
+            ['bed' => 2, 'sofa' => 2, 'wardrobe' => 2, 'washing machine' => 1],
+        ];
+        $today = now(config('booking.timezone'))->startOfDay();
+        $counts = ['completed' => 96, 'confirmed' => 42, 'pending' => 24, 'awaiting_deposit' => 32, 'draft' => 32, 'cancelled' => 14];
+        foreach ($counts as $state => $count) {
+            for ($i = 0; $i < $count; $i++) {
+                $owner = $customers[$i % 6 === 0 ? 0 : 1 + (($i + strlen($state) * 7) % 48)];
+                [$from, $lat, $lng] = $areas[$i % 8];
+                [$to, $destLat, $destLng] = $areas[($i + 1 + intdiv($i, 8) % 7) % 8];
+                $note = sprintf('[Amman demo %s-%03d] %s to %s. %s', $state, $i + 1, $from, $to,
+                    ['Please call before arrival.', 'Use the service entrance.', 'Loading access from the side street.'][($i + intdiv($i, 8)) % 3]);
+                $truck = $fleet[$i % count($fleet)];
+                $past = in_array($state, ['completed', 'cancelled'], true);
+                $start = $today->copy()->addDays($past ? -2 - $i : 2 + $i)->setTime(8 + 2 * ($i % 5), 0)->utc();
+                $assigned = in_array($state, ['confirmed', 'completed'], true);
+                $paid = $assigned || $state === 'pending';
+                $draft = $state === 'draft';
+                $distance = round(hypot(($lat - $destLat) * 111, ($lng - $destLng) * 94) * 1.3, 2);
+                $crew = 1 + intdiv($i, 4) % 3;
+                $total = round((float) $truck->base_price + $distance * (float) $truck->price_per_km + (float) $transport->price + $crew * (float) $workers->price, 3);
+                $booking = $owner->bookings()->firstOrCreate(['notes' => $note], [
+                    'status' => $state, 'booking_method' => 'quick', 'preferred_vehicle_type_id' => $truck->vehicle_type_id,
+                    'vehicle_id' => $assigned ? $truck->id : null, 'driver_id' => $assigned ? $truck->driver_id : null,
+                    'pickup_latitude' => $lat, 'pickup_longitude' => $lng,
+                    'destination_latitude' => $destLat, 'destination_longitude' => $destLng,
+                    'pickup_floor' => $i % 5, 'destination_floor' => ($i + 2) % 5,
+                    'pickup_has_elevator' => $i % 3 !== 0, 'destination_has_elevator' => $i % 4 !== 0,
+                    'scheduled_start_at' => $start, 'scheduled_end_at' => $start->copy()->addHours(2),
+                    'distance_km' => $draft ? null : $distance, 'total_price' => $draft ? null : $total,
+                    'deposit_amount' => $draft ? null : round($total * 0.25, 3),
+                    'commission_rate' => $draft ? null : 10, 'commission_amount' => $draft ? null : round($total * 0.1, 3),
+                    'deposit_due_at' => $state === 'awaiting_deposit' ? now()->addDay() : null,
+                    'deposit_verified_at' => $paid ? ($past ? $start->copy()->subDay() : now()) : null,
+                ]);
+                if (!$booking->wasRecentlyCreated) {
+                    continue;
+                }
+
+                foreach ($inventories[$i % 4] as $item => $quantity) {
+                    $booking->inventoryItems()->create(['item_type' => $item, 'quantity' => $quantity, 'source' => 'manual', 'status' => 'confirmed']);
+                }
+                foreach ([$transport, $workers] as $service) {
+                    $booking->bookingServices()->create([
+                        'service_id' => $service->id, 'service_name' => $service->name,
+                        'unit' => $service->unit, 'quantity' => $service->id === $workers->id ? $crew : 1, 'unit_price' => $service->price,
+                    ]);
+                }
+                if ($paid || ($state === 'awaiting_deposit' && $i % 2 === 0)) {
+                    $booking->payments()->create([
+                        'purpose' => Payment::PURPOSE_DEPOSIT, 'amount' => $booking->deposit_amount,
+                        'transfer_reference' => sprintf('DEMO-AMMAN-%s-%03d', $state, $i + 1), 'receipt_image' => $receipt,
+                        'status' => $paid ? Payment::STATUS_APPROVED : Payment::STATUS_PENDING,
+                        'reviewed_by' => $paid ? $admin->id : null, 'reviewed_at' => $booking->deposit_verified_at,
+                    ]);
+                }
+                if ($state === 'completed' && $i % 4 !== 0) {
+                    $booking->review()->create([
+                        'rating' => $i % 3 === 0 ? 4 : 5,
+                        'comment' => ['Furniture arrived safely.', 'The crew handled the stairs carefully.', 'Pickup was on time.'][$i % 3],
+                    ]);
+                }
+            }
         }
     }
 

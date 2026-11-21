@@ -175,6 +175,21 @@ class ChatbotFlowTest extends TestCase
             ->assertNotFound();
     }
 
+    public function test_history_returns_the_latest_messages_in_chat_order(): void
+    {
+        $owner = User::factory()->create();
+        $conversation = ChatConversation::create(['user_id' => $owner->id, 'title' => 'Long conversation']);
+        $conversation->messages()->createMany(array_map(
+            fn (int $number) => ['role' => 'user', 'content' => 'Message '.$number],
+            range(1, 101),
+        ));
+
+        $this->actingAs($owner)->getJson(route('chatbot.history', $conversation))
+            ->assertOk()->assertJsonCount(100, 'messages')
+            ->assertJsonPath('messages.0.content', 'Message 2')
+            ->assertJsonPath('messages.99.content', 'Message 101');
+    }
+
     public function test_message_is_required_before_calling_ollama(): void
     {
         Http::fake();

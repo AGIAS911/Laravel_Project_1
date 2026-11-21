@@ -110,6 +110,37 @@ class RegistrationTest extends TestCase
         $this->assertGuest();
     }
 
+    public function test_driver_can_edit_contact_details_without_losing_approval(): void
+    {
+        $profile = \App\Models\DriverProfile::factory()->create();
+
+        $this->actingAs($profile->user)->put(route('driver.profile.update'), [
+            'name' => 'Updated driver name',
+            'license_number' => $profile->license_number,
+        ])->assertRedirect(route('driver.profile.show'));
+
+        $this->assertAuthenticatedAs($profile->user);
+        $this->assertTrue($profile->user->fresh()->is_active);
+        $this->assertSame('Updated driver name', $profile->user->fresh()->name);
+        $this->assertSame('approved', $profile->fresh()->status);
+    }
+
+    public function test_confirmed_move_stays_with_current_driver_during_license_update(): void
+    {
+        Storage::fake('local');
+        $profile = \App\Models\DriverProfile::factory()->create();
+        \App\Models\Booking::factory()->for($profile, 'driver')->create(['status' => 'confirmed']);
+
+        $this->actingAs($profile->user)->put(route('driver.profile.update'), [
+            'license_number' => 'NEW-456',
+            'license_image' => new UploadedFile(base_path('ai-service/chair.jpg'), 'license.jpg', 'image/jpeg', null, true),
+        ])->assertSessionHasErrors('license_image');
+
+        $this->assertAuthenticatedAs($profile->user);
+        $this->assertSame('approved', $profile->fresh()->status);
+        Storage::disk('local')->assertDirectoryEmpty('licenses');
+    }
+
     public function test_new_license_returns_approved_driver_to_review(): void
     {
         Storage::fake('local');

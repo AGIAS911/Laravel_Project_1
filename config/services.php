@@ -35,8 +35,8 @@ return [
         ],
     ],
     'ollama' => [
-        'url' => env('OLLAMA_URL'),
-        'model' => env('OLLAMA_MODEL'),
+        'url' => env('OLLAMA_URL', env('APP_ENV') === 'local' ? 'http://127.0.0.1:11434' : null),
+        'model' => env('OLLAMA_MODEL', env('APP_ENV') === 'local' ? 'qwen3:8b' : null),
         'timeout' => env('OLLAMA_TIMEOUT', 90),
     ],
 
