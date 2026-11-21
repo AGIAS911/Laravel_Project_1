@@ -20,7 +20,7 @@
                 <p class="mb-1">{{ $notification->message }}</p>
                 <time class="small text-body-secondary" datetime="{{ $notification->created_at->toISOString() }}">{{ $notification->created_at->diffForHumans() }}</time>
                 @if ($notification->url)
-                    <a class="ms-2" href="{{ $notification->url }}">Open</a>
+                    <a class="ms-2" href="{{ route('notifications.open', $notification->id) }}">Open</a>
                 @endif
                 @unless ($notification->read_at)
                     <form class="d-inline" method="POST" action="{{ route('notifications.read', $notification) }}">

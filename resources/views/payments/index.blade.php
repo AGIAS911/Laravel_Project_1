@@ -35,6 +35,15 @@
                 @endforeach
             </ul>
         </div>
+    @else
+        <div class="alert alert-info d-flex align-items-start gap-2" role="note">
+            <i class="fa-solid fa-circle-info mt-1" aria-hidden="true"></i>
+            <div>
+                <strong>No deposit payment is due yet.</strong>
+                <p class="mb-2">The Pay deposit option appears here after your driver accepts a booking.</p>
+                <a href="{{ route('booking.index') }}">View my bookings</a>
+            </div>
+        </div>
     @endif
 
     <div class="card move-table">
