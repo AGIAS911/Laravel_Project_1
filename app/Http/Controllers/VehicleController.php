@@ -36,7 +36,9 @@ class VehicleController extends Controller
             ->latest()
             ->paginate(10)->withQueryString();
 
-        return view('vehicles.index', compact('vehicles', 'status', 'search'));
+        $view = $driver ? 'vehicles.driver-index' : 'vehicles.index';
+
+        return view($view, compact('vehicles', 'status', 'search'));
     }
 
     /**
@@ -46,7 +48,11 @@ class VehicleController extends Controller
     {
         $vehicleTypes = VehicleType::where('is_active', true)->get();
         $driver = $this->managingDriver(request());
-        $drivers = $driver ? collect([$driver]) : DriverProfile::all();
+        if ($driver) {
+            return view('vehicles.driver-form', ['vehicle' => null, 'vehicleTypes' => $vehicleTypes]);
+        }
+
+        $drivers = DriverProfile::all();
 
         return view('vehicles.create', compact('vehicleTypes', 'drivers'));
     }
@@ -103,7 +109,11 @@ class VehicleController extends Controller
         $vehicleTypes = VehicleType::where('is_active', true)
             ->orWhere('id', $vehicle->vehicle_type_id)
             ->get();
-        $drivers = $driver ? collect([$driver]) : DriverProfile::all();
+        if ($driver) {
+            return view('vehicles.driver-form', compact('vehicle', 'vehicleTypes'));
+        }
+
+        $drivers = DriverProfile::all();
 
         return view('vehicles.edit', compact('vehicle', 'vehicleTypes', 'drivers'));
     }

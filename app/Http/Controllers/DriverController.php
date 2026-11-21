@@ -23,7 +23,19 @@ class DriverController extends Controller
         $counts = $driver->bookings()->whereIn('status', ['pending', 'confirmed', 'in_progress', 'completed'])
             ->selectRaw('status, COUNT(*) AS total')->groupBy('status')->pluck('total', 'status');
 
-        return view('driver.dashboard', compact('driver', 'counts'));
+        $upcoming = $driver->bookings()
+            ->with(['customer:id,name', 'vehicle:id,name'])
+            ->where(fn ($query) => $query->where('status', 'in_progress')
+                ->orWhere(fn ($confirmed) => $confirmed->where('status', 'confirmed')
+                    ->where(fn ($scheduled) => $scheduled->where('scheduled_start_at', '>=', now())
+                        ->orWhere('scheduled_end_at', '>=', now()))))
+            ->orderByRaw("CASE WHEN status = 'in_progress' THEN 0 ELSE 1 END")
+            ->orderBy('scheduled_start_at')
+            ->orderBy('id')
+            ->limit(4)
+            ->get();
+
+        return view('driver.dashboard', compact('driver', 'counts', 'upcoming'));
     }
 
     public function show(Request $request)
@@ -31,9 +43,13 @@ class DriverController extends Controller
         $user = $request->user();
         $driver = $user->driverProfile;
 
-        return $driver
-            ? view('driver.profile.show', compact('driver', 'user'))
-            : redirect()->route('driver.profile.edit');
+        if (!$driver) {
+            return redirect()->route('driver.profile.edit');
+        }
+
+        $hasLicensePhoto = $driver->license_image && Storage::disk('local')->exists($driver->license_image);
+
+        return view('driver.profile.show', compact('driver', 'user', 'hasLicensePhoto'));
     }
 
     public function edit(Request $request)
