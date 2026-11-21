@@ -77,7 +77,7 @@
     }
 
     async function generate() {
-        if (busy || !form.reportValidity()) return;
+        if (busy) return;
         busy = true;
         submit.disabled = close.disabled = renew.disabled = true;
         try {
@@ -90,7 +90,7 @@
                 method: 'POST', headers: { Accept: 'application/json' }, body,
             });
             const data = await response.json();
-            if (!response.ok) throw new Error(data.errors?.room_name?.[0] || data.message);
+            if (!response.ok) throw new Error(data.message);
             if (mobile) {
                 location.assign(data.scan_url);
                 return;

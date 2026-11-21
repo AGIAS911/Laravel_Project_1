@@ -41,6 +41,7 @@ class PaymentController extends Controller
             ->paginate(10);
 
         $awaiting = $request->user()->bookings()
+            ->withSum(['payments as approved_deposit_total' => fn ($payments) => $payments->where('status', Payment::STATUS_APPROVED)->where('purpose', Payment::PURPOSE_DEPOSIT)], 'amount')
             ->withExists(['payments as receipt_under_review' => fn ($payments) => $payments->where('status', Payment::STATUS_PENDING)->where('purpose', Payment::PURPOSE_DEPOSIT)])
             ->where('status', 'awaiting_deposit')
             ->orderByDesc('id')

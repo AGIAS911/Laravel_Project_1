@@ -7,7 +7,7 @@
     <section class="page-hero">
         <div class="crumbs"><a href="{{ url('/') }}">Home</a> / Vehicle types</div>
         <h1>Vehicle types</h1>
-        <p class="lead mt-s">Choose a vehicle based on your furniture size. The driver confirms capacity when accepting.</p>
+        <p class="lead mt-s">Choose a vehicle type that fits your move. MoveIt assigns an available vehicle and driver for your appointment.</p>
     </section>
 </div>
 <section class="section">

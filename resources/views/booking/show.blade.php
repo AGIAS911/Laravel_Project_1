@@ -9,6 +9,16 @@
     $user = auth()->user();
     $owner = $user->id === $booking->customer_id;
     $draft = $owner && $booking->status === 'draft';
+    $hasConfirmedItems = $booking->inventoryItems->contains('status', 'confirmed');
+    $hasRouteAndTime = $booking->hasRoute() && $booking->scheduled_start_at?->isFuture();
+    $wizardStep = match (true) {
+        $booking->needsInventory() && !$hasConfirmedItems => 'inventory',
+        !$booking->preferredVehicleType?->is_active => 'type',
+        !$booking->hasRoute() => 'route',
+        !$hasRouteAndTime => 'time',
+
+        default => 'review',
+    };
 @endphp
 
 @section('actions')
@@ -17,8 +27,10 @@
 
 @section('content')
     <p data-workflow-status class="booking-workflow-message" role="status"></p>
-    @if ($draft)
-        @include('booking._steps', ['current' => 'review', 'line' => true, 'links' => [
+    @if ($draft && $booking->booking_method)
+        @include('booking._wizard-steps', ['current' => $wizardStep])
+    @elseif ($draft)
+        @include('booking._steps', ['current' => !$hasConfirmedItems ? 'inventory' : (!$hasRouteAndTime || !($booking->preferred_vehicle_type_id || $booking->vehicle_id) ? 'locations' : 'review'), 'line' => true, 'links' => [
             'inventory' => '#inventory',
             'locations' => route('booking.edit', $booking),
             'review' => '#services',
@@ -29,43 +41,85 @@
     @endif
 
 
-    <div class="row g-4">
+    <div @class(['row g-4', 'booking-draft-detail' => $draft])>
         <div class="col-lg-8">
-            @if ($draft)
+            @if ($draft && $booking->needsInventory())
                 @include('booking._inventory')
 
             @endif
     <section class="card mb-3" id="locations">
         <div class="card-body">
-            @include('booking._status', ['state' => $booking->status])
-            <h2 class="h5 workspace-heading mt-2">Move details</h2>
-            <p>{{ $booking->scheduled_start_at?->timezone('Asia/Amman')->format('D, d M · H:i') ?? 'Choose a date and time' }}</p>
-            @foreach (['pickup' => 'Pickup', 'destination' => 'Destination'] as $stop => $label)
-                @if ($booking->{$stop.'_latitude'} !== null && $booking->{$stop.'_longitude'} !== null)
-                    <a class="btn btn-outline-secondary btn-sm" target="_blank" rel="noopener"
-                       href="https://www.google.com/maps/dir/?api=1&amp;destination={{ $booking->{$stop.'_latitude'} }},{{ $booking->{$stop.'_longitude'} }}">{{ $label }} directions</a>
+            <h2 class="h5 workspace-heading"><i class="fa-solid fa-route me-1" aria-hidden="true"></i> Move details</h2>
+            <p class="text-body-secondary mb-3">
+                <i class="fa-regular fa-calendar-days me-1" aria-hidden="true"></i>
+                @if ($booking->scheduled_start_at)
+                    @php($appointment = $booking->scheduled_start_at->timezone(config('booking.timezone')))
+                    <time datetime="{{ $appointment->toIso8601String() }}">{{ $appointment->format('D, d M · H:i') }}</time> (Amman)
+                @else
+                    Date and time to be set
                 @endif
-                <p class="small text-body-secondary mt-2 mb-0">{{ $label }} floor {{ $booking->{$stop.'_floor'} }} · {{ $booking->{$stop.'_has_elevator'} ? 'Elevator available' : 'No elevator' }}</p>
-            @endforeach
+            </p>
+            <div class="row g-2 mb-3">
+                @foreach (['pickup' => 'Pickup', 'destination' => 'Destination'] as $stop => $stopLabel)
+                    <div class="col-sm-6">
+                        <div class="h-100 border rounded-3 p-3">
+                            <h3 class="h6 workspace-heading mb-1"><i class="fa-solid {{ $stop === 'pickup' ? 'fa-circle-dot' : 'fa-location-dot' }} me-1" aria-hidden="true"></i> {{ $stopLabel }}</h3>
+                            @if ($booking->{$stop.'_latitude'} !== null && $booking->{$stop.'_longitude'} !== null)
+                                <p class="small text-body-secondary mb-1">Floor {{ $booking->{$stop.'_floor'} }} · {{ $booking->{$stop.'_has_elevator'} ? 'Elevator available' : 'No elevator' }}</p>
+                                <a class="link-secondary small d-inline-flex align-items-center py-2" target="_blank" rel="noopener"
+                                   href="https://www.google.com/maps/dir/?api=1&amp;destination={{ $booking->{$stop.'_latitude'} }},{{ $booking->{$stop.'_longitude'} }}">{{ $stopLabel }} directions <i class="fa-solid fa-arrow-up-right-from-square ms-1" aria-hidden="true"></i></a>
+                            @else
+                                <p class="small text-body-secondary mb-0">Location to be set</p>
+                            @endif
+                        </div>
+                    </div>
+                @endforeach
+            </div>
             @if ($booking->notes)<p class="mt-2">{{ $booking->notes }}</p>@endif
             @if ($booking->rejection_reason)<p>{{ $booking->rejection_reason }}</p>@endif
-        @if ($owner && in_array($booking->status, ['confirmed', 'in_progress', 'completed'], true) && $booking->driver?->user)
-                <div class="customer-driver">
-                    <i class="fa-solid fa-id-card" aria-hidden="true"></i>
-                    <div><strong>{{ $booking->driver->user->name }}</strong>
-                        @if ($booking->driver->user->phone)
-                            <a class="d-block small" href="tel:{{ $booking->driver->user->phone }}">{{ $booking->driver->user->phone }}</a>
-                        @endif
-                    </div>
-                </div>
-            @endif
             @if ($draft)
-                <a class="btn btn-outline-secondary" href="{{ route('booking.edit', $booking) }}">Edit locations, schedule and vehicle</a>
+                <a class="btn btn-outline-secondary" href="{{ route('booking.edit', $booking->booking_method ? ['booking' => $booking, 'step' => 'route'] : $booking) }}">Edit locations and appointment</a>
             @endif
         </div>
     </section>
 
-    @if ($draft)
+    @if ($owner && $booking->assignmentVisibleToCustomer())
+        <section class="card card-body mb-3" id="assignment" aria-labelledby="assignment-title">
+            <h2 class="h5 workspace-heading mb-3" id="assignment-title">Assigned vehicle and driver</h2>
+            <div class="row g-3">
+                @if ($booking->vehicle)
+                    <div class="col-md-6">
+                        <div class="border rounded-3 h-100 p-3">
+                            <h3 class="h6 workspace-heading"><i class="fa-solid fa-truck me-1" aria-hidden="true"></i> Vehicle</h3>
+                            @if ($booking->vehicle->image)
+                                <img src="{{ asset($booking->vehicle->image) }}" class="booking-assignment-photo mb-2" alt="" width="120" height="72">
+                            @endif
+                            <p class="fw-semibold mb-1">{{ $booking->vehicle->name }}</p>
+                            <p class="small text-body-secondary mb-0">{{ $booking->vehicle->vehicleType?->name }} · Plate <bdi>{{ $booking->vehicle->plate_number }}</bdi></p>
+                        </div>
+                    </div>
+                @endif
+                @if ($booking->driver?->user)
+                    <div class="col-md-6">
+                        <div class="border rounded-3 h-100 p-3">
+                            <h3 class="h6 workspace-heading"><i class="fa-regular fa-id-card me-1" aria-hidden="true"></i> Driver</h3>
+                            <p class="fw-semibold mb-1">{{ $booking->driver->user->name }}</p>
+                            @if ($booking->driver->user->phone)
+                                <a class="btn btn-outline-secondary btn-sm mt-2" href="tel:{{ $booking->driver->user->phone }}">
+                                    <i class="fa-solid fa-phone me-1" aria-hidden="true"></i> {{ $booking->driver->user->phone }}
+                                </a>
+                            @endif
+                        </div>
+                    </div>
+                @endif
+                @if (!$booking->vehicle && !$booking->driver?->user)
+                    <p class="text-body-secondary mb-0">Assignment details are unavailable. <a href="{{ route('info.contact') }}">Contact support</a>.</p>
+                @endif
+            </div>
+        </section>
+    @endif
+
+    @if ($draft && (!$booking->booking_method || $wizardStep === 'review'))
         <section class="card mb-3">
             <div class="card-body">
                 <h2 class="h5 workspace-heading" id="services">Services</h2>
@@ -111,7 +165,7 @@
                 @if (!\App\Models\PlatformSetting::bookingConfigured())
                     <p class="alert alert-warning mb-0">Quotes are temporarily unavailable. Your draft is saved. <a href="{{ route('info.contact') }}">Contact support</a> for help.</p>
                 @else
-                <p class="small text-body-secondary">Calculate your quote to see the total and required deposit before sending the request.</p>
+                <p class="small text-body-secondary">Calculate your quote to see the total and deposit. We will look for a driver once your full deposit is verified.</p>
                 <div class="booking-quote mb-3" data-booking-quote hidden aria-live="polite">
                     <div><span>Road distance</span><strong data-quote-distance></strong></div>
                     <div><span>Total</span><strong data-quote-total></strong></div>
@@ -125,20 +179,22 @@
                     <form id="submit-booking" data-workflow-form method="POST" action="{{ route('bookings.submit', $booking, false) }}" hidden>
                         @csrf
                         <input type="hidden" name="expected_total">
-                        <button class="btn btn-primary">Send booking request</button>
+                        <button class="btn btn-primary">Continue to CliQ payment</button>
                     </form>
                 </div>
                 @endif
             </div>
         </section>
-    @else
+    @elseif (!$draft)
         <section class="card card-body mb-3">
-            <h2 class="h5">Furniture and services</h2>
+            <h2 class="h5">{{ $booking->needsInventory() ? 'Furniture and services' : 'Moving services' }}</h2>
             <ul class="mb-0">
                 @forelse ($booking->inventoryItems->where('status', 'confirmed') as $item)
-                    <li>{{ str($item->item_type)->headline() }} × {{ $item->quantity }}</li>
+                    <li>{{ config('inventory.items')[$item->item_type]['label'] ?? str($item->item_type)->headline() }} × {{ $item->quantity }}</li>
                 @empty
-                    <li class="text-body-secondary">No confirmed furniture items.</li>
+                    @if ($booking->needsInventory())
+                        <li class="text-body-secondary">No confirmed furniture items.</li>
+                    @endif
                 @endforelse
                 @foreach ($booking->bookingServices as $line)
                     <li>{{ $line->service_name }} × {{ $line->quantity }}</li>
@@ -149,10 +205,31 @@
 
         </div>
         <aside class="col-lg-4 d-grid gap-3 align-content-start">
-            <div class="card card-body" data-booking-summary>
-                <h2 class="h5 workspace-heading">Booking summary</h2>
+            @if ($draft)
+                <nav class="card card-body booking-detail-links" aria-label="On this booking">
+                    <h2 class="h6 workspace-heading">On this booking</h2>
+                    @if ($booking->needsInventory())
+                        <a href="#inventory"><i class="fa-solid fa-boxes-stacked" aria-hidden="true"></i> Furniture inventory</a>
+                    @endif
+                    @if ($booking->preferredVehicleType)
+                        <a href="{{ route('booking.edit', ['booking' => $booking, 'step' => 'type']) }}"><i class="fa-solid fa-truck" aria-hidden="true"></i> {{ $booking->preferredVehicleType->name }}</a>
+                    @endif
+                    <a href="#locations"><i class="fa-solid fa-route" aria-hidden="true"></i> Move details</a>
+                    @if (!$booking->booking_method || $wizardStep === 'review')
+                        <a href="#services"><i class="fa-solid fa-screwdriver-wrench" aria-hidden="true"></i> Services</a>
+                        <a href="#review"><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i> Review and send</a>
+                    @endif
+                </nav>
+            @endif
+            <div class="card card-body booking-detail-summary" data-booking-summary>
+                <h2 class="h5 workspace-heading"><i class="fa-solid fa-receipt me-1" aria-hidden="true"></i> Booking summary</h2>
                 <p>@include('booking._status', ['state' => $booking->status])</p>
                 <dl class="row mb-0">
+                    @if ($owner && ($booking->preferredVehicleType || $booking->vehicle?->vehicleType))
+                        <dt class="col-6">Vehicle type</dt>
+                        <dd class="col-6">{{ $booking->preferredVehicleType?->name ?? $booking->vehicle->vehicleType?->name }}</dd>
+                    @endif
+
                     <dt class="col-6">Distance</dt><dd class="col-6" data-summary-distance>{{ $booking->distance_km !== null ? $booking->distance_km . ' km' : '—' }}</dd>
                     <dt class="col-6">Total</dt><dd class="col-6" data-summary-total>{{ $booking->total_price !== null ? $booking->total_price . ' JOD' : '—' }}</dd>
                     <dt class="col-6">Deposit</dt><dd class="col-6" data-summary-deposit>{{ $booking->deposit_amount !== null ? $booking->deposit_amount . ' JOD' : '—' }}</dd>

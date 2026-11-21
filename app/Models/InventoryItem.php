@@ -16,6 +16,8 @@ class InventoryItem extends Model
         'booking_id',
         'scan_session_id',
         'item_type',
+        'estimated_weight_kg',
+        'estimated_volume_m3',
         'quantity',
         'image',
         'source',
@@ -28,6 +30,16 @@ class InventoryItem extends Model
     {
         return [
             'quantity' => 'integer',
+        ];
+    }
+
+    public function estimate(): array
+    {
+        [$weight, $volume] = config('inventory.estimates')[$this->item_type] ?? [15, 0.25];
+
+        return [
+            (float) ($this->estimated_weight_kg ?? $weight),
+            (float) ($this->estimated_volume_m3 ?? $volume),
         ];
     }
 

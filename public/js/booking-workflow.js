@@ -2,6 +2,16 @@
     const pageToast = document.querySelector('[data-workflow-status]');
     const csrf = document.querySelector('meta[name="csrf-token"]')?.content;
 
+    if (location.hash === '#inventory') {
+        window.addEventListener('load', () => {
+            requestAnimationFrame(() => {
+                if (location.hash === '#inventory') {
+                    document.getElementById('inventory')?.scrollIntoView({ block: 'start' });
+                }
+            });
+        }, { once: true });
+    }
+
     async function request(url, options = {}) {
         const response = await fetch(url, {
             ...options,
@@ -17,13 +27,20 @@
         const form = event.target.closest('[data-workflow-form]');
         if (!form) return;
         event.preventDefault();
+        if (form.dataset.workflowConfirm && !window.confirm(form.dataset.workflowConfirm)) return;
+        const scope = form.closest('[data-workflow-scope]');
+        const feedback = scope?.querySelector('[data-workflow-status]') || pageToast;
         const button = event.submitter;
         const body = button ? new FormData(form, button) : new FormData(form);
         if (button) button.disabled = true;
-        if (pageToast) pageToast.textContent = '';
+        if (feedback) feedback.textContent = '';
 
         try {
             const data = await request(form.action, { method: 'POST', body });
+            if (data.payment_url) {
+                location.assign(data.payment_url);
+                return;
+            }
             if (form.dataset.workflowForm === 'quote') {
                 const submit = document.getElementById('submit-booking');
                 submit.elements.expected_total.value = data.total_price;
@@ -42,10 +59,16 @@
                     summary.querySelector('[data-summary-deposit]').textContent = data.deposit_amount + ' JOD';
                 }
             } else {
+                if (scope?.dataset.workflowReturn) {
+                    history.replaceState(history.state, '', '#' + scope.dataset.workflowReturn);
+                }
                 location.reload();
             }
         } catch (error) {
-            if (pageToast) pageToast.textContent = error.message;
+            if (feedback) {
+                feedback.textContent = error.message;
+                if (scope) feedback.scrollIntoView({ block: 'nearest' });
+            }
             if (form.id === 'submit-booking' || form.dataset.workflowForm === 'quote') {
                 document.getElementById('submit-booking').hidden = true;
                 const quote = document.querySelector('[data-booking-quote]');
@@ -56,108 +79,6 @@
         }
     });
 
-
-    const findVehicles = document.querySelector('[data-find-vehicles]');
-    if (findVehicles) {
-        const form = findVehicles.closest('form');
-        const status = form.querySelector('[data-vehicle-status]');
-        const select = form.elements.vehicle_id;
-        const appointment = form.elements.scheduled_start_at;
-        const choices = form.querySelector('[data-vehicle-options]');
-        const more = form.querySelector('[data-more-vehicles]');
-        let nextPage = null;
-        let searchVersion = 0;
-
-        function updateSelection() {
-            for (const button of choices.children) {
-                button.setAttribute('aria-pressed', String(button.dataset.vehicle === select.value));
-            }
-        }
-
-        function addVehicle(vehicle) {
-            const id = String(vehicle.id);
-            const detail = [vehicle.capacity_m3 && vehicle.capacity_m3 + ' m³', vehicle.base_price + ' JOD base']
-                .filter(Boolean).join(' · ');
-            const existing = [...select.options].find(option => option.value === id);
-            if (existing) {
-                existing.textContent = vehicle.type + ' · ' + detail;
-            } else {
-                select.add(new Option(vehicle.type + ' · ' + detail, id));
-            }
-
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.className = 'customer-vehicle-choice';
-            button.dataset.vehicle = id;
-            const title = document.createElement('strong');
-            title.textContent = vehicle.type;
-            const description = document.createElement('span');
-            description.textContent = detail;
-            button.append(title, description);
-            button.addEventListener('click', () => {
-                select.value = id;
-                updateSelection();
-            });
-            choices.append(button);
-        }
-
-        function clearResults(keepSelection = false) {
-            const selected = select.value ? select.selectedOptions[0] : null;
-            select.replaceChildren(new Option('Choose later', ''));
-            if (keepSelection && selected) {
-                select.add(selected);
-                selected.selected = true;
-            }
-            choices.replaceChildren();
-            nextPage = null;
-            more.hidden = true;
-        }
-
-        async function loadVehicles(pageNumber) {
-            if (!appointment.value) {
-                status.textContent = 'Choose a booking time first.';
-                return;
-            }
-
-            const version = ++searchVersion;
-            findVehicles.disabled = true;
-            more.disabled = true;
-            status.textContent = 'Checking availability…';
-            const url = new URL(findVehicles.dataset.findVehicles, location.origin);
-            url.search = new URLSearchParams({ start: appointment.value, page: pageNumber });
-
-            try {
-                const page = await request(url);
-                if (version !== searchVersion) return;
-                if (pageNumber === 1) clearResults(true);
-                page.data.forEach(addVehicle);
-                updateSelection();
-                nextPage = page.current_page < page.last_page ? page.current_page + 1 : null;
-                more.hidden = nextPage === null;
-                status.textContent = page.total
-                    ? 'Showing ' + choices.children.length + ' of ' + page.total + ' available vehicles.'
-                    : 'No vehicles available for this time.';
-            } catch (error) {
-                if (version === searchVersion) status.textContent = error.message;
-            } finally {
-                if (version === searchVersion) {
-                    findVehicles.disabled = false;
-                    more.disabled = false;
-                }
-            }
-        }
-
-        select.addEventListener('change', updateSelection);
-        findVehicles.addEventListener('click', () => loadVehicles(1));
-        more.addEventListener('click', () => loadVehicles(nextPage));
-        appointment.addEventListener('input', () => {
-            searchVersion++;
-            clearResults();
-            findVehicles.disabled = false;
-            more.disabled = false;
-            status.textContent = 'Check availability again for the new time.';
-        });
-    }
 
     const inventory = document.querySelector('[data-live-inventory]');
     if (!inventory) return;

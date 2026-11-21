@@ -19,7 +19,7 @@ class PlatformSetting extends Model
     {
         $settings = static::values();
 
-        return filled(config('booking.google_routes_key'))
+        return filled(config('booking.osrm_base_url'))
             && filled($settings['deposit_percent'])
             && filled($settings['commission_percent'])
             && filled($settings['deposit_minutes'])

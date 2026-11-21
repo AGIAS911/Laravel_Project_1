@@ -14,27 +14,32 @@
                         ['home', 'home', 'Dashboard', 'fa-house'],
                         ['booking.index', 'booking.*', 'Bookings', 'fa-box'],
                         ['payments.index', 'payments.*', 'Payments', 'fa-receipt'],
-                        ['services.index', 'services.*', 'Services', 'fa-boxes-stacked'],
-                        ['notifications.index', 'notifications.*', 'Notifications', 'fa-bell'],
+
                         ['profile.edit', 'profile.*', 'Profile', 'fa-user'],
                     ] as [$route, $pattern, $label, $icon])
                         <li class="nav-item">
                             <a class="nav-link" href="{{ route($route) }}" @if (request()->routeIs($pattern) && !request()->routeIs('booking.create')) aria-current="page" @endif>
                                 <i class="fa-solid {{ $icon }}" aria-hidden="true"></i>
                                 {{ $label }}
-                                @if ($route === 'notifications.index' && ($unread = auth()->user()->unreadNotifications()->count()))
-                                    <span class="customer-unread-count" aria-label="{{ $unread }} unread">{{ $unread }}</span>
-                                @endif
                             </a>
                         </li>
                     @endforeach
                 </ul>
 
                 <div class="customer-nav-actions">
+                    @php($unread = auth()->user()->unreadNotifications()->count())
+                    <a class="customer-notification-link" href="{{ route('notifications.index') }}"
+                        aria-label="{{ $unread ? 'Notifications, '.$unread.' unread' : 'Notifications' }}"
+                        @if (request()->routeIs('notifications.*')) aria-current="page" @endif>
+                        <i class="fa-regular fa-bell" aria-hidden="true"></i>
+                        @if ($unread)
+                            <span class="customer-unread-count" aria-hidden="true">{{ $unread > 99 ? '99+' : $unread }}</span>
+                        @endif
+                    </a>
                     <a class="btn btn-primary btn-sm" href="{{ route('booking.create') }}" @if (request()->routeIs('booking.create')) aria-current="page" @endif>
                         <i class="fa-solid fa-plus me-1" aria-hidden="true"></i> New booking
                     </a>
-                    <div class="dropdown">
+                    <div class="dropdown customer-account-menu">
                         <button type="button" class="customer-account" data-bs-toggle="dropdown" aria-expanded="false"
                             aria-label="Customer account menu">
                             <span aria-hidden="true">{{ str(auth()->user()->name)->substr(0, 1)->upper() }}</span>

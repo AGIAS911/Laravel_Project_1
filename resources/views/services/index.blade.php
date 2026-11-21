@@ -24,7 +24,7 @@
                             <div class="d-flex flex-wrap align-items-center gap-2">
                                 @include('booking._status', ['state' => $service->is_active ? 'approved' : 'draft', 'label' => $service->is_active ? 'Active' : 'Inactive'])
                                 <a class="btn btn-outline-secondary btn-sm" href="{{ route('services.show', $service) }}">Details</a>
-                                @if (auth()->check())
+                                @if (auth()->user()?->role === 'admin')
                                     <form class="d-inline-flex m-0" method="POST" action="{{ route('services.destroy', $service) }}">
                                         @csrf
                                         @method('DELETE')

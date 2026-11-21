@@ -24,17 +24,11 @@ VISIBLE_TRACK_HITS = 2
 INVENTORY_TRACK_HITS = 3
 SCANNER_API_URL = os.environ.get("SCANNER_API_URL", "http://127.0.0.1:8000/api/scanner").rstrip("/")
 
-ALLOWED_CLASSES = {
-    "chair",
-    "couch",
-    "bed",
-    "dining table",
-    "tv",
-    "refrigerator",
-    "microwave",
-    "oven",
-    "laptop",
-    "potted plant",
+INVENTORY_CATALOG = json.loads((SERVICE_DIR / "inventory-catalog.json").read_text(encoding="utf-8"))
+DETECTED_ITEMS = {
+    item["model_class"]: (item_type, item["label"])
+    for item_type, item in INVENTORY_CATALOG.items()
+    if "model_class" in item
 }
 
 @app.get("/")
@@ -92,7 +86,7 @@ async def detect(websocket: WebSocket):
 
     model = await run_in_threadpool(YOLO, str(SERVICE_DIR / "yolo26s.pt"))
     allowed_ids = [
-        class_id for class_id, name in model.names.items() if name in ALLOWED_CLASSES
+        class_id for class_id, name in model.names.items() if name in DETECTED_ITEMS
     ]
     extractor = await run_in_threadpool(FeatureExtractor)
     identity_manager = ObjectIdentityManager()
@@ -142,7 +136,7 @@ async def detect(websocket: WebSocket):
             for box in results[0].boxes:
                 label = model.names[int(box.cls.item())]
 
-                if label not in ALLOWED_CLASSES:
+                if label not in DETECTED_ITEMS:
                     continue
 
                 if box.id is None:
@@ -171,6 +165,7 @@ async def detect(websocket: WebSocket):
                 detection = {
                     "track_id": track_id,
                     "label": label,
+                    "display_label": DETECTED_ITEMS[label][1],
                     "confidence": float(box.conf.item()),
                     "bbox": bbox,
                 }
@@ -217,7 +212,7 @@ async def detect(websocket: WebSocket):
             processing_ms = round((time.perf_counter() - start_time) * 1000, 2)
             if response["inventory"] != synced_inventory:
                 items = [
-                    {"item_type": "sofa" if label == "couch" else label, "quantity": quantity}
+                    {"item_type": DETECTED_ITEMS[label][0], "quantity": quantity}
                     for label, quantity in response["inventory"].items()
                 ]
                 if not await scanner_available(websocket, "inventory", token, items):

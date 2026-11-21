@@ -69,12 +69,14 @@ Route::middleware(['auth', 'active', 'role:customer'])->scopeBindings()->group(f
     Route::get('/bookings/available-vehicles', [BookingWorkflowController::class, 'vehicles'])->name('bookings.vehicles');
     Route::post('/bookings/{booking}/submit', [BookingWorkflowController::class, 'submit'])->name('bookings.submit');
     Route::post('/bookings/{booking}/quote', [BookingWorkflowController::class, 'quote'])->name('bookings.quote');
+    Route::post('/bookings/{booking}/match-driver', [BookingWorkflowController::class, 'retryDriverMatch'])
+        ->middleware('throttle:6,1')->name('bookings.match-driver');
     Route::patch('/bookings/{booking}/cancel', [BookingWorkflowController::class, 'cancel'])->name('bookings.cancel');
     Route::get('/bookings/{booking}/scan', [ScanSessionController::class, 'workspace'])
         ->name('scan-sessions.workspace');
     Route::post('/bookings/{booking}/scan-sessions', [ScanSessionController::class, 'store'])
         ->name('scan-sessions.store');
-    Route::get('/bookings/{booking}/scan-sessions/inventory', [ScanSessionController::class, 'inventory'])
+    Route::get('/bookings/{booking}/scan/inventory', [ScanSessionController::class, 'inventory'])
         ->name('scan-sessions.inventory');
     Route::get('/bookings/{booking}/scan-sessions/{scanSession}', [ScanSessionController::class, 'show'])
         ->name('scan-sessions.show');
@@ -111,11 +113,8 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::put('/password', [ProfileController::class, 'updatePassword']);
     Route::put('/password/reset', [ProfileController::class, 'updatePassword']);
 });
-Route::resource('services', ServiceController::class)->except(['index', 'show', 'destroy'])
+Route::resource('services', ServiceController::class)->except(['index', 'show'])
     ->middleware(['auth', 'active', 'role:admin']);
-Route::delete('/services/{service}', [ServiceController::class, 'destroy'])
-    ->middleware(['auth', 'active'])
-    ->name('services.destroy');
 Route::resource('services', ServiceController::class)->only(['index', 'show']);
 
 //--------------------------------------------------------
@@ -179,10 +178,3 @@ Route::middleware(['auth', 'active', 'role:customer'])->group(function () {
 Route::middleware(['auth', 'active'])->get('/payments/{id}/receipt', [PaymentController::class, 'receipt'])
     ->name('payments.receipt');
 
-Route::middleware(['auth', 'active', 'role:customer'])->scopeBindings()->group(function () {
-    Route::get('/bookings/{booking}/scan', [ScanSessionController::class, 'workspace'])->name('scan-sessions.workspace');
-    Route::get('/bookings/{booking}/scan/inventory', [ScanSessionController::class, 'inventory'])->name('scan-sessions.inventory');
-    Route::post('/bookings/{booking}/scan-sessions', [ScanSessionController::class, 'store'])->name('scan-sessions.store');
-    Route::get('/bookings/{booking}/scan-sessions/{scanSession}', [ScanSessionController::class, 'show'])->name('scan-sessions.show');
-    Route::delete('/bookings/{booking}/scan-sessions/{scanSession}', [ScanSessionController::class, 'close'])->name('scan-sessions.close');
-});
