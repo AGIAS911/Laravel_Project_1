@@ -1,6 +1,6 @@
 @extends('layouts.landing')
 
-@section('title', 'MoveIt ? Moving made simple.')
+@section('title', 'MoveIt | Moving made simple.')
 
 @section('content')
 @php
@@ -28,7 +28,7 @@
 </section>
 <section class="trust-section reveal" id="trust">
 <div class="trust-visual"><video autoplay muted loop playsinline poster="{{ asset('landing/img/scan.jpg') }}" aria-hidden="true"><source src="{{ asset('landing/video/hero.mp4') }}" type="video/mp4"></video><div class="trust-heading"><span class="micro">01 / BUILT FOR CONFIDENCE</span><h2>WHY YOU CAN<br>TRUST US WITH<br>YOUR MOVE.</h2><a class="action outline" href="{{ route($bookingRoute) }}">Get a free estimate <span>●</span></a></div><span class="scan-tag">● AI INVENTORY SCAN</span></div>
-<div class="trust-features"><article><h3>AI-POWERED INVENTORY</h3><p>Scan your room with your phone. Review detected furniture and confirm your inventory.</p></article><article><h3>TRANSPARENT PRICING</h3><p>See delivery costs, additional services and your deposit before sending a request.</p></article><article><h3>VERIFIED DRIVERS & PAYMENTS</h3><p>Connect with approved drivers. Our team reviews your CliQ deposit before confirming your booking.</p></article></div>
+<div class="trust-features"><article><h3>AI-POWERED INVENTORY</h3><p>Scan your room with your phone. Review detected furniture and confirm your inventory.</p></article><article><h3>TRANSPARENT PRICING</h3><p>See delivery costs, additional services and your deposit before sending a request.</p></article><article><h3>VERIFIED DRIVERS & PAYMENTS</h3><p>We verify your CliQ deposit before looking for an approved driver for your move.</p></article></div>
 </section>
 <section class="services-section" id="services">
 <div class="section-intro reveal">
@@ -48,7 +48,7 @@
 <a class="service-tile" href="{{ route('services.index') }}"><img src="{{ asset('landing/img/office.jpg') }}" alt="Interior ready for a move"><h3>OFFICE RELOCATION</h3><div>Explore service <span>●</span></div></a>
 <a class="service-tile" href="{{ route('services.index') }}"><img src="{{ asset('landing/img/scan.jpg') }}" alt="Smart furniture detection"><h3>PACKING & ASSEMBLY</h3><div>Explore service <span>●</span></div></a>
 </div></section>
-<section class="promise-section reveal" id="process"><div class="promise-map"><div class="number one"><b>3</b><p>simple booking<br>steps</p></div><div class="number two"><b>24/7</b><p>booking access</p></div><div class="number three"><b>100%</b><p>price breakdown<br>before booking</p></div><span class="map-caption">DESIGNED FOR MOVES ACROSS JORDAN</span></div><div class="promise-copy"><span class="micro">03 / THE PROCESS</span><h2>WE MAKE SURE<br>EVERY MOVE<br>COUNTS.</h2><ol><li><b>Scan & plan.</b> Build your inventory and select pickup, destination and date.</li><li><b>Choose & request.</b> Select an available vehicle and send a request to its driver.</li><li><b>Confirm & move.</b> Pay your deposit after acceptance; our team verifies it and confirms your booking.</li></ol><a class="action outline" href="{{ route('info.how-it-works') }}">See how it works <span>●</span></a></div></section>
+<section class="promise-section reveal" id="process"><div class="promise-map"><div class="number one"><b>3</b><p>simple booking<br>steps</p></div><div class="number two"><b>24/7</b><p>booking access</p></div><div class="number three"><b>100%</b><p>price breakdown<br>before booking</p></div><span class="map-caption">DESIGNED FOR MOVES ACROSS JORDAN</span></div><div class="promise-copy"><span class="micro">03 / THE PROCESS</span><h2>WE MAKE SURE<br>EVERY MOVE<br>COUNTS.</h2><ol><li><b>Plan your move.</b> Choose a vehicle size, pickup, destination and appointment. Add or scan furniture if you need a size recommendation.</li><li><b>Review &amp; pay.</b> Check the quote, transfer your deposit via CliQ and upload the receipt.</li><li><b>Meet your driver.</b> We look for a driver after verifying your deposit. Their details appear when they accept.</li></ol><a class="action outline" href="{{ route('info.how-it-works') }}">See how it works <span>●</span></a></div></section>
 <section class="bottom-cta reveal"><div><span class="micro">READY WHEN YOU ARE</span><h2>LET'S GET MOVING.</h2></div><a class="action red" href="{{ route($bookingRoute) }}">Start your move <span>●</span></a></section>
 <footer class="landing-footer"><a class="moveit-brand" href="{{ url('/') }}" aria-label="MoveIt">MOVE<span>IT</span></a><p>Smart moving. Clear pricing. Trusted connections.</p><div><a href="{{ route('info.contact') }}">Contact</a><a href="{{ route('info.policies') }}">Policies</a><a href="{{ route($accountRoute) }}">{{ $accountLabel }}</a></div><small>© 2026 MoveIt · Prices in JOD</small></footer>
 </main>
