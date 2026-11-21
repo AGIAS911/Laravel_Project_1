@@ -66,6 +66,7 @@ class Booking extends Model
         return $this->belongsTo(User::class);
     }
 
+    // بنحسب نهاية الموعد 
     public static function slotEnd(Carbon $appointment): Carbon
     {
         return $appointment->copy()->addMinutes(config('booking.slot_minutes'));
@@ -77,6 +78,7 @@ class Booking extends Model
             ->orWhere(fn ($hold) => $hold->where('status', 'awaiting_deposit')
                 ->where(fn ($active) => $active->where('deposit_due_at', '>', now())
                     ->orWhereHas('payments', fn ($payment) => $payment->where('status', 'pending')))))
+                    // اوفرلاب
             ->where('scheduled_start_at', '<', $end)
             ->where('scheduled_end_at', '>', $start);
     }

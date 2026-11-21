@@ -46,6 +46,7 @@
                 </main>
             </div>
         @else
+        @if (auth()->user()?->role !== 'driver')
         <nav class="navbar navbar-expand-md moveit-topbar">
             <div class="container">
                 <a class="navbar-brand moveit-brand" aria-label="MoveIt" href="{{ url('/') }}">
@@ -108,7 +109,7 @@
                                             <p class="mb-1">{{ $notification->data['message'] ?? '' }}</p>
                                             <div class="d-flex justify-content-between align-items-center">
                                                 @if (!empty($notification->data['url']))
-                                                    <a href="{{ $notification->data['url'] }}">Open</a>
+                                                    <a href="{{ route('notifications.open', $notification->id) }}">Open</a>
                                                 @endif
                                                 <form method="POST"
                                                       action="{{ route('notifications.read', $notification->id) }}">
@@ -146,6 +147,7 @@
                 </div>
             </div>
         </nav>
+        @endif
 
         <div @class(['workspace-shell' => auth()->check()])>
             @auth

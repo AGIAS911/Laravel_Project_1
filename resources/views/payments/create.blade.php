@@ -9,8 +9,10 @@
 @endsection
 
 @section('content')
-    <p class="text-body-secondary"><a href="{{ route('booking.show', $booking) }}">Booking {{ $booking->id }}</a> · Transfer the deposit via CliQ and upload the receipt.</p>
-    <p class="text-body-secondary"><a href="{{ route('booking.show', $booking) }}">Booking #{{ $booking->id }}</a>@if ($cliqConfigured) · Transfer the deposit via CliQ and upload the receipt.@endif</p>
+    <p class="text-body-secondary">
+        <a href="{{ route('booking.show', $booking) }}">Booking {{ $booking->id }}</a>
+        @if ($cliqConfigured) · Transfer the deposit via CliQ and upload the receipt.@endif
+    </p>
     @if ($errors->any())
         <div class="alert alert-danger" role="alert">
             <p class="mb-1">{{ __('Check the highlighted fields.') }}</p>

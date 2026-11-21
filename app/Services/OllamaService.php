@@ -10,7 +10,8 @@ class OllamaService
     public function getResponse(
         string $message,
         array $history = [],
-        array $serviceCatalog = []
+        array $serviceCatalog 
+        = []
     ): string
     {
         $catalog = json_encode(
