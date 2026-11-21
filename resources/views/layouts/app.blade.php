@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>@yield('title', config('app.name', 'Laravel'))</title>
+    <title>@yield('title', 'MoveIt')</title>
 
     <link rel="icon" href="{{ asset('landing/img/favicon.svg') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -43,7 +43,7 @@
         @elseif (auth()->user()?->role === 'customer')
             <div class="customer-shell">
                 @include('layouts.customer-topbar')
-                <main class="customer-workspace-content" id="customer-main">
+                <main class="customer-workspace-content" id="customer-main" tabindex="-1">
                     @include('layouts.workspace-content')
                 </main>
             </div>

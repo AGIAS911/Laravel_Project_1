@@ -37,7 +37,7 @@ class ChatbotController extends Controller
     {
         $conversation = $this->ownedConversations($request)
             ->findOrFail($conversation);
-        $messages = $conversation->messages()->orderBy('id')->limit(100)->get();
+        $messages = $conversation->messages()->latest('id')->limit(100)->get()->reverse();
 
         return response()->json([
             'conversation_id' => $conversation->id,

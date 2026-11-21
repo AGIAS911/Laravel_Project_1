@@ -43,6 +43,7 @@
             const response = await fetch(`${widget.dataset.historyUrl}/${encodeURIComponent(id)}`, {
                 headers: { Accept: 'application/json' },
             });
+            if (conversationId !== id) return;
             if (response.status === 404) {
                 conversationId = '';
                 localStorage.removeItem(storageKey);
@@ -57,9 +58,9 @@
             if (!data.messages.length) showGreeting();
             loadedConversationId = id;
         } catch (error) {
-            status.textContent = error.message || 'Could not load this conversation.';
+            if (conversationId === id) status.textContent = error.message || 'Could not load this conversation.';
         } finally {
-            if (!status.textContent.startsWith('Could not')) status.textContent = '';
+            if (status.textContent === 'Loading conversation...') status.textContent = '';
         }
     }
 
@@ -69,6 +70,8 @@
         if (open) {
             loadHistory();
             input.focus();
+        } else {
+            openButton.focus();
         }
     }
 
@@ -91,7 +94,7 @@
         showMessage(message, 'user');
         input.value = '';
         input.disabled = true;
-        sendButton.disabled = true;
+        sendButton.disabled = newChatButton.disabled = true;
         status.textContent = 'Generating response...';
         const waiting = showMessage('...', 'assistant');
 
@@ -121,7 +124,7 @@
             status.textContent = '';
         } finally {
             input.disabled = false;
-            sendButton.disabled = false;
+            sendButton.disabled = newChatButton.disabled = false;
             input.focus();
         }
     });

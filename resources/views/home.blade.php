@@ -10,7 +10,7 @@
         <section class="workspace-banner customer-welcome d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
             <div>
                 <h2 class="h4 fw-bold mb-1">Ready for a new move?</h2>
-                <p class="mb-0">Add furniture, plan your route, and choose a vehicle for your move.</p>
+                <p class="mb-0">Plan your route and choose a vehicle type for your move.</p>
             </div>
             <a class="btn btn-primary" href="{{ route('booking.create') }}">
                 <i class="fa-solid fa-plus" aria-hidden="true"></i> New booking

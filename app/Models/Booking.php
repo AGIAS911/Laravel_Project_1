@@ -17,6 +17,8 @@ class Booking extends Model
     protected $fillable = [
         'customer_id',
         'vehicle_id',
+        'booking_method',
+        'preferred_vehicle_type_id',
         'driver_id',
         'pickup_latitude',
         'pickup_longitude',
@@ -30,6 +32,8 @@ class Booking extends Model
         'scheduled_start_at',
         'scheduled_end_at',
         'deposit_due_at',
+        'deposit_verified_at',
+        'driver_offer_expires_at',
         'total_price',
         'deposit_amount',
         'commission_rate',
@@ -54,6 +58,8 @@ class Booking extends Model
             'scheduled_start_at' => 'datetime',
             'scheduled_end_at' => 'datetime',
             'deposit_due_at' => 'datetime',
+            'deposit_verified_at' => 'datetime',
+            'driver_offer_expires_at' => 'datetime',
             'total_price' => 'decimal:3',
             'deposit_amount' => 'decimal:3',
             'commission_rate' => 'decimal:2',
@@ -75,12 +81,45 @@ class Booking extends Model
     public function scopeOccupyingWindow(Builder $query, $start, $end): Builder
     {
         return $query->where(fn ($states) => $states->whereIn('status', ['confirmed', 'in_progress'])
+            ->orWhere(fn ($offer) => $offer->where('status', 'pending')
+                ->whereNotNull('deposit_verified_at')->where('driver_offer_expires_at', '>', now()))
             ->orWhere(fn ($hold) => $hold->where('status', 'awaiting_deposit')
                 ->where(fn ($active) => $active->where('deposit_due_at', '>', now())
-                    ->orWhereHas('payments', fn ($payment) => $payment->where('status', 'pending')))))
-                    // اوفرلاب
+                    ->orWhereHas('payments', fn ($payment) => $payment->where('purpose', Payment::PURPOSE_DEPOSIT)
+                        ->whereIn('status', [Payment::STATUS_PENDING, Payment::STATUS_APPROVED])))))
             ->where('scheduled_start_at', '<', $end)
             ->where('scheduled_end_at', '>', $start);
+    }
+
+    public function needsInventory(): bool
+    {
+        return $this->booking_method !== 'quick';
+    }
+
+    public function remainingDeposit(): string
+    {
+        $approved = $this->approved_deposit_total ?? $this->payments()
+            ->where('purpose', Payment::PURPOSE_DEPOSIT)->where('status', Payment::STATUS_APPROVED)->sum('amount');
+        $remaining = (int) round((float) $this->deposit_amount * 1000) - (int) round((float) $approved * 1000);
+
+        return number_format(max(0, $remaining) / 1000, 3, '.', '');
+    }
+
+    public function assignmentVisibleToCustomer(): bool
+    {
+        return in_array($this->status, ['confirmed', 'in_progress', 'completed'], true);
+    }
+
+    public function preferredVehicleType(): BelongsTo
+    {
+        return $this->belongsTo(VehicleType::class, 'preferred_vehicle_type_id');
+    }
+
+    public function hasRoute(): bool
+    {
+        return !in_array(null, $this->only([
+            'pickup_latitude', 'pickup_longitude', 'destination_latitude', 'destination_longitude',
+        ]), true);
     }
 
     public function vehicle(): BelongsTo

@@ -1,35 +1,31 @@
 @extends('layouts.dashboard')
 
 @section('title', 'New booking | MoveIt')
-@section('page-title', 'New booking')
-@section('page-description', 'Step 1: Furniture inventory (item type and quantity only).')
+@section('page-title', 'How would you like to move?')
+@section('page-description', 'Choose the option that works best for you.')
 
 @section('content')
-    @include('booking._steps', ['current' => 'inventory', 'line' => true])
-
-    <div class="row g-4 align-items-start">
-        <div class="col-lg-8">
-            <section class="card card-body inventory-panel">
-                <h2 class="h5 workspace-heading mb-4">Add item manually</h2>
-                <form method="POST" action="{{ route('bookings.inventory.start') }}" enctype="multipart/form-data">
-                    @csrf
-                    @include('booking._inventory-fields')
-                    <button class="btn btn-primary mt-4" type="submit"><i class="fa-solid fa-plus me-1" aria-hidden="true"></i> Add item</button>
-                </form>
+    <div class="booking-methods">
+        @foreach ([
+            ['quick', 'Choose a vehicle type', 'I already know the vehicle size I need.', 'Choose vehicle size', 'driver-vehicle-truck.svg', 'fa-truck'],
+            ['manual', 'Build your inventory', 'Add furniture manually and find a suitable vehicle.', 'Add items manually', 'hero.jpg', 'fa-boxes-stacked'],
+            ['scan', 'Scan your furniture', 'Use your phone camera to build your furniture inventory.', 'Scan with phone', 'room.jpg', 'fa-mobile-screen'],
+        ] as [$method, $heading, $description, $action, $photo, $icon])
+            <section @class(['booking-method-card', 'has-vehicle-art' => $method === 'quick'])>
+                <img src="{{ asset('landing/img/'.$photo) }}" alt="" width="512" height="256">
+                <div>
+                    <span class="booking-method-icon"><i class="fa-solid {{ $icon }}" aria-hidden="true"></i></span>
+                    <h2>{{ $heading }}</h2>
+                    <p>{{ $description }}</p>
+                    <form method="POST" action="{{ route('booking.store') }}">
+                        @csrf
+                        <input type="hidden" name="booking_method" value="{{ $method }}">
+                        <button class="btn {{ $method === 'quick' ? 'btn-primary' : 'btn-outline-secondary' }}" type="submit">
+                            {{ $action }} <i class="fa-solid fa-arrow-right ms-1" aria-hidden="true"></i>
+                        </button>
+                    </form>
+                </div>
             </section>
-        </div>
-        <aside class="col-lg-4 d-grid gap-3">
-            <section class="card card-body inventory-panel">
-                <h2 class="h5 workspace-heading"><i class="fa-solid fa-camera inventory-accent me-1" aria-hidden="true"></i> Camera scan</h2>
-                <p class="text-body-secondary mt-2">Scan a room with your phone, then review the suggested items and quantities.</p>
-                <form method="POST" action="{{ route('booking.store') }}" class="d-grid gap-2">
-                    @csrf
-                    <input type="hidden" name="open_phone_scan" value="1">
-                    <button class="btn btn-primary" type="submit"><i class="fa-solid fa-video me-1" aria-hidden="true"></i> Start live scan</button>
-                    <button class="btn btn-outline-secondary" type="submit"><i class="fa-solid fa-mobile-screen me-1" aria-hidden="true"></i> Use your phone camera</button>
-                </form>
-            </section>
-            <div class="inventory-tip"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span>No weight or dimensions are needed. If scanning fails, you can continue manually.</span></div>
-        </aside>
+        @endforeach
     </div>
 @endsection

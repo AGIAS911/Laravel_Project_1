@@ -16,7 +16,7 @@ class CheckRole
         }
 
         if (Auth::user()->role !== $role) {
-            abort(403, 'Unauthrized to access this page.');
+            abort(403, 'You are not authorized to access this page.');
         }
 
         return $next($request);

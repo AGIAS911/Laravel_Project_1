@@ -3,9 +3,14 @@
 @section('page-title', 'Settings and commission')
 
 @section('content')
-    @if (blank(config('booking.google_routes_key')))
+    @if (blank(config('booking.osrm_base_url')))
         <div class="alert alert-warning" role="alert">
-            Booking quotes are unavailable. Set <code>GOOGLE_ROUTES_API_KEY</code> in the environment with access to Google Routes API.
+            Booking quotes are unavailable. Set <code>OSRM_BASE_URL</code> to the routing service.
+        </div>
+    @endif
+    @if (collect($settings)->only(['deposit_percent', 'commission_percent', 'deposit_minutes', 'clik_name', 'clik_id'])->contains(fn ($value) => blank($value)))
+        <div class="alert alert-warning" role="alert">
+            Complete the deposit and CliQ settings below to enable booking quotes and deposit payments.
         </div>
     @endif
     <form method="POST" action="{{ route('admin.settings.update') }}">

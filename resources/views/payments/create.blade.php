@@ -9,10 +9,8 @@
 @endsection
 
 @section('content')
-    <p class="text-body-secondary">
-        <a href="{{ route('booking.show', $booking) }}">Booking {{ $booking->id }}</a>
-        @if ($cliqConfigured) · Transfer the deposit via CliQ and upload the receipt.@endif
-    </p>
+
+    <p class="text-body-secondary"><a href="{{ route('booking.show', $booking) }}">Booking #{{ $booking->id }}</a>@if ($cliqConfigured) · Transfer the deposit via CliQ and upload the receipt.@endif</p>
     @if ($errors->any())
         <div class="alert alert-danger" role="alert">
             <p class="mb-1">{{ __('Check the highlighted fields.') }}</p>
@@ -30,6 +28,7 @@
             <p class="mb-0">Ask <a href="{{ route('info.contact') }}">support</a> for help with the deposit for this booking.</p>
         </div>
     @else
+    @php($remainingDeposit = $booking->remainingDeposit())
     <div class="row g-4">
         <div class="col-lg-8 d-grid gap-3">
             <section class="card">
@@ -39,8 +38,8 @@
                     <dd class="col-sm-7">{{ $beneficiary['clik_name'] }}</dd>
                     <dt class="col-sm-5">{{ __('CliQ alias') }}</dt>
                     <dd class="col-sm-7"><bdi>{{ $beneficiary['clik_id'] }}</bdi></dd>
-                    <dt class="col-sm-5">{{ __('Required deposit') }}</dt>
-                    <dd class="col-sm-7"><strong class="customer-deposit-amount"><bdi>{{ $booking->deposit_amount }} {{ config('payments.currency') }}</bdi></strong></dd>
+                    <dt class="col-sm-5">{{ __('Deposit balance') }}</dt>
+                    <dd class="col-sm-7"><strong class="customer-deposit-amount"><bdi>{{ $remainingDeposit }} {{ config('payments.currency') }}</bdi></strong></dd>
                     <dt class="col-sm-5">{{ __('Booking') }}</dt>
                     <dd class="col-sm-7 mb-0">{{ $booking->id }}</dd>
                 </dl>
@@ -56,7 +55,7 @@
                         <div class="col-md-6">
                             <label class="form-label" for="amount">{{ __('Transferred amount') }}</label>
                             <input class="form-control @error('amount') is-invalid @enderror" type="number" step="0.001"
-                                min="0.001" id="amount" name="amount" value="{{ old('amount', $booking->deposit_amount) }}" required>
+                                min="0.001" id="amount" name="amount" value="{{ old('amount', $remainingDeposit) }}" required>
                             @error('amount')
                                 <div class="invalid-feedback">{{ $message }}</div>
                             @enderror
@@ -90,9 +89,13 @@
         </div>
 
         <aside class="col-lg-4">
-            <div class="alert alert-warning" role="note">
-                <i class="fa-solid fa-triangle-exclamation me-1" aria-hidden="true"></i>
-                {{ __('Your booking is confirmed after the team verifies the CliQ transfer.') }}
+            <div class="alert alert-info" role="note">
+                <i class="fa-solid fa-circle-info me-1" aria-hidden="true"></i>
+                @if ($booking->driver_id && $booking->vehicle_id)
+                    Your booking is confirmed when the team verifies the full deposit.
+                @else
+                    After the team verifies the full deposit, we look for a driver. You can see their details once they accept.
+                @endif
             </div>
             @if ($previousProof)
                 <section class="card">

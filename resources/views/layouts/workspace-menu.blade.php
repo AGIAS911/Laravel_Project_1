@@ -25,7 +25,6 @@ default => [
 'home' => 'Dashboard',
 'booking.create' => 'New booking',
 'booking.index' => 'My bookings',
-'services.index' => 'Services',
 'payments.index' => 'Payments',
 ],
 };

@@ -6,11 +6,9 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <p class="text-body-secondary">Name the room, generate a QR code, then open it with your phone camera.</p>
+                    <p class="text-body-secondary">Generate a QR code, then scan it with your phone camera.</p>
                     <form id="scan-form">
                         @csrf
-                        <label for="scan-room" class="form-label">Room name</label>
-                        <input class="form-control mb-3" id="scan-room" name="room_name" required maxlength="100">
                         <button type="submit" class="btn btn-primary">Generate QR code</button>
                     </form>
                     <div id="scan-qr-panel" class="text-center mt-3" hidden>

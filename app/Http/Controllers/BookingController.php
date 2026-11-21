@@ -7,12 +7,30 @@ use App\Models\Booking;
 use App\Models\DriverProfile;
 use App\Models\PlatformSetting;
 use App\Models\Service;
-use App\Models\Vehicle;
+use App\Models\VehicleType;
+use App\Services\VehicleSizeRecommendation;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon as LaravelCarbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
+
+use App\Models\User;
+use App\Models\Payment;
+use App\Models\Vehicle;
+use App\Models\BookingService;
+use App\Models\ScanSession;
+use App\Models\InventoryItem;
+use App\Models\Review;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 class BookingController extends Controller
 {
     /**
@@ -36,7 +54,7 @@ class BookingController extends Controller
             : collect();
         $driverFilter = $request->query('driver');
         $driverFilter = is_string($driverFilter) && $drivers->contains('id', $driverFilter) ? $driverFilter : null;
-        $relations = $user->role === 'admin' ? ['customer', 'driver.user'] : ['vehicle.vehicleType'];
+        $relations = $user->role === 'admin' ? ['customer', 'driver.user'] : ['vehicle.vehicleType', 'preferredVehicleType'];
         $bookings = $query->with($relations)
             ->when($status, fn ($query) => $query->where('status', $status))
             ->when($driverFilter, fn ($query) => $query->where('driver_id', $driverFilter))
@@ -61,16 +79,24 @@ class BookingController extends Controller
     public function store(Request $request)
     {
         abort_unless($request->user()->role === 'customer', 403);
-        $data = $request->validate($this->bookingRules());
+        $request->validate(['vehicle_id' => ['prohibited'], 'driver_id' => ['prohibited']]);
+        $data = $request->validate($this->bookingRules() + [
+            'booking_method' => ['sometimes', Rule::in(['quick', 'manual', 'scan'])],
+        ]);
         $data['customer_id'] = $request->user()->id;
         $data['status'] = BookingStatus::Draft->value;
         $data = $this->draftValues($data);
 
         $booking = Booking::create($data);
 
-        $destination = $request->boolean('open_phone_scan') ? 'scan-sessions.workspace' : 'booking.show';
+        $destination = match ($booking->booking_method) {
+            'quick' => route('booking.edit', ['booking' => $booking, 'step' => 'type']),
+            'manual' => route('booking.show', $booking).'#inventory',
+            'scan' => route('scan-sessions.workspace', $booking),
+            default => route($request->boolean('open_phone_scan') ? 'scan-sessions.workspace' : 'booking.show', $booking),
+        };
 
-        return redirect()->route($destination, $booking)->with('success', 'Booking created successfully');
+        return redirect($destination)->with('success', 'Booking draft created.');
     }
 
     /**
@@ -103,18 +129,21 @@ class BookingController extends Controller
                     ]),
                 ];
             }
-            if ($user->role === 'admin' || in_array($booking->status, [
-                BookingStatus::Confirmed->value,
-                BookingStatus::InProgress->value,
-                BookingStatus::Completed->value,
-            ], true)) {
+            if ($user->role === 'admin' || $booking->assignmentVisibleToCustomer()) {
                 $details['driver'] = $booking->driver?->user?->only(['name', 'phone']);
+                $vehicle = $booking->vehicle;
+                $details['vehicle'] = $vehicle ? [
+                    'name' => $vehicle->name,
+                    'plate_number' => $vehicle->plate_number,
+                    'type' => $vehicle->vehicleType?->name,
+                    'photo_url' => $vehicle->image ? asset($vehicle->image) : null,
+                ] : null;
             }
 
             return response()->json($details);
         }
 
-        $booking->load(['inventoryItems', 'bookingServices.service', 'review']);
+        $booking->load(['inventoryItems', 'bookingServices.service', 'review', 'preferredVehicleType']);
         $services = $user->id === $booking->customer_id && $booking->status === BookingStatus::Draft->value
             ? Service::where('is_active', true)->orderBy('name')->get()
             : collect();
@@ -134,12 +163,39 @@ class BookingController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(Request $request, string $id)
+    public function edit(Request $request, string $id, VehicleSizeRecommendation $recommendation)
     {
         abort_unless($request->user()->role === 'customer', 403);
         $booking = $request->user()->bookings()->where('status', BookingStatus::Draft->value)->findOrFail($id);
+        $step = null;
 
-        return view("booking.edit", compact("booking"));
+        if ($booking->booking_method) {
+            if ($booking->needsInventory() && !$booking->inventoryItems()->where('status', 'confirmed')->exists()) {
+                return redirect(route('booking.show', $booking).'#inventory');
+            }
+            $next = match (true) {
+                !$booking->preferredVehicleType?->is_active => 'type',
+                !$booking->hasRoute() => 'route',
+                !$booking->scheduled_start_at?->isFuture() => 'time',
+                default => 'review',
+            };
+            $requested = $request->query('step');
+            $steps = ['type', 'route', 'time', 'review'];
+            $step = in_array($requested, array_slice($steps, 0, array_search($next, $steps, true) + 1), true)
+                ? $requested : $next;
+
+            if ($step === 'type') {
+                return view('booking.vehicle-type', ['booking' => $booking] + $recommendation->options($booking));
+            }
+
+            if ($step === 'review') {
+                return redirect(route('booking.show', $booking).'#services');
+            }
+        }
+
+        $vehicleTypes = $step === null ? VehicleType::where('is_active', true)->orderBy('name')->pluck('name', 'id') : collect();
+
+        return view('booking.edit', compact('booking', 'step', 'vehicleTypes'));
     }
 
     /**
@@ -149,14 +205,55 @@ class BookingController extends Controller
     {
         abort_unless($request->user()->role === 'customer', 403);
 
-        $data = $request->validate($this->bookingRules());
-        $data = $this->draftValues($data);
+        $step = $request->validate([
+            'booking_step' => ['sometimes', Rule::in(['type', 'route', 'time'])],
+            'vehicle_id' => ['prohibited'],
+            'driver_id' => ['prohibited'],
+        ])['booking_step'] ?? null;
+        $rules = $this->bookingRules();
+        $coordinates = ['pickup_latitude', 'pickup_longitude', 'destination_latitude', 'destination_longitude'];
+        $rules = match ($step) {
+            'type' => ['preferred_vehicle_type_id' => ['required', ...$rules['preferred_vehicle_type_id']]],
+            'route' => array_map(fn ($rules) => ['required', ...$rules], array_intersect_key($rules, array_flip($coordinates)))
+                + array_diff_key($rules, array_flip(['scheduled_start_at', 'preferred_vehicle_type_id', ...$coordinates])),
+            'time' => ['scheduled_start_at' => ['required', ...$rules['scheduled_start_at']]],
 
-        DB::transaction(function () use ($request, $id, $data) {
+            default => $rules,
+        };
+        $data = $this->draftValues($request->validate($rules));
+
+        DB::transaction(function () use ($request, $id, $data, $step) {
             $booking = $request->user()->bookings()->where('status', BookingStatus::Draft->value)->lockForUpdate()->findOrFail($id);
+            if ($booking->booking_method && !$step) {
+                throw ValidationException::withMessages(['booking_step' => 'Continue from the current booking step.']);
+            }
+            if ($booking->booking_method && $booking->needsInventory()
+                && !$booking->inventoryItems()->where('status', 'confirmed')->exists()) {
+                throw ValidationException::withMessages(['booking_step' => 'Confirm at least one item before choosing a vehicle.']);
+            }
+            if (in_array($step, ['route', 'time'], true) && !$booking->preferredVehicleType?->is_active) {
+                throw ValidationException::withMessages(['preferred_vehicle_type_id' => 'Choose an active vehicle type first.']);
+            }
+            if ($step === 'time' && !$booking->hasRoute()) {
+                throw ValidationException::withMessages(['pickup_latitude' => 'Set both locations first.']);
+            }
             $booking->fill($data);
+            if ($booking->isDirty('preferred_vehicle_type_id')) {
+                $booking->fill(['vehicle_id' => null, 'driver_id' => null]);
+            }
+
+            if ($step === 'time' && !$booking->bookingServices()->whereHas('service', fn ($query) => $query->where('type', Service::TYPE_TRANSPORT))->exists()) {
+                $transport = Service::where('is_active', true)->where('type', Service::TYPE_TRANSPORT)->limit(2)->get();
+                if ($transport->count() === 1) {
+                    $service = $transport->first();
+                    $booking->bookingServices()->create([
+                        'service_id' => $service->id, 'service_name' => $service->name,
+                        'unit' => $service->unit, 'quantity' => 1, 'unit_price' => $service->price,
+                    ]);
+                }
+            }
             if ($booking->isDirty([
-                'vehicle_id', 'pickup_latitude', 'pickup_longitude',
+                'vehicle_id', 'preferred_vehicle_type_id', 'pickup_latitude', 'pickup_longitude',
                 'destination_latitude', 'destination_longitude', 'scheduled_start_at', 'scheduled_end_at',
             ])) {
                 $booking->fill([
@@ -167,14 +264,20 @@ class BookingController extends Controller
             $booking->save();
         });
 
-        return redirect()->route('booking.show', $id)
-            ->with('success', 'Booking updated successfully');
+        $next = ['type' => 'route', 'route' => 'time'][$step] ?? null;
+
+        if ($next) {
+            return redirect()->route('booking.edit', ['booking' => $id, 'step' => $next]);
+        }
+
+        return redirect(route('booking.show', $id).($step === 'time' ? '#services' : ''))
+            ->with('success', 'Booking draft saved.');
     }
 
     private function bookingRules(): array
     {
         return [
-            'vehicle_id' => ['nullable', 'integer', 'exists:vehicles,id'],
+            'preferred_vehicle_type_id' => ['nullable', 'integer', Rule::exists('vehicle_types', 'id')->where('is_active', true)],
             'pickup_latitude' => ['required_with:pickup_longitude', 'nullable', 'numeric', 'decimal:0,7', 'between:-90,90'],
             'pickup_longitude' => ['required_with:pickup_latitude', 'nullable', 'numeric', 'decimal:0,7', 'between:-180,180'],
             'destination_latitude' => ['required_with:destination_longitude', 'nullable', 'numeric', 'decimal:0,7', 'between:-90,90'],
@@ -195,9 +298,7 @@ class BookingController extends Controller
 
     private function draftValues(array $data): array
     {
-        if (array_key_exists('vehicle_id', $data)) {
-            $data['driver_id'] = isset($data['vehicle_id']) ? Vehicle::findOrFail($data['vehicle_id'])->driver_id : null;
-        }
+
         if (array_key_exists('scheduled_start_at', $data)) {
             $appointment = $data['scheduled_start_at'] === null
                 ? null

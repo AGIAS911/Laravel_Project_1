@@ -31,7 +31,7 @@ class ScanSessionController extends Controller
         abort_unless($booking->status === 'draft', 409);
 
         $validated = $request->validate([
-            'room_name' => 'required|string|max:100',
+            'room_name' => 'nullable|string|max:100',
             'direct' => 'sometimes|boolean',
         ]);
 
@@ -51,7 +51,7 @@ class ScanSessionController extends Controller
         }
 
         $scanSession = $booking->scanSessions()->create([
-            'room_name' => $validated['room_name'],
+            'room_name' => $validated['room_name'] ?? 'Furniture scan',
             'status' => 'pending',
             'pairing_token_hash' => hash('sha256', $token),
             'pairing_expires_at' => now()->addMinutes(5),
@@ -143,9 +143,10 @@ class ScanSessionController extends Controller
 
     public function sync(Request $request)
     {
+        $itemTypes = array_keys(config('inventory.items'));
         $data = $request->validate([
-            'items' => ['present', 'array', 'max:12'],
-            'items.*.item_type' => ['required', 'distinct', Rule::in(InventoryController::ITEM_TYPES)],
+            'items' => ['present', 'array', 'max:'.count($itemTypes)],
+            'items.*.item_type' => ['required', 'distinct', Rule::in($itemTypes)],
             'items.*.quantity' => ['required', 'integer', 'min:1', 'max:1000'],
         ]);
         $session = $this->deviceSession($request);
