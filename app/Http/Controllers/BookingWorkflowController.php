@@ -22,11 +22,15 @@ class BookingWorkflowController extends Controller
     public function vehicles(Request $request)
     {
         $window = $request->validate([
-            'start' => 'required|date|after:now',
-            'end' => 'required|date|after:start',
+            'start' => ['bail', 'required', 'date', function ($attribute, $value, $fail) {
+                if (!\Illuminate\Support\Carbon::parse($value, config('booking.timezone'))->isFuture()) {
+                    $fail('Choose a booking time in the future (Amman time).');
+                }
+            }],
+
         ]);
-        $start = Carbon::parse($window['start'])->utc();
-        $end = Carbon::parse($window['end'])->utc();
+        $start = \Illuminate\Support\Carbon::parse($window['start'], config('booking.timezone'))->utc();
+        $end = Booking::slotEnd($start);
         $overlap = fn ($query) => $query->occupyingWindow($start, $end);
 
         $vehicles = Vehicle::where('status', 'active')->with('vehicleType:id,name')
@@ -69,14 +73,14 @@ class BookingWorkflowController extends Controller
 
         $coordinates = $booking->only(['pickup_latitude', 'pickup_longitude', 'destination_latitude', 'destination_longitude']);
         abort_if(in_array(null, $coordinates, true), 422, 'Both locations are required.');
+        abort_unless(PlatformSetting::bookingConfigured(), 503, 'Booking quotes are temporarily unavailable. Your draft is saved.');
         $meters = $this->routeDistance($coordinates);
 
         return DB::transaction(function () use ($booking, $coordinates, $meters, $submit, $expected) {
             $booking = Booking::lockForUpdate()->findOrFail($booking->id);
             abort_unless($booking->status === 'draft' && $booking->only(array_keys($coordinates)) === $coordinates, 409);
-            abort_unless($booking->scheduled_start_at?->isFuture()
-                && $booking->scheduled_end_at?->greaterThan($booking->scheduled_start_at), 422, 'A future booking window is required.');
-
+            abort_unless($booking->scheduled_start_at?->isFuture(), 422, 'Choose a future booking time.');
+            $booking->scheduled_end_at ??= Booking::slotEnd($booking->scheduled_start_at);
             abort_unless($booking->inventoryItems()->where('status', 'confirmed')->exists(), 422, 'Confirm at least one item.');
             // لازم خدمة التركيب مع العمال
             $services = $booking->bookingServices()->with('service')->get();
@@ -96,7 +100,7 @@ class BookingWorkflowController extends Controller
             $settings = PlatformSetting::values();
             $deposit = $this->percentage($settings['deposit_percent'], 0.01);
             $commission = $this->percentage($settings['commission_percent'], 0);
-            $time = $booking->scheduled_start_at->copy()->timezone('Asia/Amman');
+            $time = $booking->scheduled_start_at->copy()->timezone(config('booking.timezone'));
             $rules = PricingRule::where('is_active', true)
                 ->where(fn ($query) => $query->whereNull('day_of_week')->orWhere('day_of_week', $time->dayOfWeek))
                 ->where('start_time', '<=', $time->format('H:i:s'))

@@ -1,12 +1,17 @@
 @php
+    $selectedServices = $booking->bookingServices->pluck('service');
+    $serviceTypes = $selectedServices->pluck('type');
+    $servicesReady = $selectedServices->every(fn ($service) => $service?->is_active)
+        && $serviceTypes->filter(fn ($type) => $type === \App\Models\Service::TYPE_TRANSPORT)->count() === 1
+        && (!$serviceTypes->contains(\App\Models\Service::TYPE_ASSEMBLY) || $serviceTypes->contains(\App\Models\Service::TYPE_WORKERS));
+
     $steps = [
         ['Confirm furniture', '#inventory', $booking->inventoryItems->contains('status', 'confirmed')],
         ['Set route and time', route('booking.edit', $booking), $booking->pickup_latitude !== null && $booking->pickup_longitude !== null
             && $booking->destination_latitude !== null && $booking->destination_longitude !== null
-            && $booking->scheduled_start_at?->isFuture() && $booking->scheduled_end_at?->gt($booking->scheduled_start_at)],
+            && $booking->scheduled_start_at?->isFuture()],
         ['Choose a vehicle', route('booking.edit', $booking).'#vehicle-selection', $booking->vehicle_id !== null],
-        ['Select moving services', '#services', $booking->bookingServices->contains(fn ($line) =>
-            $line->service?->type === \App\Models\Service::TYPE_TRANSPORT && $line->service->is_active)],
+        ['Select moving services', '#services', $servicesReady],
     ];
     $next = collect($steps)->first(fn ($step) => !$step[2]);
     $paymentUrl = $receiptUnderReview ? route('payments.index') : route('payments.create', ['booking_id' => $booking->id]);
@@ -19,7 +24,9 @@
             ? ['Receipt under review', 'Your receipt has been uploaded. We’ll confirm the booking after verifying the transfer.', $paymentUrl, 'View payment status']
             : ($booking->deposit_due_at?->isPast()
                 ? ['Deposit deadline passed', 'Open your payment history to check your deposit status.', route('payments.index'), 'View payments']
-                : ['Pay your deposit', 'Your driver accepted. Transfer the deposit via CliQ and upload your receipt.', $paymentUrl, 'Pay deposit']),
+                : ($cliqConfigured
+                    ? ['Pay your deposit', 'Your driver accepted. Transfer the deposit via CliQ and upload your receipt.', $paymentUrl, 'Pay deposit']
+                    : ['Deposit payment unavailable', 'Your driver accepted. Contact support for help with the deposit.', $paymentUrl, 'Get help'])),
         'confirmed' => ['Your move is confirmed', 'Check the schedule and keep your driver’s contact details handy.', '#locations', 'View move details'],
         'in_progress' => ['Your move is in progress', 'Your driver has started the move.', '#locations', 'View move details'],
         'completed' => ['Your move is complete', 'Share feedback about your experience with the driver.', '#booking-review', $booking->review ? 'Edit review' : 'Rate your move'],

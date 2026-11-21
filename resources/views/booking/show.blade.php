@@ -17,6 +17,13 @@
 
 @section('content')
     <p data-workflow-status class="booking-workflow-message" role="status"></p>
+    @if ($draft)
+        @include('booking._steps', ['current' => 'review', 'line' => true, 'links' => [
+            'inventory' => '#inventory',
+            'locations' => route('booking.edit', $booking),
+            'review' => '#services',
+        ]])
+    @endif
     @if ($owner)
         @include('booking._journey')
     @endif
@@ -101,6 +108,9 @@
     <section class="card mb-3">
             <div class="card-body">
                 <h2 class="h5 workspace-heading" id="review">Review and send</h2>
+                @if (!\App\Models\PlatformSetting::bookingConfigured())
+                    <p class="alert alert-warning mb-0">Quotes are temporarily unavailable. Your draft is saved. <a href="{{ route('info.contact') }}">Contact support</a> for help.</p>
+                @else
                 <p class="small text-body-secondary">Calculate your quote to see the total and required deposit before sending the request.</p>
                 <div class="booking-quote mb-3" data-booking-quote hidden aria-live="polite">
                     <div><span>Road distance</span><strong data-quote-distance></strong></div>
@@ -118,6 +128,7 @@
                         <button class="btn btn-primary">Send booking request</button>
                     </form>
                 </div>
+                @endif
             </div>
         </section>
     @else
@@ -148,7 +159,9 @@
                 </dl>
             </div>
 
-    @if ($owner && in_array($booking->status, ['pending', 'awaiting_deposit'], true))
+    @if ($cancellationRequiresReview)
+        <p class="alert alert-info">Contact <a href="{{ route('info.contact') }}">support</a> if you need to cancel. Your payment proof requires a review before cancellation.</p>
+    @elseif ($owner && in_array($booking->status, ['pending', 'awaiting_deposit'], true))
 
                 <details class="card card-body">
             <summary class="text-danger fw-semibold">Cancel this booking</summary>

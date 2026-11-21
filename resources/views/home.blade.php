@@ -85,8 +85,23 @@
                     <ul class="list-group list-group-flush">
                         @forelse ($recentNotifications as $notification)
                             <li class="list-group-item">
-                                <div @class(['fw-bold' => !$notification->read_at])>{{ $notification->title }}</div>
-                                <time class="small text-body-secondary" datetime="{{ $notification->created_at->toISOString() }}">{{ $notification->created_at->diffForHumans() }}</time>
+                                <div class="d-flex align-items-start justify-content-between gap-3">
+                                    <div>
+                                        <div @class(['fw-bold' => !$notification->read_at])>
+                                            {{ $notification->title ?? 'Notification' }}
+                                            @unless ($notification->read_at)
+                                                <span class="badge text-bg-primary">New</span>
+                                            @endunless
+                                        </div>
+                                        @if ($notification->message)
+                                            <p class="mb-1">{{ $notification->message }}</p>
+                                        @endif
+                                        <time class="small text-body-secondary" datetime="{{ $notification->created_at->toISOString() }}">{{ $notification->created_at->diffForHumans() }}</time>
+                                    </div>
+                                    @if ($notification->url)
+                                        <a class="btn btn-outline-secondary btn-sm flex-shrink-0" href="{{ $notification->url }}">Open</a>
+                                    @endif
+                                </div>
                             </li>
                         @empty
                             <li class="list-group-item text-body-secondary">No notifications yet.</li>

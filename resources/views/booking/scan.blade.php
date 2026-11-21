@@ -11,6 +11,7 @@
 @endsection
 
 @section('content')
+    @include('booking._steps', ['current' => 'inventory', 'line' => true])
     <div class="row g-4 align-items-start">
         <div class="col-lg-8">
             <section class="card card-body inventory-panel" aria-labelledby="scan-items-title">

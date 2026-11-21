@@ -13,12 +13,15 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\VehicleController;
 use App\Http\Controllers\VehicleTypeController;
+use App\Http\Controllers\Admin\PaymentReviewController;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\ServiceController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\DriverController;
+use App\Http\Controllers\ChatbotController;
+use App\Http\Controllers\PaymentController;
 
 
 use App\Http\Controllers\ScanSessionController;
@@ -26,6 +29,12 @@ use App\Http\Controllers\ScanSessionController;
 Route::get('/', function () {
     return view('welcome');
 });
+
+Route::view('/how-it-works', 'info.how-it-works')->name('info.how-it-works');
+Route::view('/faq', 'info.faq')->name('info.faq');
+Route::view('/contact', 'info.contact')->name('info.contact');
+Route::post('/contact', [ContactController::class, 'store'])->name('info.contact.store');
+Route::view('/policies', 'info.policies')->name('info.policies');
 
 Route::get('/dashboard', function () {
     return view('dashboard');
@@ -61,6 +70,16 @@ Route::middleware(['auth', 'active', 'role:customer'])->scopeBindings()->group(f
     Route::post('/bookings/{booking}/submit', [BookingWorkflowController::class, 'submit'])->name('bookings.submit');
     Route::post('/bookings/{booking}/quote', [BookingWorkflowController::class, 'quote'])->name('bookings.quote');
     Route::patch('/bookings/{booking}/cancel', [BookingWorkflowController::class, 'cancel'])->name('bookings.cancel');
+    Route::get('/bookings/{booking}/scan', [ScanSessionController::class, 'workspace'])
+        ->name('scan-sessions.workspace');
+    Route::post('/bookings/{booking}/scan-sessions', [ScanSessionController::class, 'store'])
+        ->name('scan-sessions.store');
+    Route::get('/bookings/{booking}/scan-sessions/inventory', [ScanSessionController::class, 'inventory'])
+        ->name('scan-sessions.inventory');
+    Route::get('/bookings/{booking}/scan-sessions/{scanSession}', [ScanSessionController::class, 'show'])
+        ->name('scan-sessions.show');
+    Route::delete('/bookings/{booking}/scan-sessions/{scanSession}', [ScanSessionController::class, 'close'])
+        ->name('scan-sessions.close');
     Route::get('/bookings/{booking}/inventory', [InventoryController::class, 'index'])->name('bookings.inventory.index');
     Route::get('/bookings/{booking}/inventory/{inventoryItem}/image', [InventoryController::class, 'image'])->name('bookings.inventory.image');
     Route::post('/bookings/start-inventory', [InventoryController::class, 'startBooking'])->name('bookings.inventory.start');
@@ -92,8 +111,11 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::put('/password', [ProfileController::class, 'updatePassword']);
     Route::put('/password/reset', [ProfileController::class, 'updatePassword']);
 });
-Route::resource('services', ServiceController::class)->except(['index', 'show'])
+Route::resource('services', ServiceController::class)->except(['index', 'show', 'destroy'])
     ->middleware(['auth', 'active', 'role:admin']);
+Route::delete('/services/{service}', [ServiceController::class, 'destroy'])
+    ->middleware(['auth', 'active'])
+    ->name('services.destroy');
 Route::resource('services', ServiceController::class)->only(['index', 'show']);
 
 //--------------------------------------------------------
@@ -124,51 +146,35 @@ Route::middleware(['auth', 'active', 'role:admin'])
         Route::get('/settings', [WorkspaceController::class, 'settings'])->name('settings');
         Route::put('/settings', [WorkspaceController::class, 'updateSettings'])->name('settings.update');
         Route::get('/inbox', [WorkspaceController::class, 'inbox'])->name('inbox');
+        Route::get('/payments', [PaymentReviewController::class, 'index'])->name('payments.index');
+        Route::get('/payments/{id}', [PaymentReviewController::class, 'show'])->name('payments.show');
+        Route::post('/payments/{id}/approve', [PaymentReviewController::class, 'approve'])->name('payments.approve');
+        Route::post('/payments/{id}/reject', [PaymentReviewController::class, 'reject'])->name('payments.reject');
         Route::patch('/users/{user}/driver-status', [UserController::class, 'reviewDriver'])->name('users.driver-status');
         Route::apiResource('pricing-rules', PricingRuleController::class)->except('show');
         Route::resource('users', UserController::class)
             ->only(['index', 'store', 'update', 'destroy']);
     });
 
-//----------------------------------------------
-Route::middleware(['auth', 'active', 'role:admin'])->group(function () {
-    Route::resource('users', UserController::class)->only(['index', 'store', 'update', 'destroy']);
+Auth::routes();
+
+Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
+
+Route::get('/chatbot', [ChatbotController::class, 'index'])->name('chatbot.index');
+Route::get('/chatbot/conversations/{conversation}', [ChatbotController::class, 'history'])
+    ->whereNumber('conversation')
+    ->name('chatbot.history');
+
+Route::post('/chatbot/message', [ChatbotController::class, 'send'])
+    ->name('chatbot.message');
+Route::middleware(['auth', 'active', 'role:customer'])->group(function () {
+    Route::get('/payments', [PaymentController::class, 'index'])
+        ->name('payments.index');
+    Route::get('/payments/create', [PaymentController::class, 'create'])
+        ->name('payments.create');
+    Route::post('/payments', [PaymentController::class, 'store'])
+        ->name('payments.store');
 });
 
-//------------------------------------------------------
-// Payments: customer uploads CliQ proof, admin reviews it.
-Route::middleware(['auth', 'active'])->group(function () {
-    Route::get('/payments/{payment}/receipt', [\App\Http\Controllers\PaymentController::class, 'receipt'])
-        ->name('payments.receipt');
-});
-
-Route::middleware(['auth', 'active', 'role:customer'])->prefix('payments')->name('payments.')->group(function () {
-    Route::get('/', [\App\Http\Controllers\PaymentController::class, 'index'])->name('index');
-    Route::get('/create', [\App\Http\Controllers\PaymentController::class, 'create'])->name('create');
-    Route::post('/', [\App\Http\Controllers\PaymentController::class, 'store'])->name('store');
-});
-
-Route::middleware(['auth', 'active', 'role:admin'])->prefix('admin/payments')->name('admin.payments.')->group(function () {
-    $review = \App\Http\Controllers\Admin\PaymentReviewController::class;
-    Route::get('/', [$review, 'index'])->name('index');
-    Route::get('/{payment}', [$review, 'show'])->name('show');
-    Route::post('/{payment}/approve', [$review, 'approve'])->name('approve');
-    Route::post('/{payment}/reject', [$review, 'reject'])->name('reject');
-});
-
-Route::middleware(['auth', 'active', 'role:customer'])->scopeBindings()->group(function () {
-    Route::get('/bookings/{booking}/scan', [ScanSessionController::class, 'workspace'])->name('scan-sessions.workspace');
-    Route::get('/bookings/{booking}/scan/inventory', [ScanSessionController::class, 'inventory'])->name('scan-sessions.inventory');
-    Route::post('/bookings/{booking}/scan-sessions', [ScanSessionController::class, 'store'])
-        ->name('scan-sessions.store');
-    Route::get('/bookings/{booking}/scan-sessions/{scanSession}', [ScanSessionController::class, 'show'])
-        ->name('scan-sessions.show');
-    Route::delete('/bookings/{booking}/scan-sessions/{scanSession}', [ScanSessionController::class, 'close'])
-        ->name('scan-sessions.close');
-});
-
-Route::view('/how-it-works', 'info.how-it-works')->name('info.how-it-works');
-Route::view('/faq', 'info.faq')->name('info.faq');
-Route::view('/contact', 'info.contact')->name('info.contact');
-Route::post('/contact', [ContactController::class, 'store'])->middleware('throttle:5,1,contact:')->name('info.contact.store');
-Route::view('/policies', 'info.policies')->name('info.policies');
+Route::middleware(['auth', 'active'])->get('/payments/{id}/receipt', [PaymentController::class, 'receipt'])
+    ->name('payments.receipt');

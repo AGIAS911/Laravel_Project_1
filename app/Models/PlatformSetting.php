@@ -15,6 +15,24 @@ class PlatformSetting extends Model
         return ['settings' => 'array'];
     }
 
+    public static function bookingConfigured(): bool
+    {
+        $settings = static::values();
+
+        return filled(config('booking.google_routes_key'))
+            && filled($settings['deposit_percent'])
+            && filled($settings['commission_percent'])
+            && filled($settings['deposit_minutes'])
+            && static::cliqConfigured($settings);
+    }
+
+    public static function cliqConfigured(?array $settings = null): bool
+    {
+        $settings ??= static::values();
+
+        return filled($settings['clik_name']) && filled($settings['clik_id']);
+    }
+
     public static function values(): array
     {
         return (static::find(1)?->settings ?? []) + [

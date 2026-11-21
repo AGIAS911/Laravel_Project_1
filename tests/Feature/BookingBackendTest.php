@@ -126,6 +126,8 @@ class BookingBackendTest extends TestCase
             'booking.deposit_percent' => '20',
             'booking.commission_percent' => '10',
             'booking.deposit_minutes' => '30',
+            'payments.clik_name' => 'Test Beneficiary',
+            'payments.clik_id' => 'TEST',
         ]);
         Http::fake(['router.project-osrm.org/*' => Http::response(['code' => 'Ok', 'routes' => [['distance' => 2500]]])]);
         $customer = User::factory()->create();
@@ -146,7 +148,7 @@ class BookingBackendTest extends TestCase
             'service_id' => $transport->id, 'service_name' => $transport->name,
             'unit' => 'fixed', 'quantity' => 1, 'unit_price' => '3.000',
         ]);
-        $window = ['start' => $booking->scheduled_start_at->toISOString(), 'end' => $booking->scheduled_end_at->toISOString()];
+        $window = ['start' => $booking->scheduled_start_at->toISOString()];
 
         $this->actingAs($customer)->postJson(route('bookings.inventory.store', $booking), [
             'item_type' => 'sofa', 'quantity' => 1,
@@ -173,13 +175,18 @@ class BookingBackendTest extends TestCase
             ->assertOk()->assertSee('My bookings')->assertSee(route('booking.show', $booking));
         $this->get(route('booking.index', ['status' => 'draft', 'q' => $booking->id]))
             ->assertOk()->assertDontSee(route('booking.show', $booking));
-        $this->get(route('booking.create'))->assertOk()->assertSee('Locations and schedule');
+        $this->get(route('booking.create'))->assertOk()->assertSee('Route, time and vehicle');
         $this->get(route('payments.index'))->assertOk()->assertSee('Payment proof history');
 
         $this->actingAs($customer)->get(route('booking.show', $booking))
             ->assertOk()->assertSee(route('payments.create', ['booking_id' => $booking->id]));
         $this->get(route('payments.create', ['booking_id' => $booking->id]))
             ->assertOk()->assertSee('Transfer details')->assertSee(route('payments.store'));
+
+        config(['payments.clik_id' => null]);
+        $this->get(route('payments.create', ['booking_id' => $booking->id]))
+            ->assertOk()->assertSee('CliQ is temporarily unavailable')->assertDontSee('Submit receipt');
+        config(['payments.clik_id' => 'TEST']);
 
         $this->assertSame(1, $customer->notifications()->count());
         $other = Booking::factory()->for($vehicle)->create([
@@ -200,7 +207,8 @@ class BookingBackendTest extends TestCase
         $payment = $booking->payments()->firstOrFail();
         Storage::disk('local')->assertExists($payment->receipt_image);
         $this->get(route('booking.show', $booking))->assertOk()
-            ->assertSee('Receipt under review')->assertSee('View payment status');
+            ->assertSee('Receipt under review')->assertSee('View payment status')
+            ->assertDontSee('Confirm cancellation');
         $this->actingAs(User::factory()->create(['role' => 'admin']))
             ->get(route('admin.payments.show', $payment))->assertOk()
             ->assertSee('Receipt image')->assertSee('Transfer details')->assertSee('Verified amount')
@@ -309,6 +317,17 @@ class BookingBackendTest extends TestCase
             'notes' => 'Use the side entrance.',
         ])->assertRedirect(route('booking.show', $draft))->assertSessionHasNoErrors();
         $this->assertSame('Use the side entrance.', $draft->refresh()->notes);
+
+        $moveDate = now('Asia/Amman')->addDay()->toDateString();
+        $this->put(route('booking.update', $draft), [
+            'scheduled_start_at' => $moveDate.'T10:00',
+
+        ])->assertRedirect(route('booking.show', $draft))->assertSessionHasNoErrors();
+        $this->assertSame($moveDate.' 07:00', $draft->refresh()->scheduled_start_at->utc()->format('Y-m-d H:i'));
+        $this->assertSame($moveDate.' 09:00', $draft->scheduled_end_at->utc()->format('Y-m-d H:i'));
+        $this->get($edit)->assertOk()->assertSee($moveDate.'T10:00:00')
+            ->assertDontSee('name="scheduled_end_at"', false);
+        $this->get(route('booking.show', $draft))->assertOk()->assertSee('10:00');
     }
 
     public function test_inventory_tiles_create_a_draft_and_phone_scan_can_open(): void

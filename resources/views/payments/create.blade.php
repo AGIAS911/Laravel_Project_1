@@ -10,6 +10,7 @@
 
 @section('content')
     <p class="text-body-secondary"><a href="{{ route('booking.show', $booking) }}">Booking {{ $booking->id }}</a> · Transfer the deposit via CliQ and upload the receipt.</p>
+    <p class="text-body-secondary"><a href="{{ route('booking.show', $booking) }}">Booking #{{ $booking->id }}</a>@if ($cliqConfigured) · Transfer the deposit via CliQ and upload the receipt.@endif</p>
     @if ($errors->any())
         <div class="alert alert-danger" role="alert">
             <p class="mb-1">{{ __('Check the highlighted fields.') }}</p>
@@ -21,15 +22,21 @@
         </div>
     @endif
 
+    @if (!$cliqConfigured)
+        <div class="alert alert-warning" role="alert">
+            <h2 class="h6">CliQ is temporarily unavailable</h2>
+            <p class="mb-0">Ask <a href="{{ route('info.contact') }}">support</a> for help with the deposit for this booking.</p>
+        </div>
+    @else
     <div class="row g-4">
         <div class="col-lg-8 d-grid gap-3">
             <section class="card">
                 <h2 class="card-header h6 workspace-heading">Transfer details</h2>
                 <dl class="card-body row mb-0">
                     <dt class="col-sm-5">{{ __('Beneficiary') }}</dt>
-                    <dd class="col-sm-7">{{ $beneficiary['clik_name'] ?: 'Not configured' }}</dd>
+                    <dd class="col-sm-7">{{ $beneficiary['clik_name'] }}</dd>
                     <dt class="col-sm-5">{{ __('CliQ alias') }}</dt>
-                    <dd class="col-sm-7"><bdi>{{ $beneficiary['clik_id'] ?: 'Not configured' }}</bdi></dd>
+                    <dd class="col-sm-7"><bdi>{{ $beneficiary['clik_id'] }}</bdi></dd>
                     <dt class="col-sm-5">{{ __('Required deposit') }}</dt>
                     <dd class="col-sm-7"><strong class="customer-deposit-amount"><bdi>{{ $booking->deposit_amount }} {{ config('payments.currency') }}</bdi></strong></dd>
                     <dt class="col-sm-5">{{ __('Booking') }}</dt>
@@ -98,4 +105,5 @@
             @endif
         </aside>
     </div>
+    @endif
 @endsection
