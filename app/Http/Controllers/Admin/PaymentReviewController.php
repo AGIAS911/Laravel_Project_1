@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Booking;
+use App\Services\PaidBookingMatcher;
 use App\Models\MoveItNotification;
 use App\Models\Payment;
 use Illuminate\Http\Request;
@@ -64,17 +65,18 @@ class PaymentReviewController extends Controller
     }
 
     /**
-     * Approve the amount that really arrived; confirm the booking once the deposit is covered.
+     * Approve the amount received and release fully paid bookings to driver matching.
      */
-    public function approve(Request $request, string $id)
+    public function approve(Request $request, string $id, PaidBookingMatcher $matcher)
     {
         $data = $request->validate([
             'amount' => ['required', 'numeric', 'decimal:0,3', 'min:0.001', 'max:9999999'],
         ]);
 
-        DB::transaction(function () use ($request, $id, $data) {
-            $payment = Payment::lockForUpdate()->findOrFail($id);
+        $payment = Payment::findOrFail($id);
+        $matchBookingId = DB::transaction(function () use ($request, $payment, $data) {
             $booking = Booking::lockForUpdate()->findOrFail($payment->booking_id);
+            $payment = Payment::lockForUpdate()->findOrFail($payment->id);
 
             // A repeated click or request finds the payment already reviewed and changes nothing.
             if ($payment->status !== Payment::STATUS_PENDING) {
@@ -107,14 +109,31 @@ class PaymentReviewController extends Controller
                 ->sum('amount');
 
             // Compare in thousandths of a dinar to avoid float noise.
-            if ((int) round($paid * 1000) >= (int) round($booking->deposit_amount * 1000)) {
-                $booking->update(['status' => 'confirmed']);
-                if ($booking->driver) {
-                    MoveItNotification::bookingEvent($booking->driver->user_id, $booking, 'The deposit was approved. The booking is confirmed.');
-                }
+            if ((int) round($paid * 1000) < (int) round($booking->deposit_amount * 1000)) {
+                MoveItNotification::bookingEvent($booking->customer_id, $booking, 'Your payment proof was approved. A balance remains on your deposit.');
+                return null;
             }
-            MoveItNotification::bookingEvent($booking->customer_id, $booking, 'Your payment proof was approved.');
-        });
+
+            if ($booking->driver_id && $booking->vehicle_id) {
+                // Earlier bookings collected the deposit after the driver accepted.
+                $booking->update(['status' => 'confirmed', 'deposit_verified_at' => now()]);
+                MoveItNotification::bookingEvent($booking->driver->user_id, $booking, 'The deposit was approved. The booking is confirmed.');
+                MoveItNotification::bookingEvent($booking->customer_id, $booking, 'Your deposit is verified. Open your booking for the assigned vehicle and driver.');
+                return null;
+            }
+
+            $booking->update(['status' => 'pending', 'deposit_verified_at' => now()]);
+            MoveItNotification::bookingEvent($booking->customer_id, $booking, 'Your deposit is verified. We are looking for a driver for your move.');
+            return $booking->id;
+        }, 3);
+
+        if ($matchBookingId) {
+            try {
+                $matcher->findDriver($matchBookingId);
+            } catch (\Throwable $error) {
+                report($error);
+            }
+        }
 
         return redirect()->route('admin.payments.index')
             ->with('success', __('payments.approved'));

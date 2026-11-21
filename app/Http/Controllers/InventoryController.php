@@ -11,11 +11,6 @@ use Illuminate\Validation\Rule;
 
 class InventoryController extends Controller
 {
-    public const ITEM_TYPES = [
-        'chair', 'sofa', 'bed', 'dining table', 'tv', 'refrigerator',
-        'microwave', 'oven', 'laptop', 'potted plant', 'wardrobe', 'washing machine', 'desk', 'mirror', 'other',
-    ];
-
     public function index(Request $request, Booking $booking)
     {
         abort_unless($booking->customer_id === $request->user()->id, 404);
@@ -98,8 +93,10 @@ class InventoryController extends Controller
     private function save(Request $request, callable $persist)
     {
         $data = $request->validate([
-            'item_type' => ['required', Rule::in(self::ITEM_TYPES)],
+            'item_type' => ['required', Rule::in(array_keys(config('inventory.items')))],
             'quantity' => ['required', 'integer', 'min:1', 'max:1000'],
+            'estimated_weight_kg' => ['nullable', 'numeric', 'decimal:0,2', 'gt:0', 'max:10000'],
+            'estimated_volume_m3' => ['nullable', 'numeric', 'decimal:0,3', 'gt:0', 'max:1000'],
             'notes' => ['nullable', 'string', 'max:2000'],
             'status' => ['sometimes', Rule::in(['confirmed', 'excluded'])],
             'image' => ['sometimes', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],

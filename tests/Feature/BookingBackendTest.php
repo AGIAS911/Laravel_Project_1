@@ -159,23 +159,18 @@ class BookingBackendTest extends TestCase
         Http::assertSent(fn ($request) => $request->method() === 'GET'
             && str_contains($request->url(), '/route/v1/driving/35.0000000,31.0000000;35.0000000,32.0000000'));
         $this->postJson(route('bookings.submit', $booking), ['expected_total' => '19.000'])->assertConflict();
-        $this->getJson(route('bookings.vehicles', $window))->assertOk()->assertJsonPath('data.0.id', $vehicle->id)
-            ->assertJsonMissingPath('data.0.plate_number')->assertJsonMissingPath('data.0.driver_id');
+        $this->getJson(route('bookings.vehicles', $window))->assertOk()->assertExactJson(['available' => true]);
         $this->postJson(route('bookings.submit', $booking))
-            ->assertOk()->assertJsonPath('status', 'pending')->assertJsonPath('total_price', '20.000');
-        $this->actingAs($driver->user)->patchJson(route('driver.bookings.start', $booking))->assertConflict();
-        $this->patchJson(route('driver.bookings.accept', $booking))->assertOk()
-            ->assertJsonPath('status', 'awaiting_deposit');
-        $this->patchJson(route('driver.bookings.accept', $booking))->assertOk();
+            ->assertOk()->assertJsonPath('status', 'awaiting_deposit')->assertJsonPath('total_price', '20.000');
+        $this->actingAs($driver->user)->patchJson(route('driver.bookings.accept', $booking))->assertNotFound();
         $this->get(route('driver.bookings.index', ['view' => 'requests']), ['Accept' => 'text/html'])
             ->assertOk()->assertSee('New requests')->assertDontSee(route('booking.show', $booking));
-        $this->get(route('driver.schedule'))->assertOk()->assertSee(route('booking.show', $booking));
 
         $this->actingAs($customer)->get(route('booking.index', ['status' => 'awaiting_deposit', 'q' => $booking->id]))
             ->assertOk()->assertSee('My bookings')->assertSee(route('booking.show', $booking));
         $this->get(route('booking.index', ['status' => 'draft', 'q' => $booking->id]))
             ->assertOk()->assertDontSee(route('booking.show', $booking));
-        $this->get(route('booking.create'))->assertOk()->assertSee('Route, time and vehicle');
+        $this->get(route('booking.create'))->assertOk()->assertSee('How would you like to move?');
         $this->get(route('payments.index'))->assertOk()->assertSee('Payment proof history');
 
         $this->actingAs($customer)->get(route('booking.show', $booking))
@@ -188,13 +183,6 @@ class BookingBackendTest extends TestCase
             ->assertOk()->assertSee('CliQ is temporarily unavailable')->assertDontSee('Submit receipt');
         config(['payments.clik_id' => 'TEST']);
 
-        $this->assertSame(1, $customer->notifications()->count());
-        $other = Booking::factory()->for($vehicle)->create([
-            'driver_id' => $driver->id, 'status' => 'pending', 'deposit_amount' => '4.000',
-            'scheduled_start_at' => $booking->scheduled_start_at, 'scheduled_end_at' => $booking->scheduled_end_at,
-        ]);
-        $this->actingAs($driver->user)->patchJson(route('driver.bookings.accept', $other))->assertConflict();
-        $this->patchJson(route('driver.bookings.complete', $booking))->assertConflict();
 
         Storage::fake('local');
         $receipt = new UploadedFile(base_path('ai-service/chair.jpg'), 'receipt.jpg', 'image/jpeg', null, true);
@@ -222,9 +210,20 @@ class BookingBackendTest extends TestCase
             ->assertRedirect(route('admin.payments.index'))->assertSessionHasNoErrors();
         $this->postJson(route('admin.payments.approve', $payment), ['amount' => '4.000'])
             ->assertUnprocessable();
-        $this->assertSame('confirmed', $booking->refresh()->status);
+        $this->assertSame('pending', $booking->refresh()->status);
+        $this->assertEquals($vehicle->id, $booking->vehicle_id);
 
-        $this->actingAs($driver->user)->patchJson(route('driver.bookings.start', $booking))->assertOk();
+        $other = Booking::factory()->for($vehicle)->create([
+            'driver_id' => $driver->id, 'status' => 'pending', 'deposit_amount' => '4.000',
+            'scheduled_start_at' => $booking->scheduled_start_at, 'scheduled_end_at' => $booking->scheduled_end_at,
+        ]);
+        $this->actingAs($driver->user)->patchJson(route('driver.bookings.start', $booking))->assertConflict();
+        $this->patchJson(route('driver.bookings.complete', $booking))->assertConflict();
+        $this->patchJson(route('driver.bookings.accept', $other))->assertConflict();
+
+        $this->patchJson(route('driver.bookings.accept', $booking))->assertOk()->assertJsonPath('status', 'confirmed');
+        $this->get(route('driver.schedule'))->assertOk()->assertSee(route('booking.show', $booking));
+        $this->patchJson(route('driver.bookings.start', $booking))->assertOk();
         $this->patchJson(route('driver.bookings.complete', $booking))->assertOk()
             ->assertJsonPath('status', 'completed');
     }
@@ -234,9 +233,11 @@ class BookingBackendTest extends TestCase
         config(['scanner.base_url' => 'https://scanner.example.test']);
         $customer = User::factory()->create();
         $booking = Booking::factory()->for($customer, 'customer')->create(['status' => 'draft']);
-        $session = $this->actingAs($customer)
-            ->postJson(route('scan-sessions.store', $booking), ['room_name' => 'Living room'])
-            ->assertCreated()->json();
+        $this->actingAs($customer)->get(route('scan-sessions.workspace', $booking))
+            ->assertOk()->assertSee('Generate QR code')->assertDontSee('name="room_name"', false);
+        $session = $this->postJson(route('scan-sessions.store', $booking))
+            ->assertCreated()->assertJsonPath('room_name', 'Furniture scan')->json();
+        $this->assertStringStartsWith('data:image/svg+xml;base64,', $session['qr_code']);
         $token = substr(parse_url($session['scan_url'], PHP_URL_FRAGMENT), 6);
         $device = $this->postJson('/api/scanner/pair', ['pairing_token' => $token])->assertOk()->json('device_token');
         $this->postJson('/api/scanner/pair', ['pairing_token' => $token])->assertNotFound();
@@ -258,11 +259,24 @@ class BookingBackendTest extends TestCase
         ])->assertOk()->assertJsonPath('status', 'confirmed');
         $this->putJson('/api/scanner/inventory', $items)->assertNoContent();
         $this->assertSame(2, $item->refresh()->quantity);
+
+        $scannable = collect(config('inventory.items'))->filter(fn ($entry) => isset($entry['model_class']))->keys();
+        $allDetected = $scannable->map(fn ($type) => ['item_type' => $type, 'quantity' => 1])->all();
+        $this->putJson('/api/scanner/inventory', ['items' => $allDetected])->assertNoContent();
+        $this->assertDatabaseHas('inventory_items', [
+            'booking_id' => $booking->id, 'item_type' => 'teddy bear', 'source' => 'ai', 'status' => 'suggested',
+        ]);
+        $this->get(route('scan-sessions.inventory', ['booking' => $booking, 'scan_only' => 1]))
+            ->assertOk()->assertSee('value="teddy bear" selected', false)->assertSee('Teddy bear');
+        $this->get(route('booking.show', $booking))->assertOk()->assertSee('More household items')->assertSee('value="toaster"', false);
+        $this->postJson(route('bookings.inventory.store', $booking), ['item_type' => 'vase', 'quantity' => 2])
+            ->assertCreated()->assertJsonPath('item_type', 'vase')->assertJsonPath('source', 'manual');
+
         $this->deleteJson(route('scan-sessions.close', [$booking, $session['scan_session_id']]))->assertNoContent();
         $this->getJson('/api/scanner/device')->assertUnauthorized();
 
         $direct = $this->postJson(route('scan-sessions.store', $booking), [
-            'room_name' => 'Study', 'direct' => true,
+            'direct' => true,
         ])->assertCreated()->assertJsonPath('qr_code', null)->json();
         parse_str(parse_url($direct['scan_url'], PHP_URL_FRAGMENT), $fragment);
         $this->assertSame((string) $booking->id, $fragment['booking']);
@@ -308,7 +322,7 @@ class BookingBackendTest extends TestCase
         $page->assertSee(route('scan-sessions.workspace', $draft));
         $this->assertSame(1, substr_count($page->getContent(), 'id="inventory"'));
         $edit = route('booking.edit', $draft);
-        $this->get($edit)->assertOk()->assertSee('Find available vehicles')->assertSee('Save draft');
+        $this->get($edit)->assertOk()->assertSee('Preferred type')->assertSee('Save draft');
         $this->from($edit)->put(route('booking.update', $draft), ['pickup_latitude' => '999'])
             ->assertRedirect($edit)->assertSessionHasErrors('pickup_latitude');
         $this->get($edit)->assertOk()->assertSee('pickup_latitude-error');
@@ -335,7 +349,7 @@ class BookingBackendTest extends TestCase
         Storage::fake('local');
         $customer = User::factory()->create();
         $this->actingAs($customer)->get(route('booking.create'))->assertOk()
-            ->assertSee('Add item manually')->assertSee('Camera scan')->assertSee('Washing machine');
+            ->assertSee('Choose a vehicle')->assertSee('Build your inventory')->assertSee('Scan your furniture');
 
         $this->post(route('bookings.inventory.start'), [
             'item_type' => 'mirror', 'quantity' => 2, 'notes' => 'Handle with care',

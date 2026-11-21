@@ -86,7 +86,9 @@
                             @endif
                             <td>{{ $booking->scheduled_start_at?->timezone('Asia/Amman')->format('d M Y · H:i') ?? '—' }}</td>
                             @unless ($admin)
-                                <td>{{ $booking->vehicle?->vehicleType?->name ?? $booking->vehicle?->name ?? '—' }}</td>
+                                <td>{{ $booking->assignmentVisibleToCustomer()
+                                    ? ($booking->vehicle?->name ?? '—')
+                                    : ($booking->preferredVehicleType?->name ?? $booking->vehicle?->vehicleType?->name ?? '—') }}</td>
                             @endunless
                             <td class="text-nowrap">{{ $booking->total_price !== null ? $booking->total_price . ' JOD' : '—' }}</td>
                             <td>

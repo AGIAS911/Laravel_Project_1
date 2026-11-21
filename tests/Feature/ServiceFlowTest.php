@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\MoveItNotification;
 use App\Models\Service;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -108,33 +109,35 @@ class ServiceFlowTest extends TestCase
             'is_active' => false,
         ]);
 
-        $this->actingAs(User::factory()->create(['role' => 'customer']))
-            ->get(route('services.index'))
-            ->assertOk()
-            ->assertSee('customer-nav-links')
-            ->assertSee('Services')
-            ->assertSee('Active service')
-            ->assertDontSee('Inactive service')
-            ->assertSee('Delete');
-
+        $this->get(route('services.index'))->assertOk()
+            ->assertSee('Active service')->assertDontSee('Inactive service');
         $this->get(route('services.show', $activeService))->assertOk();
         $this->get(route('services.show', $inactiveService))->assertNotFound();
+
+        $this->actingAs(User::factory()->create(['role' => 'customer']));
+        $this->get(route('services.index'))->assertRedirect(route('home'));
+        $this->get(route('services.show', $activeService))->assertRedirect(route('home'));
         $this->get(route('services.create'))->assertForbidden();
         $this->post(route('services.store'), [])->assertForbidden();
         $this->put(route('services.update', $activeService), [])->assertForbidden();
-        $this->delete(route('services.destroy', $activeService))
-            ->assertRedirect(route('services.index'))
-            ->assertSessionHas('success');
-        $this->assertSoftDeleted('services', ['id' => $activeService->id]);
+        $this->delete(route('services.destroy', $activeService))->assertForbidden();
+        $this->assertNotSoftDeleted($activeService);
     }
 
-    public function test_customer_dashboard_navigation_links_to_services(): void
+    public function test_customer_navigation_shows_notifications_beside_new_booking_without_services(): void
     {
-        $this->actingAs(User::factory()->create(['role' => 'customer']))
-            ->get(route('home'))
-            ->assertOk()
-            ->assertSee(route('services.index'))
-            ->assertSee('Services');
+        $customer = User::factory()->create(['role' => 'customer']);
+        MoveItNotification::factory()->forUser($customer)->create(['read_at' => null]);
+        MoveItNotification::factory()->forUser($customer)->create(['read_at' => now()]);
+
+        $this->actingAs($customer)->get(route('home'))->assertOk()
+            ->assertDontSee(route('services.index'))
+            ->assertSeeInOrder(['class="customer-notification-link"', 'New booking'], false)
+            ->assertSee('href="'.route('notifications.index').'"', false)
+            ->assertSee('aria-label="Notifications, 1 unread"', false);
+
+        $this->get(route('notifications.index'))->assertOk();
+        $this->get(route('info.faq'))->assertOk()->assertDontSee(route('services.index'));
     }
 
     public function test_service_cannot_be_created_with_a_negative_price(): void

@@ -11,16 +11,24 @@
 @endsection
 
 @section('content')
-    @include('booking._steps', ['current' => 'inventory', 'line' => true])
+    @if ($booking->booking_method)
+        @include('booking._wizard-steps', ['current' => 'inventory'])
+    @else
+        @include('booking._steps', ['current' => 'inventory', 'line' => true])
+    @endif
     <div class="row g-4 align-items-start">
         <div class="col-lg-8">
-            <section class="card card-body inventory-panel" aria-labelledby="scan-items-title">
+            <section class="card card-body inventory-panel" aria-labelledby="scan-items-title" data-workflow-scope>
                 <h2 class="h5 workspace-heading mb-3" id="scan-items-title">Detected items</h2>
-                <p class="small text-body-secondary" data-workflow-status role="status"></p>
+                <p class="inventory-feedback" data-workflow-status role="status"></p>
                 @include('booking._inventory-list', ['scanOnly' => true])
                 <div class="d-flex flex-wrap gap-2 mt-3">
-                    <a class="btn btn-primary" href="{{ route('booking.edit', $booking) }}">Continue to locations and schedule</a>
-                    <a class="btn btn-outline-secondary" href="{{ route('booking.show', $booking) }}#inventory">Add items manually</a>
+                    @if ($booking->booking_method)
+                        <a class="btn btn-primary" href="{{ route('booking.show', $booking) }}#inventory">Review inventory</a>
+                    @else
+                        <a class="btn btn-primary" href="{{ route('booking.edit', $booking) }}">Continue to locations and schedule</a>
+                        <a class="btn btn-outline-secondary" href="{{ route('booking.show', $booking) }}#inventory">Add items manually</a>
+                    @endif
                 </div>
             </section>
         </div>
@@ -31,8 +39,6 @@
                 <p id="scan-instructions" class="text-body-secondary text-center">Scan the QR code with your phone. Detected items appear here for review.</p>
                 <form id="scan-form">
                     @csrf
-                    <label class="form-label" for="scan-room">Room name</label>
-                    <input class="form-control mb-3" id="scan-room" name="room_name" placeholder="Living room" maxlength="100" required>
                     <button type="submit" class="btn btn-primary w-100">Generate QR code</button>
                 </form>
                 <div id="scan-qr-panel" class="text-center mt-3" hidden>

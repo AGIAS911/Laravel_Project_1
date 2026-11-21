@@ -22,6 +22,10 @@ class ServiceController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
+        if ($user?->role === 'customer') {
+            return redirect()->route('home');
+        }
+
         $isAdmin = $user?->role === 'admin';
 
         if ($user === null) {
@@ -73,9 +77,13 @@ class ServiceController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(Service $service)
+    public function show(Request $request, Service $service)
     {
-        abort_unless($service->is_active || request()->user()?->role === 'admin', 404);
+        if ($request->user()?->role === 'customer') {
+            return redirect()->route('home');
+        }
+
+        abort_unless($service->is_active || $request->user()?->role === 'admin', 404);
 
         return view('services.show', compact('service'));
     }

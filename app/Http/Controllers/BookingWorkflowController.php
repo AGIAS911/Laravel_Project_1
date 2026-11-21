@@ -7,9 +7,9 @@ use App\Models\DriverProfile;
 use App\Models\MoveItNotification;
 use App\Models\PricingRule;
 use App\Models\PlatformSetting;
-use App\Models\Review;
 use App\Models\Service;
 use App\Models\Vehicle;
+use App\Services\PaidBookingMatcher;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -25,32 +25,20 @@ class BookingWorkflowController extends Controller
                     $fail('Choose a booking time in the future (Amman time).');
                 }
             }],
-
+            'vehicle_type_id' => ['sometimes', 'integer', 'exists:vehicle_types,id'],
+            'booking_id' => ['sometimes', 'integer'],
         ]);
         $start = \Illuminate\Support\Carbon::parse($window['start'], config('booking.timezone'))->utc();
+        $draft = isset($window['booking_id'])
+            ? $request->user()->bookings()->where('status', 'draft')->findOrFail($window['booking_id'])
+            : null;
+        $typeId = $draft?->preferred_vehicle_type_id ?? ($window['vehicle_type_id'] ?? null);
         $end = Booking::slotEnd($start);
-        $overlap = fn ($query) => $query->occupyingWindow($start, $end);
+        $available = Vehicle::availableAt($start, $end)
+            ->when($typeId, fn ($query) => $query->where('vehicle_type_id', $typeId))
+            ->exists();
 
-        $vehicles = Vehicle::where('status', 'active')->with('vehicleType:id,name')
-            ->whereHas('vehicleType', fn ($query) => $query->where('is_active', true))
-            ->whereHas('driver', fn ($query) => $query->where('status', 'approved')
-                ->whereHas('user', fn ($user) => $user->where('is_active', true)))
-            ->whereDoesntHave('bookings', $overlap)
-            ->whereDoesntHave('driver.bookings', $overlap)
-            ->orderBy('id')->paginate(20);
-
-        $ratings = Review::join('bookings', 'reviews.booking_id', '=', 'bookings.id')
-            ->where('bookings.status', 'completed')
-            ->whereIn('bookings.driver_id', $vehicles->getCollection()->pluck('driver_id')->unique())
-            ->selectRaw('bookings.driver_id, COUNT(*) as count, AVG(reviews.rating) as average')
-            ->groupBy('bookings.driver_id')->get()->keyBy('driver_id');
-
-        return response()->json($vehicles->through(fn (Vehicle $vehicle) => [
-            ...$vehicle->only(['id', 'image', 'capacity_kg', 'capacity_m3', 'base_price', 'price_per_km']),
-            'type' => $vehicle->vehicleType->name,
-            'rating' => round((float) ($ratings->get($vehicle->driver_id)?->average ?? 0), 1),
-            'reviews_count' => (int) ($ratings->get($vehicle->driver_id)?->count ?? 0),
-        ]));
+        return response()->json(['available' => $available]);
     }
 
     public function submit(Request $request, Booking $booking)
@@ -67,7 +55,9 @@ class BookingWorkflowController extends Controller
     {
         abort_unless($booking->customer_id === $request->user()->id, 404);
         abort_unless($booking->status === 'draft', 409);
-        $expected = $submit ? $request->validate(['expected_total' => 'sometimes|regex:/^\d{1,7}\.\d{3}$/D']) : [];
+        $expected = $submit ? $request->validate([
+            'expected_total' => [$booking->booking_method ? 'required' : 'sometimes', 'regex:/^\d{1,7}\.\d{3}$/D'],
+        ]) : [];
 
         $coordinates = $booking->only(['pickup_latitude', 'pickup_longitude', 'destination_latitude', 'destination_longitude']);
         abort_if(in_array(null, $coordinates, true), 422, 'Both locations are required.');
@@ -79,7 +69,8 @@ class BookingWorkflowController extends Controller
             abort_unless($booking->status === 'draft' && $booking->only(array_keys($coordinates)) === $coordinates, 409);
             abort_unless($booking->scheduled_start_at?->isFuture(), 422, 'Choose a future booking time.');
             $booking->scheduled_end_at ??= Booking::slotEnd($booking->scheduled_start_at);
-            abort_unless($booking->inventoryItems()->where('status', 'confirmed')->exists(), 422, 'Confirm at least one item.');
+            abort_unless(!$booking->needsInventory() || $booking->inventoryItems()->where('status', 'confirmed')->exists(),
+                422, 'Confirm at least one item.');
 
             $services = $booking->bookingServices()->with('service')->get();
             $types = $services->pluck('service.type');
@@ -88,47 +79,42 @@ class BookingWorkflowController extends Controller
                 && (!$types->contains(Service::TYPE_ASSEMBLY) || $types->contains(Service::TYPE_WORKERS)),
                 422, 'Review the selected services.');
 
-            abort_unless($booking->vehicle_id, 422, 'Select a vehicle.');
-            $vehicle = Vehicle::findOrFail($booking->vehicle_id);
-            $driver = DriverProfile::with('user')->lockForUpdate()->findOrFail($vehicle->driver_id);
-            $vehicle = Vehicle::with('vehicleType')->lockForUpdate()->findOrFail($vehicle->id);
-            abort_unless($vehicle->driver_id === $driver->id, 409);
-            $this->ensureAvailable($booking, $driver, $vehicle);
+            $typeId = $booking->preferred_vehicle_type_id ?? ($booking->booking_method ? null : $booking->vehicle?->vehicle_type_id);
+            abort_unless($typeId, 422, 'Choose a vehicle type.');
+            $vehicle = Vehicle::availableAt($booking->scheduled_start_at, $booking->scheduled_end_at)
+                ->where('vehicle_type_id', $typeId)
+                ->orderByRaw('base_price + price_per_km * ?', [$meters / 1000])
+                ->orderBy('id')
+                ->first();
+            abort_unless($vehicle, 409, 'No vehicle of this type is available for your appointment. Try another time or vehicle type.');
 
             $settings = PlatformSetting::values();
             $deposit = $this->percentage($settings['deposit_percent'], 0.01);
             $commission = $this->percentage($settings['commission_percent'], 0);
-            $time = $booking->scheduled_start_at->copy()->timezone(config('booking.timezone'));
-            $rules = PricingRule::where('is_active', true)
-                ->where(fn ($query) => $query->whereNull('day_of_week')->orWhere('day_of_week', $time->dayOfWeek))
-                ->where('start_time', '<=', $time->format('H:i:s'))
-                ->where('end_time', '>', $time->format('H:i:s'))->limit(2)->get();
-            abort_if($rules->count() > 1, 409, 'Conflicting pricing rules.');
-
-            $transport = $this->milli($vehicle->base_price)
-                + intdiv($this->milli($vehicle->price_per_km) * $meters + 500, 1000);
-            $total = intdiv($transport * $this->milli($rules->first()?->multiplier ?? '1') + 500, 1000)
+            $total = $this->transportPrice($vehicle, $meters, $this->timeMultiplier($booking->scheduled_start_at))
                 + $services->sum(fn ($line) => $this->milli($line->unit_price) * $line->quantity);
             abort_unless($total > 0 && $total <= 9999999999, 422, 'The booking total is outside the supported range.');
             abort_if(isset($expected['expected_total']) && $expected['expected_total'] !== $this->formatMilli($total),
                 409, 'The quote changed. Calculate it again before sending.');
 
             $values = [
-                'driver_id' => $driver->id,
+                'vehicle_id' => null,
+                'driver_id' => null,
+                'preferred_vehicle_type_id' => $typeId,
                 'distance_km' => number_format($meters / 1000, 2, '.', ''),
                 'total_price' => $this->formatMilli($total),
                 'deposit_amount' => $this->formatMilli(max(1, intdiv($total * $deposit + 5000, 10000))),
                 'commission_rate' => number_format($commission / 100, 2, '.', ''),
                 'commission_amount' => $this->formatMilli(intdiv($total * $commission + 5000, 10000)),
-                'status' => 'pending',
+                'status' => 'awaiting_deposit',
             ];
             if ($submit) {
-                $booking->update($values);
-                MoveItNotification::bookingEvent($driver->user_id, $booking, 'A new booking request was submitted.');
+                $booking->update($values + ['deposit_due_at' => $this->depositDeadline($booking)]);
             }
 
             return response()->json([
                 'id' => $booking->id, 'status' => $booking->status,
+                ...($submit ? ['payment_url' => route('payments.create', ['booking_id' => $booking->id])] : []),
                 ...\Illuminate\Support\Arr::only($values, ['distance_km', 'total_price', 'deposit_amount']),
             ]);
         }, 3);
@@ -138,33 +124,54 @@ class BookingWorkflowController extends Controller
     {
         return DB::transaction(function () use ($request, $booking) {
             $booking = $this->assignedBooking($request, $booking);
-            if ($booking->status === 'awaiting_deposit') {
+            if ($booking->status === 'awaiting_deposit' || ($booking->status === 'confirmed' && $booking->deposit_verified_at)) {
                 return response()->json($booking->only(['id', 'status', 'deposit_due_at']));
             }
             abort_unless($booking->status === 'pending' && $booking->scheduled_start_at?->isFuture()
                 && $booking->deposit_amount !== null, 409);
+            abort_if($booking->deposit_verified_at && !$booking->driver_offer_expires_at?->isFuture(),
+                409, 'This booking offer expired.');
             $driver = DriverProfile::with('user')->lockForUpdate()->findOrFail($booking->driver_id);
             $vehicle = Vehicle::with('vehicleType')->lockForUpdate()->findOrFail($booking->vehicle_id);
             abort_unless($vehicle->driver_id === $driver->id, 409);
             $this->ensureAvailable($booking, $driver, $vehicle);
 
-            $minutes = filter_var(PlatformSetting::values()['deposit_minutes'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
-            abort_unless($minutes !== false, 503, 'Deposit deadline is not configured.');
-            $booking->update([
-                'status' => 'awaiting_deposit',
-                'deposit_due_at' => now()->addMinutes($minutes)->min($booking->scheduled_start_at),
-            ]);
-            MoveItNotification::bookingEvent($booking->customer_id, $booking, 'The driver accepted your booking.');
+            if ($booking->deposit_verified_at) {
+                $booking->update(['status' => 'confirmed', 'driver_offer_expires_at' => null]);
+                MoveItNotification::bookingEvent($booking->customer_id, $booking, 'Your driver accepted. Vehicle and driver details are now available.');
+            } else {
+                $booking->update(['status' => 'awaiting_deposit', 'deposit_due_at' => $this->depositDeadline($booking)]);
+                MoveItNotification::bookingEvent($booking->customer_id, $booking, 'The driver accepted your booking.');
+            }
 
             return response()->json($booking->only(['id', 'status', 'deposit_due_at']));
         }, 3);
     }
 
-    public function reject(Request $request, Booking $booking)
+    public function reject(Request $request, Booking $booking, PaidBookingMatcher $matcher)
     {
         $data = $request->validate(['rejection_reason' => 'required|string|max:1000']);
+        if (!$booking->deposit_verified_at) {
+            return $this->transition($request, $booking, 'pending', 'rejected', $data);
+        }
 
-        return $this->transition($request, $booking, 'pending', 'rejected', $data);
+        DB::transaction(function () use ($request, $booking, $matcher) {
+            $current = $this->assignedBooking($request, $booking);
+            abort_unless($current->status === 'pending', 409);
+            $matcher->skipCurrentDriver($current);
+        }, 3);
+        $matcher->findDriver($booking->id);
+
+        return response()->json(['booking_id' => $booking->id, 'status' => 'pending']);
+    }
+
+    public function retryDriverMatch(Request $request, Booking $booking, PaidBookingMatcher $matcher)
+    {
+        abort_unless($booking->customer_id === $request->user()->id, 404);
+        abort_unless($booking->status === 'pending' && $booking->deposit_verified_at && $booking->scheduled_start_at?->isFuture(), 409);
+        $matcher->findDriver($booking->id);
+
+        return redirect()->route('booking.show', $booking);
     }
 
     public function start(Request $request, Booking $booking)
@@ -233,6 +240,34 @@ class BookingWorkflowController extends Controller
             ->occupyingWindow($booking->scheduled_start_at, $booking->scheduled_end_at)
             ->lockForUpdate()->first(['id']);
         abort_if($conflict !== null, 409, 'The vehicle or driver is booked for that time.');
+    }
+
+    private function depositDeadline(Booking $booking): \Illuminate\Support\Carbon
+    {
+        $minutes = filter_var(PlatformSetting::values()['deposit_minutes'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        abort_unless($minutes !== false, 503, 'Deposit deadline is not configured.');
+
+        return now()->addMinutes($minutes)->min($booking->scheduled_start_at);
+    }
+
+    private function timeMultiplier(\Illuminate\Support\Carbon $appointment): string
+    {
+        $time = $appointment->copy()->timezone(config('booking.timezone'));
+        $rules = PricingRule::where('is_active', true)
+            ->where(fn ($query) => $query->whereNull('day_of_week')->orWhere('day_of_week', $time->dayOfWeek))
+            ->where('start_time', '<=', $time->format('H:i:s'))
+            ->where('end_time', '>', $time->format('H:i:s'))->limit(2)->get();
+        abort_if($rules->count() > 1, 409, 'Conflicting pricing rules.');
+
+        return $rules->first()?->multiplier ?? '1';
+    }
+
+    private function transportPrice(Vehicle $vehicle, int $meters, string $multiplier): int
+    {
+        $transport = $this->milli($vehicle->base_price)
+            + intdiv($this->milli($vehicle->price_per_km) * $meters + 500, 1000);
+
+        return intdiv($transport * $this->milli($multiplier) + 500, 1000);
     }
 
     private function routeDistance(array $coordinates): int

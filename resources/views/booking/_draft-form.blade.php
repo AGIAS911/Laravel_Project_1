@@ -1,8 +1,9 @@
-use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Auth;
 <form class="move-editor" method="POST" action="{{ route('booking.update', $draft) }}">
     @csrf
     @method('PUT')
+    @if ($step)
+        <input type="hidden" name="booking_step" value="{{ $step }}">
+    @endif
 
     @if ($errors->any())
         <div class="alert alert-danger" role="alert">
@@ -16,7 +17,9 @@ use Illuminate\Support\Facades\Auth;
     @endif
 
     <div class="row g-4 align-items-start">
-        <div class="col-lg-8 d-grid gap-3">
+
+        <div @class(['col-lg-8' => !$step, 'col-lg-10' => $step, 'd-grid gap-3'])>
+            @if ($step !== 'time')
             <div id="booking-map-panel" hidden>
                 <fieldset class="move-map-target">
                     <legend class="small text-body-secondary mb-2">Choose a stop, then click or tap the map.</legend>
@@ -50,7 +53,7 @@ use Illuminate\Support\Facades\Auth;
 
                                 <div class="row g-2">
                                     @if ($errors->has($key.'_latitude') || $errors->has($key.'_longitude'))
-                                        <div class="col-12 text-danger small">Please choose the {{ strtolower($label) }} on the map.</div>
+                                        <div class="col-12 text-danger small" id="{{ $key }}_latitude-error">Please choose the {{ strtolower($label) }} on the map.</div>
                                     @endif
 
                                     @php($name = $key.'_floor')
@@ -87,66 +90,53 @@ use Illuminate\Support\Facades\Auth;
                 </div>
             </section>
 
-            <section class="card card-body move-editor-panel" aria-labelledby="move-time-title">
-                <h2 class="h5 workspace-heading" id="move-time-title">Date and time</h2>
-                <div class="row g-3">
-                    @foreach (['scheduled_start_at' => 'Start', 'scheduled_end_at' => 'End'] as $name => $label)
-                        <div class="col-md-6">
-                            <label class="form-label small" for="{{ $name }}">{{ $label }}</label>
-                            <input @class(['form-control', 'is-invalid' => $errors->has($name)]) type="datetime-local" step="1" id="{{ $name }}" name="{{ $name }}"
-                                value="{{ old($name, $draft->{$name}?->timezone(config('app.timezone'))->format('Y-m-d\TH:i:s')) }}"
-                                @error($name) aria-describedby="{{ $name }}-error" @enderror>
-                            @error($name)<div id="{{ $name }}-error" class="invalid-feedback">{{ $message }}</div>@enderror
-                        </div>
-                    @endforeach
-                </div>
-            </section>
+            @endif
+            @if ($step !== 'route')
+                <section class="card card-body move-editor-panel" aria-labelledby="move-time-title">
+                    <h2 class="h5 workspace-heading" id="move-time-title">Booking appointment</h2>
+                    <div class="col-md-6">
+                        <label class="form-label" for="scheduled_start_at">Date and time (Amman)</label>
+                        <input @class(['form-control', 'is-invalid' => $errors->has('scheduled_start_at')]) type="datetime-local"
+                            name="scheduled_start_at" id="scheduled_start_at" step="1" @required($step === 'time')
+                            value="{{ old('scheduled_start_at', $draft->scheduled_start_at?->timezone(config('booking.timezone'))->format('Y-m-d\TH:i:s')) }}"
+                            @error('scheduled_start_at') aria-describedby="appointment-error" @enderror>
+                        @error('scheduled_start_at')<p class="invalid-feedback" id="appointment-error">{{ $message }}</p>@enderror
+                    </div>
+                </section>
+            @endif
         </div>
-
-        <aside class="col-lg-4 d-grid gap-3">
-            <section class="card card-body move-editor-panel">
-                <h2 class="h5 workspace-heading"><i class="fa-solid fa-route me-1" aria-hidden="true"></i> Route</h2>
-                <dl class="d-flex justify-content-between flex-wrap gap-2 mb-3">
-                    <dt>Road distance</dt>
-                    <dd class="mb-0">{{ $draft->distance_km === null ? 'Calculated at review' : $draft->distance_km . ' km' }}</dd>
-                </dl>
-                <p class="route-summary-note mb-0">
-                    <i class="fa-solid fa-circle-info me-1" aria-hidden="true"></i> Changes to either stop require a new quote before you send the booking.
-                </p>
-            </section>
-
-            <section class="card card-body move-editor-panel" id="vehicle-selection" aria-labelledby="move-vehicle-title">
-                <h2 class="h5 workspace-heading" id="move-vehicle-title">Vehicle</h2>
-                <p class="small text-body-secondary">Choose a booking time to check availability.</p>
-                @php($selectedVehicle = old('vehicle_id', $draft->vehicle_id))
-                <label class="form-label small" for="vehicle_id">Selected vehicle</label>
-                <select @class(['form-select', 'is-invalid' => $errors->has('vehicle_id')]) id="vehicle_id" name="vehicle_id">
-                    <option value="">Choose later</option>
-                    @if ($selectedVehicle)
-                        <option value="{{ $selectedVehicle }}" selected>{{ (string) $draft->vehicle_id === (string) $selectedVehicle ? ($draft->vehicle?->name ?? 'Vehicle #'.$selectedVehicle) : 'Vehicle #'.$selectedVehicle }}</option>
-                    @endif
-                </select>
-                @error('vehicle_id')<div class="invalid-feedback">{{ $message }}</div>@enderror
-                <button type="button" class="btn btn-outline-secondary btn-sm mt-3 align-self-start" data-find-vehicles="{{ route('bookings.vehicles', [], false) }}">
-                    <i class="fa-solid fa-magnifying-glass me-1" aria-hidden="true"></i> Find available vehicles
-                </button>
-                <p data-vehicle-status class="small mb-0 mt-2" role="status"></p>
-                <div class="customer-vehicle-options mt-3" data-vehicle-options></div>
-                <button type="button" class="btn btn-outline-secondary btn-sm mt-3 align-self-start" data-more-vehicles hidden>Load more vehicles</button>
-            </section>
-        </aside>
+        @unless ($step)
+            <aside class="col-lg-4">
+                <section class="card card-body move-editor-panel" aria-labelledby="vehicle-type-heading">
+                    <h2 class="h5 workspace-heading" id="vehicle-type-heading">Vehicle type</h2>
+                    <p class="small text-body-secondary">MoveIt assigns the vehicle and driver for your appointment.</p>
+                    <label class="form-label" for="preferred_vehicle_type_id">Preferred type</label>
+                    <select class="form-select" id="preferred_vehicle_type_id" name="preferred_vehicle_type_id">
+                        <option value="">Choose a type</option>
+                        @foreach ($vehicleTypes as $id => $name)
+                            <option value="{{ $id }}" @selected((string) old('preferred_vehicle_type_id', $draft->preferred_vehicle_type_id ?? $draft->vehicle?->vehicle_type_id) === (string) $id)>{{ $name }}</option>
+                        @endforeach
+                    </select>
+                </section>
+            </aside>
+        @endunless
     </div>
 
     <div class="move-editor-footer">
         <small class="text-body-secondary">You can update these details while the booking is a draft.</small>
-        <button class="btn btn-primary" type="submit"><i class="fa-solid fa-floppy-disk me-1" aria-hidden="true"></i> Save draft</button>
+        <button class="btn btn-primary" type="submit">
+            {{ ['route' => 'Continue to date and time', 'time' => 'Continue to review'][$step] ?? 'Save draft' }}
+            <i class="fa-solid fa-arrow-right ms-1" aria-hidden="true"></i>
+        </button>
     </div>
 </form>
 
+<script src="{{ asset('js/booking-workflow.js') }}" defer></script>
+@if (!$step || $step === 'route')
 @push('styles')
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous">
 @endpush
 
-<script src="{{ asset('js/booking-workflow.js') }}" defer></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="anonymous" defer></script>
 <script src="{{ asset('js/booking-map.js') }}" defer></script>
+@endif

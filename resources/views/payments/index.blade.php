@@ -14,8 +14,8 @@
                 @foreach ($awaiting as $booking)
                     <li class="customer-payment-due d-flex flex-wrap justify-content-between align-items-center gap-2 py-2">
                         <span>
-                            {{ $booking->id }} · {{ __('Required deposit') }}:
-                            <bdi>{{ $booking->deposit_amount ?? '—' }} {{ config('payments.currency') }}</bdi>
+                            {{ $booking->id }} · {{ __('Deposit balance') }}:
+                            <bdi>{{ $booking->deposit_amount === null ? '—' : $booking->remainingDeposit() }} {{ config('payments.currency') }}</bdi>
                             @if ($booking->deposit_due_at)
                                 · {{ __('Due') }}: {{ $booking->deposit_due_at->timezone('Asia/Amman')->format('Y-m-d H:i') }}
                             @endif
@@ -29,7 +29,7 @@
                                 href="{{ route('payments.create', ['booking_id' => $booking->id]) }}">Payment unavailable · Get help</a>
                         @else
                             <a class="btn btn-primary btn-sm"
-                                href="{{ route('payments.create', ['booking_id' => $booking->id]) }}">{{ __('Pay deposit') }}</a>
+                                href="{{ route('payments.create', ['booking_id' => $booking->id]) }}">Pay deposit via CliQ</a>
                         @endif
                     </li>
                 @endforeach
