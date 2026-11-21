@@ -32,6 +32,12 @@ default => [
 @endphp
 
 <nav class="workspace-menu" aria-label="{{ __('Workspace') }}">
+    @if ($role === 'driver')
+        <a class="moveit-brand" href="{{ route('driver.dashboard') }}" aria-label="MoveIt driver dashboard">
+            MOVE<span>IT</span>
+        </a>
+        <p class="workspace-user">{{ auth()->user()->name }}</p>
+    @endif
     <p class="workspace-role">{{ ucfirst($role) }}</p>
     @foreach ($links as $name => $label)
     @php($icon = match ($label) {
@@ -56,11 +62,21 @@ default => [
     @if ($role === 'driver' && auth()->user()->driverProfile?->status === 'approved')
     <a href="{{ route('driver.bookings.index', ['view' => 'requests']) }}"><i class="fa-solid fa-inbox" aria-hidden="true"></i> New requests</a>
     @endif
+    @php($unreadNotifications = $role === 'driver' ? auth()->user()->unreadNotifications()->count() : 0)
     <a href="{{ route('notifications.index') }}" @if (request()->routeIs('notifications.index')) aria-current="page" @endif>
         <i class="fa-solid fa-bell" aria-hidden="true"></i> Notifications
+        @if ($unreadNotifications > 0)
+            <span class="workspace-menu-count" aria-label="{{ $unreadNotifications }} unread notifications">{{ $unreadNotifications }}</span>
+        @endif
     </a>
     <a href="{{ route('profile.edit') }}" @if (request()->routeIs('profile.edit')) aria-current="page" @endif>
         <i class="fa-solid fa-id-card" aria-hidden="true"></i>
         {{ __('Account settings') }}
     </a>
+    @if ($role === 'driver')
+        <form class="workspace-signout" method="POST" action="{{ route('logout') }}">
+            @csrf
+            <button type="submit"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> Log out</button>
+        </form>
+    @endif
 </nav>

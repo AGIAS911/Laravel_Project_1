@@ -92,7 +92,8 @@ class ReviewFlowTest extends TestCase
             ])
             ->assertCreated()
             ->assertJsonPath('review.rating', 5)
-            ->assertJsonMissingPath('review.comment');
+            ->assertJsonMissingPath('review.comment')
+            ->assertSessionHas('success', 'Thank you for your review.');
 
         $this->assertDatabaseHas('reviews', [
             'booking_id' => $booking->id,
@@ -145,21 +146,62 @@ class ReviewFlowTest extends TestCase
                 'rating' => 4,
                 'comment' => 'Updated report comment.',
             ])
-            ->assertOk()
-            ->assertJsonPath('review.rating', 4)
-            ->assertJsonMissingPath('review.comment');
+            ->assertConflict()
+            ->assertJsonPath('message', 'Submitted reviews cannot be changed.');
 
         $this->assertDatabaseHas('reviews', [
             'booking_id' => $booking->id,
-            'rating' => 4,
-            'comment' => 'Updated report comment.',
+            'rating' => 5,
+            'comment' => 'Please review this driver assignment.',
         ]);
 
         $this->actingAs($customer)
             ->deleteJson(route('booking.reviews.destroy', $booking))
-            ->assertNoContent();
+            ->assertConflict()
+            ->assertJsonPath('message', 'Submitted reviews cannot be removed.');
 
-        $this->assertDatabaseMissing('reviews', ['booking_id' => $booking->id]);
+        $this->assertDatabaseHas('reviews', [
+            'booking_id' => $booking->id,
+            'rating' => 5,
+        ]);
+    }
+
+    public function test_completed_booking_without_review_uses_accessible_star_controls(): void
+    {
+        $driver = DriverProfile::factory()->create();
+        $customer = User::factory()->create();
+        $booking = $this->createBooking($driver, $customer);
+        $booking->update(['status' => 'completed']);
+
+        $this->actingAs($customer)
+            ->get(route('booking.show', $booking))
+            ->assertOk()
+            ->assertSee('role="radiogroup"', false)
+            ->assertSee('id="rating-4"', false)
+            ->assertSee('aria-label="4 out of 5 stars"', false)
+            ->assertDontSee('type="number" id="rating"', false);
+    }
+
+    public function test_saved_review_is_displayed_without_editable_rating_controls(): void
+    {
+        $driver = DriverProfile::factory()->create();
+        $customer = User::factory()->create();
+        $booking = $this->createBooking($driver, $customer);
+        $booking->update(['status' => 'completed']);
+        Review::create([
+            'booking_id' => $booking->id,
+            'rating' => 4,
+            'comment' => 'Great move.',
+        ]);
+
+        $this->actingAs($customer)
+            ->get(route('booking.show', $booking))
+            ->assertOk()
+            ->assertSee('Your rating: 4 out of 5 stars', false)
+            ->assertSee('Your rating is saved and cannot be changed.')
+            ->assertSee('Great move.')
+            ->assertDontSee('name="rating"', false)
+            ->assertDontSee('Save review');
     }
 
     private function createBooking(DriverProfile $driver, User $customer): Booking

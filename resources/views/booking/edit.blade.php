@@ -15,7 +15,7 @@
     @include('booking._steps', [
         'current' => 'locations',
         'line' => true,
-        'links' => ['inventory' => route('booking.show', $booking).'#inventory', 'review' => route('booking.show', $booking).'#services'],
+        'links' => ['inventory' => route('booking.show', $booking).'#inventory', 'review' => route('booking.show', $booking).'#review'],
     ])
     @include('booking._draft-form', ['draft' => $booking])
 @endsection

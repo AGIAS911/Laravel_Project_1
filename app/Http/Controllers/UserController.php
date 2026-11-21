@@ -159,7 +159,7 @@ class UserController extends Controller
             $driver->forceFill(['status' => $status, 'status_reason' => $reason])->save();
             $user->forceFill(['is_active' => $status === 'approved'])->save();
             if ($changed && $status === 'approved') {
-                $user->notify(new DriverApprovedNotification());
+                $user->notify(new DriverApprovedNotification);
             } elseif ($changed) {
                 $user->notifications()->create([
                     'type' => 'driver_status',

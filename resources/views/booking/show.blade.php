@@ -9,6 +9,15 @@
     $user = auth()->user();
     $owner = $user->id === $booking->customer_id;
     $draft = $owner && $booking->status === 'draft';
+    $inventoryComplete = $booking->inventoryItems->contains('status', 'confirmed');
+    $locationsAndVehicleComplete = $booking->pickup_latitude !== null
+        && $booking->pickup_longitude !== null
+        && $booking->destination_latitude !== null
+        && $booking->destination_longitude !== null
+        && $booking->scheduled_start_at?->isFuture()
+        && $booking->scheduled_end_at?->gt($booking->scheduled_start_at)
+        && $booking->vehicle_id !== null;
+    $currentDraftStep = !$inventoryComplete ? 'inventory' : (!$locationsAndVehicleComplete ? 'locations' : 'review');
 @endphp
 
 @section('actions')
@@ -18,10 +27,10 @@
 @section('content')
     <p data-workflow-status class="booking-workflow-message" role="status"></p>
     @if ($draft)
-        @include('booking._steps', ['current' => 'review', 'line' => true, 'links' => [
+        @include('booking._steps', ['current' => $currentDraftStep, 'line' => true, 'links' => [
             'inventory' => '#inventory',
             'locations' => route('booking.edit', $booking),
-            'review' => '#services',
+            'review' => '#review',
         ]])
     @endif
     @if ($owner)
@@ -172,16 +181,45 @@
         </details>
     @endif
     @if ($owner && $booking->status === 'completed')
-        <form class="card card-body" id="booking-review" data-workflow-form method="POST" action="{{ route($booking->review ? 'booking.reviews.update' : 'booking.reviews.store', $booking, false) }}">
+        @if ($booking->review)
+            <section class="card card-body mb-3" id="booking-review">
+                <h2 class="h5">Your rating</h2>
+                <div class="booking-rating booking-rating-readonly" role="img"
+                    aria-label="Your rating: {{ $booking->review->rating }} out of 5 stars">
+                    @for ($rating = 1; $rating <= 5; $rating++)
+                        <i class="fa-solid fa-star {{ $rating <= $booking->review->rating ? 'is-filled' : 'is-empty' }}" aria-hidden="true"></i>
+                    @endfor
+                </div>
+                <p class="small text-body-secondary mt-2 mb-0">Your rating is saved and cannot be changed.</p>
+                @if ($booking->review->comment)
+                    <p class="mt-2 mb-0">{{ $booking->review->comment }}</p>
+                @endif
+            </section>
+        @else
+        <form class="card card-body" id="booking-review" data-workflow-form method="POST" action="{{ route('booking.reviews.store', $booking, false) }}">
             @csrf
-            @if ($booking->review) @method('PUT') @endif
             <h2 class="h5">Rate your move</h2>
-            <label class="form-label" for="rating">Rating</label>
-            <input class="form-control mb-2" type="number" id="rating" name="rating" min="1" max="5" required value="{{ $booking->review?->rating }}">
+            <fieldset class="mb-2">
+                <legend class="form-label">Rating</legend>
+                <div class="booking-rating" role="radiogroup" aria-label="Rating">
+                    @for ($rating = 5; $rating >= 1; $rating--)
+                        <input class="visually-hidden" type="radio" id="rating-{{ $rating }}" name="rating"
+                            value="{{ $rating }}" required
+                            @checked((int) old('rating', $booking->review?->rating) === $rating)>
+                        <label for="rating-{{ $rating }}" aria-label="{{ $rating }} out of 5 stars">
+                            <i class="fa-solid fa-star" aria-hidden="true"></i>
+                        </label>
+                    @endfor
+                </div>
+                @error('rating')
+                    <div class="text-danger small">{{ $message }}</div>
+                @enderror
+            </fieldset>
             <label class="form-label" for="comment">Comment</label>
             <textarea class="form-control mb-2" id="comment" name="comment" maxlength="2000">{{ $booking->review?->comment }}</textarea>
             <div><button class="btn btn-primary">Save review</button></div>
         </form>
+        @endif
     @endif
     @if ($user->role === 'driver')
         @include('driver._booking-actions')

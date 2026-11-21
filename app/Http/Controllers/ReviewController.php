@@ -55,6 +55,7 @@ class ReviewController extends Controller
         ]);
 
         $review = $booking->review()->create($validated);
+        $request->session()->flash('success', 'Thank you for your review.');
 
         return response()->json([
             'review' => [
@@ -76,20 +77,7 @@ class ReviewController extends Controller
             return response()->json(['message' => 'No review exists for this booking.'], 404);
         }
 
-        $validated = $request->validate([
-            'rating' => ['required', 'integer', 'between:1,5'],
-            'comment' => ['nullable', 'string', 'max:2000'],
-        ]);
-
-        $booking->review->update($validated);
-
-        return response()->json([
-            'review' => [
-                'id' => $booking->review->id,
-                'rating' => $booking->review->rating,
-                'created_at' => $booking->review->created_at,
-            ],
-        ]);
+        return response()->json(['message' => 'Submitted reviews cannot be changed.'], 409);
     }
 
     public function destroy(Request $request, Booking $booking): JsonResponse
@@ -103,9 +91,7 @@ class ReviewController extends Controller
             return response()->json(['message' => 'No review exists for this booking.'], 404);
         }
 
-        $booking->review->delete();
-
-        return response()->json([], 204);
+        return response()->json(['message' => 'Submitted reviews cannot be removed.'], 409);
     }
 
     public function adminIndex(Request $request, DriverProfile $driverProfile): JsonResponse|View

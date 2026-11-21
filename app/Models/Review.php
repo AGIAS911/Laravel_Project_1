@@ -31,6 +31,8 @@ class Review extends Model
 
     public function scopeForDriver(Builder $query, int $driverProfileId): Builder
     {
+        // لانه ريفيو مرتبط ب bookingId 
+        // مو مباشرة ب درايفر اي دي 
         return $query->whereHas('booking', function (Builder $bookingQuery) use ($driverProfileId) {
             $bookingQuery->where('status', 'completed')->where('driver_id', $driverProfileId);
         });

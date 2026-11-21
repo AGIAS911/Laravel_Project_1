@@ -9,6 +9,16 @@
                 <h1>Manage your moves</h1>
                 <p>Welcome, {{ auth()->user()->name }}</p>
             </div>
+            <div class="d-flex flex-wrap gap-2">
+                @php($pendingRequests = $counts['pending'] ?? 0)
+                <a class="btn btn-primary" href="{{ route('driver.bookings.index', ['view' => 'requests']) }}"
+                    aria-label="New requests: {{ $pendingRequests }}">
+                    New requests
+                    @if ($pendingRequests > 0)
+                        <span class="badge text-bg-light text-primary ms-1" aria-hidden="true">{{ $pendingRequests }}</span>
+                    @endif
+                </a>
+                <a class="btn btn-outline-light" href="{{ route('driver.schedule') }}">Schedule</a>
             <a class="driver-button driver-button-outline driver-profile-link" href="{{ route('driver.profile.show') }}">
                 <i class="fa-regular fa-id-card" aria-hidden="true"></i> Driver profile
             </a>
