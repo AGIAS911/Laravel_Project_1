@@ -27,15 +27,20 @@
         <link rel="stylesheet" href="{{ asset('landing/css/driver-workspace.css') }}">
     @endif
     @stack('styles')
+    <link rel="stylesheet" href="{{ asset('landing/css/product.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.26.25/dist/sweetalert2.all.min.js" defer></script>
+    <script src="{{ asset('landing/js/product-popups.js') }}" defer></script>
+    <script src="{{ asset('landing/js/product-forms.js') }}" defer></script>
 </head>
-<body class="moveit-workspace">
+<body class="moveit-workspace moveit-product">
     <div id="app">
         @if (auth()->user()?->role === 'admin')
             <div class="admin-shell">
+                <a class="visually-hidden-focusable product-skip" href="#admin-main">Skip to content</a>
                 @include('layouts.admin-sidebar')
                 <div class="admin-main">
                     @include('layouts.admin-topbar')
-                    <main class="workspace-content admin-workspace-content py-4">
+                    <main class="workspace-content admin-workspace-content" id="admin-main" tabindex="-1">
                         @include('layouts.workspace-content')
                     </main>
                 </div>
@@ -162,7 +167,7 @@
             @auth
                 @include('layouts.workspace-menu')
             @endauth
-        <main class="workspace-content py-4">
+        <main class="workspace-content product-guest-workspace py-4">
             @include('layouts.workspace-content')
         </main>
         </div>

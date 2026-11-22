@@ -4,7 +4,7 @@
 
 @section('content')
     <section class="driver-fleet" aria-labelledby="fleet-title">
-        <header class="driver-fleet-heading">
+        <header class="driver-fleet-heading product-operator-heading">
             <div>
                 <h1 id="fleet-title">My vehicles</h1>
                 <p>You can own multiple vehicles.</p>
@@ -39,14 +39,11 @@
                         @foreach ($vehicles as $vehicle)
                             @php
                                 $type = $vehicle->vehicleType?->name;
-                                $isPickup = str($type ?? $vehicle->name)->lower()->contains('pickup');
                                 $photo = $vehicle->image ?: $vehicle->vehicleType?->image;
-                                $illustration = $isPickup ? 'driver-vehicle-pickup.svg' : 'driver-vehicle-truck.svg';
                             @endphp
                             <tr role="row">
                                 <td role="cell" class="driver-fleet-image">
-                                    <img src="{{ asset($photo ?: 'landing/img/'.$illustration) }}" alt=""
-                                        width="96" height="56" @class(['is-photo' => $photo])>
+                                    <x-vehicle-illustration :name="$type ?? $vehicle->name" :photo="$photo" class="driver-fleet-art" />
                                 </td>
                                 <td role="cell" class="driver-fleet-type">
                                     <a href="{{ route('vehicles.show', $vehicle) }}" @if ($type && $type !== $vehicle->name) aria-label="{{ $type }} · {{ $vehicle->name }}" @endif>{{ $type ?: $vehicle->name }}</a>
@@ -56,7 +53,7 @@
                                 <td role="cell" class="driver-fleet-price"><span class="driver-fleet-mobile-label">Base / km</span>{{ $vehicle->base_price }} / {{ $vehicle->price_per_km }}</td>
                                 <td role="cell" class="driver-fleet-state"><span @class(['driver-fleet-badge', 'is-'.$vehicle->status])>{{ str($vehicle->status)->headline() }}</span></td>
                                 <td role="cell" class="driver-fleet-action">
-                                    <a class="driver-button driver-fleet-edit" href="{{ route('vehicles.edit', $vehicle) }}" aria-label="Edit {{ $vehicle->name }}">Edit</a>
+                                    <a class="driver-button driver-fleet-edit product-action" href="{{ route('vehicles.edit', $vehicle) }}" aria-label="Edit {{ $vehicle->name }}"><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit</a>
                                 </td>
                             </tr>
                         @endforeach
@@ -89,7 +86,7 @@
                                 <option value="{{ $option }}" @selected($status === $option)>{{ ucfirst($option) }}</option>
                             @endforeach
                         </select>
-                        <button class="driver-button driver-fleet-edit" type="submit">Apply</button>
+                        <button class="driver-button driver-fleet-edit product-action" type="submit"><i class="fa-solid fa-filter" aria-hidden="true"></i> Apply filters</button>
                     </form>
                 </details>
                 {{ $vehicles->links('pagination::bootstrap-5') }}

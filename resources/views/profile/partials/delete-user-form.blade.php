@@ -1,4 +1,4 @@
-<section class="card">
+<section class="card product-danger-panel">
     <div class="card-body">
         <h2 class="h5 workspace-heading">Close account</h2>
         <p class="text-body-secondary">Confirm your password to close your account.</p>

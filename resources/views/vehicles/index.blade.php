@@ -3,13 +3,11 @@
 @section('title', 'Vehicles')
 
 @section('content')
+    <header class="product-page-header">
+        <div><h1 class="product-title">Vehicles</h1><p class="text-body-secondary mt-1 mb-0">All driver vehicles.</p></div>
+        <a class="btn btn-primary product-action" href="{{ route('vehicles.create') }}"><i class="fa-solid fa-plus" aria-hidden="true"></i> Add vehicle</a>
+    </header>
     <section class="panel">
-        <div class="actions" style="justify-content: space-between">
-            <h1>Vehicles</h1>
-            <a class="button" href="{{ route('vehicles.create') }}">Add Vehicle</a>
-        </div>
-
-        <p class="text-body-secondary">All driver vehicles.</p>
         <form method="GET" action="{{ route('vehicles.index') }}" class="admin-filterbar" role="search">
             <input type="search" name="q" value="{{ $search }}" aria-label="Search vehicles" placeholder="Search...">
             <select name="status" aria-label="Vehicle status">
@@ -18,10 +16,10 @@
                     <option value="{{ $option }}" @selected($status === $option)>{{ ucfirst($option) }}</option>
                 @endforeach
             </select>
-            <button class="btn btn-outline-secondary btn-sm">Filter</button>
+            <button class="btn btn-outline-secondary product-action" type="submit"><i class="fa-solid fa-filter" aria-hidden="true"></i> Filter</button>
         </form>
         <div class="table-wrap">
-            <table>
+            <table class="admin-fleet-list" aria-label="Driver vehicles">
                 <thead>
                     <tr>
                         <th>Vehicle</th>
@@ -36,20 +34,26 @@
                 <tbody>
                     @forelse ($vehicles as $vehicle)
                         <tr>
-                            <td>{{ $vehicle->name }}</td>
+                            <td>
+                                <div class="fleet-vehicle-name">
+                                    <x-vehicle-illustration :name="$vehicle->vehicleType?->name ?? $vehicle->name"
+                                        :photo="$vehicle->image ?: $vehicle->vehicleType?->image" />
+                                    <span>{{ $vehicle->name }}</span>
+                                </div>
+                            </td>
                             <td>{{ $vehicle->driver?->user?->name ?? '—' }}</td>
                             <td>{{ $vehicle->plate_number }}</td>
-                            <td>{{ $vehicle->capacity_kg === null ? '—' : number_format((float) $vehicle->capacity_kg) . ' kg' }}</td>
+                            <td>{{ is_numeric($vehicle->capacity_kg) ? number_format((float) $vehicle->capacity_kg) . ' kg' : ($vehicle->capacity_kg ? str($vehicle->capacity_kg)->headline() : '—') }}</td>
                             <td>@include('booking._status', ['state' => $vehicle->status, 'label' => ucfirst($vehicle->status)])</td>
                             <td>
                                 <div class="actions">
-                                    <a class="button secondary" href="{{ route('vehicles.show', $vehicle) }}">View</a>
-                                    <a class="button" href="{{ route('vehicles.edit', $vehicle) }}">Edit</a>
+                                    <a class="btn btn-outline-secondary product-action" href="{{ route('vehicles.show', $vehicle) }}" aria-label="View {{ $vehicle->name }}"><i class="fa-solid fa-eye" aria-hidden="true"></i> View</a>
+                                    <a class="btn btn-outline-secondary product-action" href="{{ route('vehicles.edit', $vehicle) }}" aria-label="Edit {{ $vehicle->name }}"><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit</a>
                                     @if ($vehicle->bookings_count === 0)
-                                        <form method="POST" action="{{ route('vehicles.destroy', $vehicle) }}" onsubmit="return confirm('Delete this vehicle?')">
+                                        <form method="POST" action="{{ route('vehicles.destroy', $vehicle) }}" data-popup-title="Delete this vehicle?" data-popup-action="Delete vehicle" data-popup-danger>
                                             @csrf
                                             @method('DELETE')
-                                            <button class="button danger" type="submit">Delete</button>
+                                            <button class="btn btn-outline-danger product-action" type="submit" aria-label="Delete {{ $vehicle->name }}"><i class="fa-solid fa-trash-can" aria-hidden="true"></i> Delete</button>
                                         </form>
                                     @else
                                         <span class="field-error">Linked to bookings</span>

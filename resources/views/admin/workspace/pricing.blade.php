@@ -30,7 +30,10 @@
     </div>
     {{ $rules->links('pagination::bootstrap-5') }}
 
-    <div id="new-pricing-rule">@include('admin.workspace.pricing-form', ['rule' => null])</div>
+    <details id="new-pricing-rule" class="admin-rule-editor mb-3">
+        <summary class="fw-semibold py-2">Add a pricing rule</summary>
+        @include('admin.workspace.pricing-form', ['rule' => null])
+    </details>
     @foreach ($rules as $rule)
         <details id="edit-rule-{{ $rule->id }}" class="admin-rule-editor mb-2">
             <summary class="fw-semibold py-2">Edit {{ $rule->name }}</summary>

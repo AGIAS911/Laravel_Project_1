@@ -1,7 +1,7 @@
 @extends('layouts.dashboard')
 
 @section('page-title', 'Services')
-@section('page-description', 'Transport and add-on catalog.')
+@section('page-description', 'Manage transport rates, add-ons and which services customers can book.')
 
 @section('actions')
     @if (auth()->user()?->role === 'admin')

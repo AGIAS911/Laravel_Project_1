@@ -35,6 +35,31 @@ class MoveItNotificationSeederTest extends TestCase
             ->assertDontSee('No notifications yet.');
     }
 
+    public function test_unread_filter_only_shows_unread_notifications_for_the_current_user(): void
+    {
+        $customer = User::factory()->create();
+        $unread = MoveItNotification::factory()->forUser($customer)->create([
+            'title' => 'Unread booking notice',
+            'read_at' => null,
+        ]);
+        MoveItNotification::factory()->forUser($customer)->create([
+            'title' => 'Previously read notice',
+            'read_at' => now(),
+        ]);
+        MoveItNotification::factory()->create([
+            'title' => 'Another customer notice',
+            'read_at' => null,
+        ]);
+
+        $this->actingAs($customer)->get(route('notifications.index', ['filter' => 'unread']))
+            ->assertOk()->assertSee('Unread booking notice')
+            ->assertDontSee('Previously read notice')->assertDontSee('Another customer notice');
+
+        $this->post(route('notifications.read', $unread->id))->assertRedirect();
+        $this->get(route('notifications.index', ['filter' => 'unread']))
+            ->assertOk()->assertSee('all caught up')->assertDontSee('Unread booking notice');
+    }
+
     public function test_customer_dashboard_displays_recent_notification_details(): void
     {
         $user = User::factory()->create(['role' => 'customer']);

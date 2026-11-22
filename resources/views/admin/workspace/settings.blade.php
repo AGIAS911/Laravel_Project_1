@@ -1,6 +1,7 @@
 @extends('layouts.dashboard')
 
 @section('page-title', 'Settings and commission')
+@section('page-description', 'Configure booking fees, deposit deadlines and the beneficiary customers see at CliQ checkout.')
 
 @section('content')
     @if (blank(config('booking.osrm_base_url')))
@@ -30,7 +31,7 @@
                 ],
             ] as $heading => $fields)
                 <div class="col-lg-6">
-                    <section class="card card-body h-100">
+                    <section class="card card-body h-100 product-config-panel">
                         <h2 class="h5 workspace-heading mb-3">{{ $heading }}</h2>
                         @foreach ($fields as $name => $settingsField)
                             <div class="mb-3">

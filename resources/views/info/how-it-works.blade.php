@@ -3,6 +3,34 @@
 @section('title', 'How it works')
 
 @section('content')
-<div class="container"><section class="page-hero"><div class="crumbs"><a href="{{ url('/') }}">Home</a> / How MoveIt works</div><h1>How MoveIt works</h1><p class="lead mt-s">Plan your move, review the price and track your driver in your booking.</p></section></div>
-<section class="section"><div class="container"><div class="grid g4"><div class="panel"><div class="num" style="width:48px;height:48px;font-size:1.2rem">1</div><h3 style="color:var(--navy)"><i class="fa-solid fa-list-check" style="color:var(--orange)"></i> Furniture inventory</h3><p class="muted mt-s">Add items by type and quantity, or skip inventory if you already know your vehicle size.</p></div><div class="panel"><div class="num" style="width:48px;height:48px;font-size:1.2rem">2</div><h3 style="color:var(--navy)"><i class="fa-solid fa-qrcode" style="color:var(--orange)"></i> Scan with your phone</h3><p class="muted mt-s">Open the scan on your phone, or use the QR code shown on your computer. Confirm the detected items before you continue.</p></div><div class="panel"><div class="num" style="width:48px;height:48px;font-size:1.2rem">3</div><h3 style="color:var(--navy)"><i class="fa-solid fa-truck" style="color:var(--orange)"></i> Choose a vehicle size</h3><p class="muted mt-s">Pick a size for your move. If you added an inventory, you can use the suggested size.</p></div><div class="panel"><div class="num" style="width:48px;height:48px;font-size:1.2rem">4</div><h3 style="color:var(--navy)"><i class="fa-solid fa-location-dot" style="color:var(--orange)"></i> Set locations and date</h3><p class="muted mt-s">Set pickup and destination on the map, then choose an appointment time.</p></div><div class="panel"><div class="num" style="width:48px;height:48px;font-size:1.2rem">5</div><h3 style="color:var(--navy)"><i class="fa-solid fa-paper-plane" style="color:var(--orange)"></i> Review your quote</h3><p class="muted mt-s">Review the total and required deposit, then continue to payment.</p></div><div class="panel"><div class="num" style="width:48px;height:48px;font-size:1.2rem">6</div><h3 style="color:var(--navy)"><i class="fa-solid fa-money-check-dollar" style="color:var(--orange)"></i> Deposit via CliQ</h3><p class="muted mt-s">Transfer the deposit via CliQ and upload your receipt for review.</p></div><div class="panel"><div class="num" style="width:48px;height:48px;font-size:1.2rem">7</div><h3 style="color:var(--navy)"><i class="fa-solid fa-circle-check" style="color:var(--orange)"></i> Confirm booking</h3><p class="muted mt-s">We start looking for a driver once the full deposit is verified. Your driver and vehicle details appear when the driver accepts.</p></div><div class="panel"><div class="num" style="width:48px;height:48px;font-size:1.2rem">8</div><h3 style="color:var(--navy)"><i class="fa-solid fa-star" style="color:var(--orange)"></i> Rating</h3><p class="muted mt-s">After the move, rate your experience from 1 to 5.</p></div></div></div></section>
+<div class="container">
+    <header class="page-hero">
+        <h1>How MoveIt works</h1>
+        <p class="lead mt-s">Plan a move, review the price and track your booking in one place.</p>
+    </header>
+</div>
+<section class="section">
+    <div class="container product-guide">
+        <ol class="product-guide-steps">
+            @foreach ([
+                ['Plan your move', 'Choose a vehicle size directly, or build an inventory by adding items or scanning with your phone. Set your pickup, destination and appointment time.'],
+                ['Review and pay the deposit', 'Review your moving price and deposit. Make the transfer through CliQ, then upload your receipt from the booking.'],
+                ['Confirm with your driver', 'Once the full deposit is verified, MoveIt looks for a driver. Your booking shows the driver and vehicle when they accept.'],
+                ['Review your move', 'After the move is complete, open the booking to leave a rating.'],
+            ] as [$title, $description])
+                <li><span aria-hidden="true">{{ $loop->iteration }}</span><div><h2>{{ $title }}</h2><p class="muted">{{ $description }}</p></div></li>
+            @endforeach
+        </ol>
+        <aside class="panel product-guide-aside">
+            <h2>Ready to plan a move?</h2>
+            <p class="muted">Check vehicle sizes or start a booking to see your options.</p>
+            <div class="product-info-actions">
+                @if (!auth()->check() || auth()->user()->role === 'customer')
+                    <a class="btn btn-primary" href="{{ route(auth()->check() ? 'booking.create' : 'register') }}">Start booking</a>
+                @endif
+                <a class="btn btn-outline" href="{{ route('vehicle-types.index') }}">See vehicle types</a>
+            </div>
+        </aside>
+    </div>
+</section>
 @endsection

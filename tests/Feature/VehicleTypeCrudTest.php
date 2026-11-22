@@ -33,6 +33,28 @@ class VehicleTypeCrudTest extends TestCase
         $this->get(route('vehicle-types.edit', $vehicleType))->assertOk();
     }
 
+    public function test_vehicle_types_use_distinct_illustrations_when_they_have_no_photo(): void
+    {
+        $types = [
+            'Compact Cargo Van' => 'vehicle-compact-van.svg',
+            'Long Wheelbase Van' => 'vehicle-long-van.svg',
+            'Demo Enclosed Van' => 'vehicle-enclosed-van.svg',
+            'Box Truck' => 'driver-vehicle-truck.svg',
+        ];
+
+        foreach ($types as $name => $image) {
+            $type = VehicleType::factory()->create(['name' => $name]);
+            $this->get(route('vehicle-types.show', $type))
+                ->assertOk()
+                ->assertSee('landing/img/'.$image);
+        }
+
+        $catalog = $this->get(route('vehicle-types.index'))->assertOk();
+        foreach ($types as $image) {
+            $catalog->assertSee('landing/img/'.$image);
+        }
+    }
+
     public function test_vehicle_types_can_be_created_updated_and_deleted(): void
     {
         $this->post(route('vehicle-types.store'), [

@@ -9,9 +9,22 @@ class NotificationController extends Controller
 {
     public function index(Request $request)
     {
-        return view('notifications.index', [
-            'notifications' => $request->user()->notifications()->paginate(20),
-        ]);
+        $user = $request->user();
+        $unreadOnly = $request->query('filter') === 'unread';
+        $query = $unreadOnly ? $user->unreadNotifications() : $user->notifications();
+        $notifications = $query->paginate(20);
+
+        if ($unreadOnly) {
+            $notifications->appends(['filter' => 'unread']);
+        }
+
+        if ($notifications->currentPage() > $notifications->lastPage()) {
+            return redirect($notifications->url($notifications->lastPage()));
+        }
+
+        $unreadCount = $unreadOnly ? $notifications->total() : $user->unreadNotifications()->count();
+
+        return view('notifications.index', compact('notifications', 'unreadOnly', 'unreadCount'));
     }
 
     public function open(Request $request, string $id): RedirectResponse

@@ -29,7 +29,10 @@
     @error('is_active') <p class="field-error">{{ $message }}</p> @enderror
 
     <div class="actions" style="margin-top: 20px">
-        <button class="button" type="submit">{{ $method === 'POST' ? 'Create' : 'Save Changes' }}</button>
-        <a class="button secondary" href="{{ route('vehicle-types.index') }}">Cancel</a>
+        <button class="btn btn-primary product-action" type="submit">
+            <i class="fa-solid {{ $method === 'POST' ? 'fa-plus' : 'fa-check' }}" aria-hidden="true"></i>
+            {{ $method === 'POST' ? 'Create vehicle type' : 'Save changes' }}
+        </button>
+        <a class="btn btn-outline-secondary product-action" href="{{ route('vehicle-types.index') }}"><i class="fa-solid fa-xmark" aria-hidden="true"></i> Cancel</a>
     </div>
 </form>

@@ -34,7 +34,7 @@
         </div>
 
         <aside class="col-lg-4 d-grid gap-3">
-            <section class="card card-body inventory-panel scan-pair-panel" id="furniture-scan" data-scan-url="{{ route('scan-sessions.store', $booking, false) }}">
+            <section class="card card-body inventory-panel scan-pair-panel product-scan-panel" id="furniture-scan" data-scan-url="{{ route('scan-sessions.store', $booking, false) }}">
                 <h2 class="h5 workspace-heading text-center">Use your phone camera</h2>
                 <p id="scan-instructions" class="text-body-secondary text-center">Scan the QR code with your phone. Detected items appear here for review.</p>
                 <form id="scan-form">

@@ -1,4 +1,4 @@
-<div class="card shadow-sm">
+<div class="card product-editor">
     
     <form method="POST"
           action="{{ $service ? route('services.update', $service) : route('services.store') }}">
@@ -46,7 +46,7 @@
                 </div>
 
                 <div class="col-md-6">
-                    <label class="form-label" for="price">Price</label>
+                    <label class="form-label" for="price">Price (JOD)</label>
                     <input class="form-control @error('price') is-invalid @enderror" id="price" type="number"
                            step="0.001" min="0" name="price"
                            value="{{ old('price', $service ? $service->price : '') }}" required>

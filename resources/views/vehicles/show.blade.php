@@ -4,10 +4,14 @@
 
 @section('content')
     <section class="panel">
-        <h1>{{ $vehicle->name }}</h1>
-        @if ($vehicle->image)
-            <p><img src="{{ asset($vehicle->image) }}" alt="Image of {{ $vehicle->name }}" style="max-width: 420px; max-height: 300px"></p>
-        @endif
+        <header class="product-page-header">
+            <h1 class="product-title">{{ $vehicle->name }}</h1>
+            @include('booking._status', ['state' => $vehicle->status])
+        </header>
+        <p>
+            <x-vehicle-illustration :name="$vehicle->vehicleType?->name ?? $vehicle->name"
+                :photo="$vehicle->image ?: $vehicle->vehicleType?->image" class="product-vehicle-preview" />
+        </p>
 
         <p><strong>License Plate:</strong> {{ $vehicle->plate_number }}</p>
         <p><strong>Vehicle Type:</strong> {{ $vehicle->vehicleType?->name ?? '—' }}</p>
@@ -27,13 +31,13 @@
         </p>
 
         <div class="actions">
-            <a class="button" href="{{ route('vehicles.edit', $vehicle) }}">Edit</a>
-            <a class="button secondary" href="{{ route('vehicles.index') }}">Back to Vehicles</a>
+            <a class="btn btn-primary product-action" href="{{ route('vehicles.edit', $vehicle) }}"><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit</a>
+            <a class="btn btn-outline-secondary product-action" href="{{ route('vehicles.index') }}"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Back to vehicles</a>
             @if ($vehicle->bookings->isEmpty())
-                <form method="POST" action="{{ route('vehicles.destroy', $vehicle) }}" onsubmit="return confirm('Delete this vehicle?')">
+                <form method="POST" action="{{ route('vehicles.destroy', $vehicle) }}" data-popup-title="Delete this vehicle?" data-popup-action="Delete vehicle" data-popup-danger>
                     @csrf
                     @method('DELETE')
-                    <button class="button danger" type="submit">Delete</button>
+                    <button class="btn btn-outline-danger product-action" type="submit"><i class="fa-solid fa-trash-can" aria-hidden="true"></i> Delete</button>
                 </form>
             @else
                 <span class="field-error">This vehicle cannot be deleted because it has bookings.</span>

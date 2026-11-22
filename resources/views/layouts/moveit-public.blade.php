@@ -11,9 +11,11 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
     @stack('styles')
     <link rel="stylesheet" href="{{ asset('landing/css/style.css') }}">
+    <link rel="stylesheet" href="{{ asset('landing/css/product.css') }}">
     <script src="{{ asset('landing/js/site-navigation.js') }}" defer></script>
+    <script src="{{ asset('landing/js/product-forms.js') }}" defer></script>
 </head>
-<body>
+<body class="moveit-product moveit-product-public">
     @yield('page')
 </body>
 </html>

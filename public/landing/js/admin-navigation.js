@@ -16,25 +16,41 @@ if (adminMenu && adminMenuToggle) {
         const open = adminMenuToggle.getAttribute('aria-expanded') !== 'true';
         setAdminMenu(open);
         if (open) adminMenu.querySelector('a').focus();
+        else adminMenuToggle.focus();
     });
 
     document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && document.body.classList.contains('admin-menu-open')) {
+        if (!document.body.classList.contains('admin-menu-open')) return;
+        if (event.key === 'Escape') {
             setAdminMenu(false);
             adminMenuToggle.focus();
+        }
+        if (event.key !== 'Tab') return;
+
+        const links = adminMenu.querySelectorAll('a[href], button:not([disabled])');
+        const first = links[0];
+        const last = links[links.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
         }
     });
 
     document.addEventListener('click', (event) => {
         if (!adminMenu.contains(event.target) && !adminMenuToggle.contains(event.target)) {
+            const wasOpen = document.body.classList.contains('admin-menu-open');
             setAdminMenu(false);
+            if (wasOpen) adminMenuToggle.focus();
         }
     });
 }
 
 const openSelectedRule = () => {
     const rule = document.getElementById(location.hash.slice(1));
-    if (rule?.matches('.admin-rule-editor')) {
+    if (rule?.matches('details.admin-rule-editor')) {
         rule.open = true;
         rule.scrollIntoView({ block: 'start' });
     }

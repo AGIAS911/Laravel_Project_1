@@ -41,12 +41,19 @@ class BookingWizardTest extends TestCase
 
         $this->actingAs($customer);
         $this->get(route('booking.create'))->assertOk()
-            ->assertSee('Choose a vehicle')->assertSee('Build your inventory')->assertSee('Scan your furniture');
+            ->assertSee('Choose a vehicle size')
+            ->assertSee('Add furniture manually')
+            ->assertSee('Scan with your phone')
+            ->assertSee('type="radio" name="booking_method"', false)
+            ->assertSee('Start booking');
         $response = $this->post(route('booking.store'), ['booking_method' => 'quick']);
         $booking = $customer->bookings()->sole();
         $step = fn ($name) => route('booking.edit', ['booking' => $booking, 'step' => $name]);
         $response->assertRedirect($step('type'));
-        $this->get($step('vehicles'))->assertOk()->assertSee('Choose your vehicle size');
+        $this->get($step('vehicles'))->assertOk()
+            ->assertSee('Choose your vehicle size')
+            ->assertSee('landing/img/vehicle-compact-van.svg')
+            ->assertSee('type="radio" name="preferred_vehicle_type_id"', false);
         $this->put(route('booking.update', $booking), ['booking_step' => 'type', 'preferred_vehicle_type_id' => $type->id])
             ->assertRedirect($step('route'));
         $this->assertNull($booking->refresh()->vehicle_id);
@@ -150,7 +157,7 @@ class BookingWizardTest extends TestCase
         ]);
 
         $this->actingAs($customer)->get(route('booking.show', $booking))->assertOk()
-            ->assertSee('Calculate quote')->assertSee('CliQ checkout is temporarily unavailable')
+            ->assertSee('data-workflow-form="quote"', false)->assertDontSee('Calculate quote')->assertSee('CliQ checkout is temporarily unavailable')
             ->assertDontSee('Continue to CliQ payment');
         $this->postJson(route('bookings.quote', $booking))->assertOk()
             ->assertJsonPath('total_price', '20.000')->assertJsonPath('deposit_amount', null);

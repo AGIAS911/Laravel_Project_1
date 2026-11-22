@@ -13,6 +13,11 @@
 @section('title', $heading . ' | MoveIt')
 @section('page-title', $heading)
 @section('page-icon', 'fa-route')
+@if ($step === 'route')
+    @section('page-description', 'Mark where the movers should collect and deliver your items.')
+@elseif ($step === 'time')
+    @section('page-description', 'Pick the date and time you want the movers to arrive.')
+@endif
 @section('actions')
     <a class="btn btn-outline-secondary" href="{{ $previous ? route('booking.edit', ['booking' => $booking, 'step' => $previous]) : route('booking.show', $booking) }}">
         <i class="fa-solid fa-arrow-left me-1" aria-hidden="true"></i> {{ $previous ? 'Previous step' : 'Back to booking' }}

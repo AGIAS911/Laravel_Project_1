@@ -7,7 +7,7 @@
 
 @section('title', $customer ? 'My bookings' : ($admin ? 'All bookings' : 'Bookings'))
 @section('page-title', $customer ? 'My bookings' : ($admin ? 'All bookings' : 'Bookings'))
-@section('page-icon', 'fa-box')
+@section('page-description', $admin ? 'Track appointments, assignments and booking status.' : 'Continue a draft or check the status of a move.')
 
 @section('actions')
     @if ($customer)
@@ -19,7 +19,7 @@
 
 @section('content')
     @if ($admin)
-        <p class="text-body-secondary">Full booking overview.</p>
+
         <form action="{{ route('booking.index') }}" method="GET" class="admin-filterbar" role="search">
             <input name="q" type="search" value="{{ $search }}" aria-label="Booking ID" placeholder="Search by booking ID">
             <select name="status" aria-label="Booking status">
@@ -37,7 +37,7 @@
             <button class="btn btn-outline-secondary btn-sm">Filter</button>
         </form>
     @else
-    <p class="text-body-secondary">Continue a draft or check the status of a move.</p>
+
 
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
         <nav class="d-flex flex-wrap gap-2" aria-label="Booking status">
@@ -47,7 +47,7 @@
                     @if (($status ?? '') === $value) aria-current="page" @endif>{{ $label }}</a>
             @endforeach
         </nav>
-        <form action="{{ route('booking.index') }}" method="GET" class="d-flex gap-2" role="search">
+        <form action="{{ route('booking.index') }}" method="GET" class="product-filterbar" role="search">
             @if ($status)
                 <input type="hidden" name="status" value="{{ $status }}">
             @endif
@@ -59,6 +59,12 @@
 
     @endif
 
+    <div class="product-result-summary">
+        <span>{{ $bookings->total() }} {{ str('booking')->plural($bookings->total()) }}</span>
+        @if ($status || $search !== '' || ($admin && $driverFilter))
+            <a href="{{ route('booking.index') }}">Reset filters</a>
+        @endif
+    </div>
     <div class="card move-table">
         <div class="table-responsive">
             <table class="table align-middle mb-0">
@@ -104,7 +110,10 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="{{ $admin ? 7 : 6 }}" class="text-center text-body-secondary py-4">No bookings match this view.</td></tr>
+                        <tr><td colspan="{{ $admin ? 7 : 6 }}" class="text-center text-body-secondary py-4">
+                            No bookings match this view.
+                            @if ($customer && !$status && $search === '')<a class="d-inline-block ms-2" href="{{ route('booking.create') }}">Start a booking</a>@endif
+                        </td></tr>
                     @endforelse
                 </tbody>
             </table>

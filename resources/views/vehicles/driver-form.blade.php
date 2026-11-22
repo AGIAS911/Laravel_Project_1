@@ -32,7 +32,7 @@
 
 @section('content')
     <div class="driver-vehicle-editor">
-        <header class="driver-vehicle-heading">
+        <header class="driver-vehicle-heading product-operator-heading">
             <a class="driver-vehicle-back" href="{{ route('vehicles.index') }}"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> My vehicles</a>
             <h1>{{ $heading }}</h1>
             <p>{{ $editing ? 'Update the details, rates, and availability for this vehicle.' : 'Enter your vehicle details and set the rates customers will see.' }}</p>

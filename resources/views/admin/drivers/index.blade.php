@@ -1,9 +1,11 @@
-@extends('layouts.app')
+@extends('layouts.dashboard')
+
+@section('page-title', 'Reviews')
+@section('page-description', 'Read customer feedback from completed bookings and check driver ratings.')
 
 @section('content')
-    <div class="container py-4">
-        <h1 class="h3 workspace-heading mb-1">Reviews</h1>
-        <p class="text-body-secondary mb-4">One review per completed booking.</p>
+    <div>
+        <h2 class="h5 workspace-heading mb-3">Recent customer reviews</h2>
         <div class="table-responsive mb-3">
             <table class="table align-middle mb-0">
                 <thead><tr><th scope="col">Booking</th><th scope="col">Customer</th><th scope="col">Driver</th><th scope="col">Rating</th><th scope="col">Comment</th></tr></thead>

@@ -2,92 +2,119 @@
 
 @section('title', __('Payments'))
 @section('page-title', __('Payments'))
-@section('page-icon', 'fa-receipt')
+@section('page-description', 'Manage your deposits and track the receipts you’ve submitted.')
+
+@section('actions')
+    <a class="btn btn-outline-secondary product-action" href="#payment-history">
+        <i class="fa-solid fa-receipt" aria-hidden="true"></i> Receipt history
+    </a>
+@endsection
 
 @section('content')
-    <p class="text-body-secondary">Payment proof history and deposits awaiting payment.</p>
+    @php
+        $depositGroups = $awaiting->groupBy(fn ($booking) => match (true) {
+            (bool) $booking->receipt_under_review => 'review',
+            (bool) $booking->deposit_due_at?->isPast() => 'expired',
+            default => 'due',
+        });
+        $dueDeposits = $depositGroups->get('due', collect())->sortBy(fn ($booking) => $booking->deposit_due_at?->timestamp ?? PHP_INT_MAX);
+    @endphp
 
-    @if ($awaiting->isNotEmpty())
-        <div class="card card-body customer-panel mb-4">
-            <h2 class="h6">{{ __('Deposits awaiting payment') }}</h2>
+    <section class="card customer-payments-panel mb-4" aria-labelledby="payment-deposits">
+        <header class="customer-payments-heading">
+            <span class="customer-payment-icon" aria-hidden="true"><i class="fa-solid fa-wallet"></i></span>
+            <h2 class="h5 workspace-heading mb-0" id="payment-deposits">Deposits awaiting payment</h2>
+            <span class="customer-payment-count">{{ $dueDeposits->count() }}</span>
+        </header>
+
+        @if ($dueDeposits->isNotEmpty())
             <ul class="list-unstyled mb-0">
-                @foreach ($awaiting as $booking)
-                    <li class="customer-payment-due d-flex flex-wrap justify-content-between align-items-center gap-2 py-2">
-                        <span>
-                            {{ $booking->id }} · {{ __('Deposit balance') }}:
-                            <bdi>{{ $booking->deposit_amount === null ? '—' : $booking->remainingDeposit() }} {{ config('payments.currency') }}</bdi>
-                            @if ($booking->deposit_due_at)
-                                · {{ __('Due') }}: {{ $booking->deposit_due_at->timezone('Asia/Amman')->format('Y-m-d H:i') }}
-                            @endif
-                        </span>
-                        @if ($booking->receipt_under_review)
-                            @include('booking._status', ['state' => 'pending', 'label' => 'Receipt under review', 'icon' => 'fa-clock'])
-                        @elseif ($booking->deposit_due_at?->isPast())
-                            <span class="badge text-bg-warning">Deposit deadline passed</span>
-                        @elseif (!$cliqConfigured)
-                            <a class="btn btn-outline-secondary btn-sm"
-                                href="{{ route('payments.create', ['booking_id' => $booking->id]) }}">Payment unavailable · Get help</a>
-                        @else
-                            <a class="btn btn-primary btn-sm"
-                                href="{{ route('payments.create', ['booking_id' => $booking->id]) }}">Pay deposit via CliQ</a>
-                        @endif
-                    </li>
+                @foreach ($dueDeposits as $booking)
+                    @include('payments._deposit-row')
                 @endforeach
             </ul>
-        </div>
-    @else
-        <div class="alert alert-info d-flex align-items-start gap-2" role="note">
-            <i class="fa-solid fa-circle-info mt-1" aria-hidden="true"></i>
-            <div>
-                <strong>No deposit payment is due yet.</strong>
-                <p class="mb-2">The Pay deposit option appears here after your driver accepts a booking.</p>
-                <a href="{{ route('booking.index') }}">View my bookings</a>
+        @else
+            <p class="customer-payment-empty mb-0">No deposits currently due.</p>
+        @endif
+
+        @foreach (['review' => ['Receipt under review', 'fa-clock'], 'expired' => ['Deposit deadline passed', 'fa-calendar-xmark']] as $group => [$groupLabel, $groupIcon])
+            @if ($deposits = $depositGroups->get($group))
+                <details class="customer-payment-group">
+                    <summary>
+                        <span class="customer-payment-icon" aria-hidden="true"><i class="fa-regular {{ $groupIcon }}"></i></span>
+                        <strong>{{ $groupLabel }}</strong>
+                        <span class="customer-payment-count">{{ $deposits->count() }}</span>
+                        <i class="fa-solid fa-chevron-down customer-payment-chevron" aria-hidden="true"></i>
+                    </summary>
+                    <ul class="list-unstyled mb-0">
+                        @foreach ($deposits as $booking)
+                            @include('payments._deposit-row')
+                        @endforeach
+                    </ul>
+                </details>
+            @endif
+        @endforeach
+    </section>
+
+    <section class="card customer-payments-panel" id="payment-history" aria-labelledby="payment-history-title">
+        <header class="customer-payments-heading">
+            <span class="customer-payment-icon" aria-hidden="true"><i class="fa-solid fa-receipt"></i></span>
+            <h2 class="h5 workspace-heading mb-0" id="payment-history-title">Payment proof history</h2>
+        </header>
+        @if ($payments->isNotEmpty())
+            <div class="table-responsive">
+                <table class="table align-middle mb-0 customer-receipt-table" role="table" aria-labelledby="payment-history-title">
+                    <thead role="rowgroup">
+                        <tr role="row">
+                            <th scope="col" role="columnheader">Booking</th>
+                            <th scope="col" role="columnheader">Amount</th>
+                            <th scope="col" role="columnheader">Reference</th>
+                            <th scope="col" role="columnheader">Status</th>
+                            <th scope="col" role="columnheader">Uploaded (Amman)</th>
+                            <th scope="col" role="columnheader"><span class="visually-hidden">Actions</span></th>
+                        </tr>
+                    </thead>
+                    <tbody role="rowgroup">
+                        @foreach ($payments as $payment)
+                            <tr role="row">
+                                <th class="customer-receipt-booking" scope="row" role="rowheader">
+                                    <a href="{{ route('booking.show', $payment->booking_id) }}">Booking #{{ $payment->booking_id }}</a>
+                                    <small class="d-block text-body-secondary fw-normal">Receipt #{{ $payment->id }}</small>
+                                </th>
+                                <td class="customer-receipt-amount" role="cell"><bdi>{{ $payment->amount }} {{ config('payments.currency') }}</bdi></td>
+                                <td class="customer-receipt-reference" role="cell">
+                                    <span class="customer-receipt-mobile-label">Reference</span><bdi>{{ $payment->transfer_reference ?? '—' }}</bdi>
+                                </td>
+                                <td class="customer-receipt-status" role="cell">
+                                    @include('payments._status')
+                                    @if ($payment->status === 'rejected' && $payment->rejection_reason)
+                                        <p class="text-danger small mt-1 mb-0">{{ $payment->rejection_reason }}</p>
+                                    @endif
+                                </td>
+                                <td class="customer-receipt-date" role="cell">
+                                    <span class="customer-receipt-mobile-label">Uploaded (Amman)</span>
+                                    @if ($payment->created_at)
+                                        <time datetime="{{ $payment->created_at->toIso8601String() }}">{{ $payment->created_at->timezone(config('booking.timezone'))->format('d M Y, H:i') }}</time>
+                                    @else
+                                        —
+                                    @endif
+                                </td>
+                                <td class="customer-receipt-action" role="cell">
+                                    <a class="btn btn-outline-secondary product-action" target="_blank" rel="noopener"
+                                        data-popup-image="Receipt #{{ $payment->id }}"
+                                        href="{{ route('payments.receipt', $payment->id) }}">
+                                        <i class="fa-regular fa-image" aria-hidden="true"></i> View receipt
+                                    </a>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
             </div>
-        </div>
-    @endif
+        @else
+            <p class="customer-payment-empty mb-0">No payment receipts yet.</p>
+        @endif
+    </section>
 
-    <div class="card move-table">
-        <div class="table-responsive">
-        <table class="table table-hover align-middle mb-0">
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>{{ __('Booking') }}</th>
-                    <th>{{ __('Amount') }}</th>
-                    <th>{{ __('Transfer reference') }}</th>
-                    <th>{{ __('Status') }}</th>
-                    <th>{{ __('Uploaded') }}</th>
-                    <th class="text-end">{{ __('Actions') }}</th>
-                </tr>
-            </thead>
-            <tbody>
-                @forelse ($payments as $payment)
-                    <tr>
-                        <td>{{ $payment->id }}</td>
-                        <td><a href="{{ route('booking.show', $payment->booking_id) }}">{{ $payment->booking_id }}</a></td>
-                        <td><bdi>{{ $payment->amount }} {{ config('payments.currency') }}</bdi></td>
-                        <td><bdi>{{ $payment->transfer_reference ?? '—' }}</bdi></td>
-                        <td>
-                            @include('payments._status')
-                            @if ($payment->status === 'rejected' && $payment->rejection_reason)
-                                <div class="text-danger small">{{ $payment->rejection_reason }}</div>
-                            @endif
-                        </td>
-                        <td>{{ $payment->created_at?->format('Y-m-d H:i') }}</td>
-                        <td class="text-end">
-                            <a class="btn btn-outline-secondary btn-sm" target="_blank"
-                                href="{{ route('payments.receipt', $payment->id) }}">{{ __('View receipt') }}</a>
-                        </td>
-                    </tr>
-                @empty
-                    <tr>
-                        <td colspan="7" class="text-center py-3">{{ __('No payment receipts yet.') }}</td>
-                    </tr>
-                @endforelse
-            </tbody>
-        </table>
-        </div>
-    </div>
-
-    <div class="mt-3">{{ $payments->links('pagination::bootstrap-5') }}</div>
+    <div class="mt-3">{{ $payments->fragment('payment-history')->links('pagination::bootstrap-5') }}</div>
 @endsection

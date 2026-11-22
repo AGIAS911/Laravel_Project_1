@@ -141,7 +141,7 @@ class ScanSessionController extends Controller
         return response()->noContent()->header('Cache-Control', 'no-store');
     }
 
-    public function sync(Request $request)
+     public function sync(Request $request)
     {
         $itemTypes = array_keys(config('inventory.items'));
         $data = $request->validate([

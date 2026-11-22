@@ -2,17 +2,17 @@
 
 @section('content')
 <div class="container">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1 class="h4 mb-0">{{ __('booking_services.details_title') }} #{{ $bookingService->id }}</h1>
+    <header class="product-page-header">
+        <h1 class="product-title">{{ __('booking_services.details_title') }} #{{ $bookingService->id }}</h1>
         <div>
             @if (in_array(auth()->user()->role, ['admin', 'customer']) && $bookingService->booking->status === 'draft')
                 <a class="btn btn-outline-primary" href="{{ route('booking-services.edit', $bookingService->id) }}">{{ __('booking_services.edit') }}</a>
             @endif
             <a class="btn btn-outline-secondary" href="{{ route('booking-services.index') }}">{{ __('booking_services.back') }}</a>
         </div>
-    </div>
+    </header>
 
-    <dl class="row border rounded bg-white p-3 p-md-4">
+    <dl class="row product-fact-list">
         @foreach ([
             __('booking_services.booking') => $bookingService->booking_id . ' · ' . ucfirst($bookingService->booking->status),
             __('booking_services.service') => $bookingService->service_name,

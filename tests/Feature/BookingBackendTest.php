@@ -189,7 +189,7 @@ class BookingBackendTest extends TestCase
         $this->actingAs($customer)->postJson(route('bookings.inventory.store', $booking), [
             'item_type' => 'sofa', 'quantity' => 1,
         ])->assertCreated();
-        $this->get(route('booking.show', $booking))->assertOk()->assertSee('Calculate quote');
+        $this->get(route('booking.show', $booking))->assertOk()->assertSee('data-workflow-form="quote"', false)->assertDontSee('Calculate quote');
         $this->postJson(route('bookings.quote', $booking))
             ->assertOk()->assertJsonPath('status', 'draft')->assertJsonPath('total_price', '20.000');
         Http::assertSent(fn ($request) => $request->method() === 'GET'
@@ -212,7 +212,8 @@ class BookingBackendTest extends TestCase
         $this->actingAs($customer)->get(route('booking.show', $booking))
             ->assertOk()->assertSee(route('payments.create', ['booking_id' => $booking->id]));
         $this->get(route('payments.create', ['booking_id' => $booking->id]))
-            ->assertOk()->assertSee('Transfer details')->assertSee(route('payments.store'));
+            ->assertOk()->assertSee('Transfer via CliQ')->assertSee('Copy alias')
+            ->assertSee('Upload receipt')->assertSee(route('payments.store'));
 
         config(['payments.clik_id' => null]);
         $this->get(route('payments.create', ['booking_id' => $booking->id]))
@@ -385,7 +386,7 @@ class BookingBackendTest extends TestCase
         Storage::fake('local');
         $customer = User::factory()->create();
         $this->actingAs($customer)->get(route('booking.create'))->assertOk()
-            ->assertSee('Choose a vehicle')->assertSee('Build your inventory')->assertSee('Scan your furniture');
+            ->assertSee('Choose a vehicle size')->assertSee('Add furniture manually')->assertSee('Scan with your phone');
 
         $this->post(route('bookings.inventory.start'), [
             'item_type' => 'mirror', 'quantity' => 2, 'notes' => 'Handle with care',

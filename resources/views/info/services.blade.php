@@ -12,23 +12,16 @@
 </div>
 <section class="section">
     <div class="container">
-        <div class="grid g3">
+        <div class="grid g2 product-catalog">
             @forelse ($services as $service)
-                @php($icon = match ($service->type) {
-                    'workers' => 'fa-people-carry-box',
-                    'packing' => 'fa-box-open',
-                    'boxes' => 'fa-boxes-stacked',
-                    'assembly' => 'fa-screwdriver-wrench',
-                    default => 'fa-truck-moving',
-                })
                 <article class="s-card">
-                    <div class="thumb"><i class="fa-solid {{ $icon }}" aria-hidden="true"></i></div>
+                    <div class="thumb"><x-service-icon :type="$service->type" /></div>
                     <h3>{{ $service->name }}</h3>
-                    <p class="muted" style="margin:0 10px 10px">{{ $service->description }}</p>
+                    <p class="muted">{{ $service->description }}</p>
                     <div class="more"><b class="price-tag">{{ $service->price }} JOD @if ($service->unit !== 'fixed') / {{ str($service->unit)->replace('_', ' ') }} @endif</b></div>
                 </article>
             @empty
-                <p class="muted">No services are listed yet.</p>
+                <div class="panel"><p>No services are listed yet.</p><a class="link" href="{{ route('info.contact') }}">Ask about your move</a></div>
             @endforelse
         </div>
         <div class="mt">{{ $services->links('info.pagination') }}</div>
