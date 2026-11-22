@@ -26,6 +26,42 @@ class BookingBackendTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_customer_payment_page_explains_when_a_deposit_is_due(): void
+    {
+        $customer = User::factory()->create(['role' => 'customer']);
+
+        $this->actingAs($customer)->get(route('payments.index'))
+            ->assertOk()
+            ->assertSee('No deposit payment is due yet.')
+            ->assertSee('after your driver accepts a booking.')
+            ->assertSee(route('booking.index'));
+    }
+
+    public function test_driver_dashboard_highlights_the_new_request_count(): void
+    {
+        $driver = DriverProfile::factory()->create(['status' => 'approved']);
+        Booking::factory()->for($driver, 'driver')->create(['status' => 'pending']);
+
+        $this->actingAs($driver->user)->get(route('driver.dashboard'))
+            ->assertOk()
+            ->assertSee('aria-label="New requests: 1"', false)
+            ->assertSee('<span class="badge text-bg-light text-primary ms-1" aria-hidden="true">1</span>', false);
+    }
+
+    public function test_draft_booking_stepper_highlights_inventory_until_confirmed(): void
+    {
+        $customer = User::factory()->create(['role' => 'customer']);
+        $booking = Booking::factory()->for($customer, 'customer')->create(['status' => 'draft']);
+
+        $page = $this->actingAs($customer)->get(route('booking.show', $booking))->assertOk();
+        $this->assertMatchesRegularExpression(
+            '/<li\b[^>]*class="is-current"[^>]*aria-current="step"[^>]*>\s*<span[^>]*>1<\/span>\s*<a[^>]*>Inventory<\/a>/s',
+            $page->getContent(),
+        );
+        $this->get(route('booking.edit', $booking))->assertOk()
+            ->assertSee(route('booking.show', $booking).'#review');
+    }
+
     public function test_contact_messages_and_platform_settings_are_available_only_to_admins(): void
     {
         $this->from(route('info.contact'))->post(route('info.contact.store'), [

@@ -5,13 +5,14 @@ namespace App\Http\Controllers;
 use App\Models\Booking;
 use App\Models\DriverProfile;
 use App\Models\MoveItNotification;
-use App\Models\PricingRule;
 use App\Models\PlatformSetting;
 use App\Models\Service;
 use App\Models\Vehicle;
 use App\Services\PaidBookingMatcher;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 
@@ -78,7 +79,7 @@ class BookingWorkflowController extends Controller
             $types = $services->pluck('service.type');
             abort_unless($services->every(fn ($line) => $line->service?->is_active)
                 && $types->filter(fn ($type) => $type === Service::TYPE_TRANSPORT)->count() === 1
-                && (!$types->contains(Service::TYPE_ASSEMBLY) || $types->contains(Service::TYPE_WORKERS)),
+                && (! $types->contains(Service::TYPE_ASSEMBLY) || $types->contains(Service::TYPE_WORKERS)),
                 422, 'Review the selected services.');
 
             $typeId = $booking->preferred_vehicle_type_id ?? ($booking->booking_method ? null : $booking->vehicle?->vehicle_type_id);
@@ -93,6 +94,8 @@ class BookingWorkflowController extends Controller
             $total = $this->transportPrice($vehicle, $meters, $this->timeMultiplier($booking->scheduled_start_at))
                 + $services->sum(fn ($line) => $this->milli($line->unit_price) * $line->quantity);
             abort_unless($total > 0 && $total <= 9999999999, 422, 'The booking total is outside the supported range.');
+
+            // حماية السعر لو تغير بين فترة الارسال والمعاينة بطلع ايرور
             abort_if(isset($expected['expected_total']) && $expected['expected_total'] !== $this->formatMilli($total),
                 409, 'The quote changed. Calculate it again before sending.');
 
@@ -195,7 +198,7 @@ class BookingWorkflowController extends Controller
             $booking = Booking::lockForUpdate()->findOrFail($booking->id);
             if ($booking->status !== 'cancelled') {
                 abort_unless(in_array($booking->status, ['pending', 'awaiting_deposit'], true)
-                    && !$booking->payments()->whereIn('status', ['pending', 'approved'])->exists(),
+                    && ! $booking->payments()->whereIn('status', ['pending', 'approved'])->exists(),
                     409, 'This cancellation requires admin review.');
                 $booking->update(['status' => 'cancelled']);
                 if ($booking->driver) {

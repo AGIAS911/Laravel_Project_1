@@ -55,11 +55,12 @@ class BookingServiceController extends Controller
         DB::transaction(function () use ($request, $data) {
             $booking = $this->draftBookings($request)->lockForUpdate()->findOrFail($data['booking_id']);
             $service = Service::where('is_active', true)->findOrFail($data['service_id']);
-
+// قواعد العمل لمنع تكرار السيرفس تاعت النقل 
             if ($booking->bookingServices()->where('service_id', $service->id)->exists()
                 || ($service->type === Service::TYPE_TRANSPORT && $this->hasType($booking, Service::TYPE_TRANSPORT))) {
                 $this->fail('service_id', __('booking_services.one_transport'));
             }
+            // ممنوع فك وتركيب لو في خدمة عمال 
             if ($service->type === Service::TYPE_ASSEMBLY && !$this->hasType($booking, Service::TYPE_WORKERS)) {
                 $this->fail('service_id', 'Add a workers service before adding furniture assembly.');
             }
@@ -128,6 +129,7 @@ class BookingServiceController extends Controller
         DB::transaction(function () use ($request, $bookingService) {
             $booking = $this->draftBookings($request)->lockForUpdate()->findOrFail($bookingService->booking_id);
             $line = $booking->bookingServices()->with('service')->findOrFail($bookingService->id);
+            // ممنوع حذف العمال لو كان محجوز فك وتركيب
             if ($line->service?->type === Service::TYPE_WORKERS && $this->hasType($booking, Service::TYPE_ASSEMBLY)) {
                 $this->fail('service', 'Remove furniture assembly before removing the workers service.');
             }
