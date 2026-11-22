@@ -1,21 +1,28 @@
 @extends('layouts.dashboard')
 
 @section('title', 'Dashboard | MoveIt')
-@section('page-title', 'Welcome, ' . auth()->user()->name)
-@section('page-icon', 'fa-house')
-@section('page-description', 'An overview of your bookings and activity.')
+@section('page-title', 'Your moves')
+@section('page-description', 'Track appointments, pick up drafts and review payment updates.')
 
 @section('content')
     @if (auth()->user()->role === 'customer')
-        <section class="workspace-banner customer-welcome d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
-            <div>
-                <h2 class="h4 fw-bold mb-1">Ready for a new move?</h2>
-                <p class="mb-0">Plan your route and choose a vehicle type for your move.</p>
-            </div>
-            <a class="btn btn-primary" href="{{ route('booking.create') }}">
-                <i class="fa-solid fa-plus" aria-hidden="true"></i> New booking
-            </a>
-        </section>
+        @if ($counts['awaiting_deposit'] ?? 0)
+            <section class="product-task mb-4" aria-labelledby="deposit-task-title">
+                <div>
+                    <h2 class="h5 mb-1" id="deposit-task-title">Deposit action required</h2>
+                    <p class="mb-0">Check payment deadlines and upload your receipt.</p>
+                </div>
+                <a class="btn btn-primary" href="{{ route('payments.index') }}">View deposits</a>
+            </section>
+        @elseif ($draft = $recentBookings->firstWhere('status', 'draft'))
+            <section class="product-task mb-4" aria-labelledby="draft-task-title">
+                <div>
+                    <h2 class="h5 mb-1" id="draft-task-title">Continue your booking</h2>
+                    <p class="mb-0">Booking {{ $draft->id }} is saved as a draft.</p>
+                </div>
+                <a class="btn btn-primary" href="{{ route('booking.show', $draft) }}">Open draft</a>
+            </section>
+        @endif
 
         <div class="row g-3 mb-4">
             @foreach ([
@@ -62,7 +69,10 @@
                                         <td><a class="btn btn-outline-secondary btn-sm" href="{{ route('booking.show', $booking) }}">Details</a></td>
                                     </tr>
                                 @empty
-                                    <tr><td colspan="4">You have no bookings yet.</td></tr>
+                                                                        <tr><td colspan="4">
+                                        <strong class="d-block mb-2">You have no bookings yet.</strong>
+                                        <a class="btn btn-outline-secondary" href="{{ route('booking.create') }}">Plan your first move</a>
+                                    </td></tr>
                                 @endforelse
                             </tbody>
                         </table>
@@ -71,13 +81,7 @@
             </div>
             <div class="col-lg-5">
                 <section class="card" aria-labelledby="recent-notifications-title">
-                    @if ($counts['awaiting_deposit'] ?? 0)
-                        <div class="card-body">
-                            <h2 class="h6 fw-bold">Action required</h2>
-                            <p>Review the bookings awaiting a deposit and upload a receipt.</p>
-                            <a class="btn btn-primary w-100" href="{{ route('payments.index') }}">View deposits</a>
-                        </div>
-                    @endif
+
                     <div class="card-header d-flex justify-content-between align-items-center gap-2">
                         <h2 class="h6 workspace-heading mb-0" id="recent-notifications-title">Recent notifications</h2>
                         <a href="{{ route('notifications.index') }}">View all</a>

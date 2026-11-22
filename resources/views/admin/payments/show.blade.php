@@ -80,7 +80,9 @@
                         @csrf
                         <label class="form-label" for="amount">Verified amount ({{ $currency }})</label>
                         <input class="form-control mb-3" type="number" step="0.001" min="0.001" max="9999999" id="amount"
-                            name="amount" value="{{ old('amount') }}" required>
+                            name="amount" value="{{ old('amount') }}" required
+                            @error('amount') aria-invalid="true" aria-describedby="amount-review-error" @enderror>
+                        @error('amount')<p id="amount-review-error" class="field-error">{{ $message }}</p>@enderror
                         <button class="btn btn-success w-100">Approve verified payment</button>
                     </form>
                     <details class="payment-reject mt-3" @if ($errors->has('rejection_reason')) open @endif>
@@ -89,7 +91,8 @@
                             @csrf
                             <label class="form-label" for="rejection_reason">Reason shown to the customer</label>
                             <textarea class="form-control mb-3" id="rejection_reason" name="rejection_reason" rows="3"
-                                maxlength="1000" required>{{ old('rejection_reason') }}</textarea>
+                                maxlength="1000" required @error('rejection_reason') aria-invalid="true" aria-describedby="proof-reason-error" @enderror>{{ old('rejection_reason') }}</textarea>
+                            @error('rejection_reason')<p id="proof-reason-error" class="field-error">{{ $message }}</p>@enderror
                             <button class="btn btn-outline-danger">Reject proof</button>
                         </form>
                     </details>

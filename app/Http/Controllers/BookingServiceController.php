@@ -61,7 +61,7 @@ class BookingServiceController extends Controller
                 $this->fail('service_id', __('booking_services.one_transport'));
             }
             if ($service->type === Service::TYPE_ASSEMBLY && !$this->hasType($booking, Service::TYPE_WORKERS)) {
-                $this->fail('service_id', __('booking_services.assembly_needs_workers'));
+                $this->fail('service_id', 'Add a workers service before adding furniture assembly.');
             }
 
             $booking->bookingServices()->create([
@@ -129,7 +129,7 @@ class BookingServiceController extends Controller
             $booking = $this->draftBookings($request)->lockForUpdate()->findOrFail($bookingService->booking_id);
             $line = $booking->bookingServices()->with('service')->findOrFail($bookingService->id);
             if ($line->service?->type === Service::TYPE_WORKERS && $this->hasType($booking, Service::TYPE_ASSEMBLY)) {
-                $this->fail('service', __('booking_services.workers_needed_for_assembly'));
+                $this->fail('service', 'Remove furniture assembly before removing the workers service.');
             }
             $line->delete();
         }, 3);

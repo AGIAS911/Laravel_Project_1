@@ -14,7 +14,7 @@
 @endphp
 @include('layouts.moveit-public-header')
 
-<main>
+<main id="info-main" class="product-info-main" tabindex="-1">
     @yield('content')
 </main>
 

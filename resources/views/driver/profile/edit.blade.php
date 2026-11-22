@@ -1,18 +1,19 @@
-@extends('layouts.app')
+@extends('layouts.dashboard')
+
+@section('page-title', $driver ? 'Edit driver profile' : 'Complete your driver profile')
+@section('page-description', $driver ? 'Update your contact details, license and password.' : 'Submit your license details for approval.')
 
 @section('content')
-<div class="container">
-    <div class="card p-4 col-md-6">
-        <h4 class="mb-3">{{ $driver ? 'Edit Driver Profile' : 'Complete your driver profile' }}</h4>
-        @unless ($driver)
-            <p>Enter your license details to complete your profile.</p>
-        @endunless
+    <div class="card card-body product-editor">
 
         <form action="{{ route('driver.profile.update', absolute: false) }}" method="POST" enctype="multipart/form-data">
             @csrf
             @method('PUT')
 
-            <div class="mb-3">
+            <fieldset class="product-form-section">
+                <legend>Contact details</legend>
+            <div class="row g-3">
+            <div class="col-md-6">
                 <label class="form-label" for="name">Name</label>
                 <input type="text" id="name" name="name" class="form-control @error('name') is-invalid @enderror"
                        value="{{ old('name', $user->name) }}" required>
@@ -21,7 +22,7 @@
                 @enderror
             </div>
 
-            <div class="mb-3">
+            <div class="col-md-6">
                 <label class="form-label" for="email">Email</label>
                 <input type="email" id="email" name="email" class="form-control @error('email') is-invalid @enderror"
                        value="{{ old('email', $user->email) }}" required>
@@ -30,8 +31,10 @@
                 @enderror
             </div>
 
-            <hr class="my-4">
-
+            </div>
+            </fieldset>
+            <fieldset class="product-form-section">
+                <legend>Driver license</legend>
             <div class="mb-3">
                 <label class="form-label" for="license_number">License number</label>
                 <input type="text" id="license_number" name="license_number" class="form-control @error('license_number') is-invalid @enderror"
@@ -60,8 +63,9 @@
                 @enderror
             </div>
 
-            <hr class="my-4">
-            <h6 class="mb-3">Change password (optional)</h6>
+            </fieldset>
+            <fieldset class="product-form-section">
+                <legend>Change password (optional)</legend>
 
             <div class="mb-3">
                 <label class="form-label" for="current_password">Current password</label>
@@ -87,7 +91,8 @@
                        class="form-control" autocomplete="new-password">
             </div>
 
-            <div class="d-flex gap-2 mt-4">
+            </fieldset>
+            <div class="d-flex flex-wrap gap-2 mt-4">
                 <button type="submit" class="btn btn-primary">{{ $driver ? 'Save changes' : 'Submit' }}</button>
                 @if ($driver)
                     <a href="{{ route('driver.profile.show') }}" class="btn btn-outline-secondary">Cancel</a>
@@ -95,5 +100,4 @@
             </div>
         </form>
     </div>
-</div>
 @endsection

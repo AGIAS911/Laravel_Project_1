@@ -6,12 +6,14 @@
                 <button type="submit" aria-label="Search bookings"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i></button>
                 <input type="search" name="q" aria-label="Search by booking ID" placeholder="Search by booking ID">
             </form>
-            <a class="admin-bell" href="{{ route('notifications.index') }}" aria-label="Notifications">
+            @php($unread = auth()->user()->unreadNotifications()->count())
+            <a class="admin-bell" href="{{ route('notifications.index') }}" aria-label="{{ $unread ? 'Notifications, '.$unread.' unread' : 'Notifications' }}"
+                @if (request()->routeIs('notifications.*')) aria-current="page" @endif>
                 <i class="fa-regular fa-bell" aria-hidden="true"></i>
-                @if ($unread = auth()->user()->unreadNotifications()->count())<span class="admin-count">{{ $unread }}</span>@endif
+                @if ($unread)<span class="admin-count" aria-hidden="true">{{ $unread > 99 ? '99+' : $unread }}</span>@endif
             </a>
             <details class="admin-account">
-                <summary><span class="admin-avatar" aria-hidden="true">{{ str(auth()->user()->name)->substr(0, 1)->upper() }}</span><span><strong>{{ auth()->user()->name }}</strong><small>{{ auth()->user()->role === 'customer' ? 'Customer account' : 'Administrator' }}</small></span></summary>
+                <summary aria-label="Administrator account menu"><span class="admin-avatar" aria-hidden="true">{{ str(auth()->user()->name)->substr(0, 1)->upper() }}</span><span><strong>{{ auth()->user()->name }}</strong><small>{{ auth()->user()->role === 'customer' ? 'Customer account' : 'Administrator' }}</small></span></summary>
                 <div>
                     <a href="{{ route('profile.edit') }}">Account settings</a>
                     <form method="POST" action="{{ route('logout') }}">

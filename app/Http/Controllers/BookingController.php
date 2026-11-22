@@ -17,20 +17,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
 
-use App\Models\User;
-use App\Models\Payment;
-use App\Models\Vehicle;
-use App\Models\BookingService;
-use App\Models\ScanSession;
-use App\Models\InventoryItem;
-use App\Models\Review;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Str;
+
 class BookingController extends Controller
 {
     /**

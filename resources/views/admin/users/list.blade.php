@@ -8,16 +8,15 @@
     <a class="btn btn-outline-secondary" href="{{ route('admin.driver-approvals') }}">Driver approvals</a>
 @endsection
 
+@section('page-description', 'Find customer and driver accounts and update their details.')
+
 @section('content')
-    @if (session('success'))
-        <div class="alert alert-success" role="alert">{{ session('success') }}</div>
-    @endif
 
     @if ($errors->any())
         <div class="alert alert-danger" role="alert">{{ $errors->first() }}</div>
     @endif
 
-    <nav class="d-flex flex-wrap gap-2 mb-3" aria-label="Filter users">
+    <nav class="product-filterbar mb-3" aria-label="Filter users">
         <a @class(['move-filter', 'is-current' => !$currentRole])
            href="{{ route('admin.users.index') }}"
            @if (!$currentRole) aria-current="page" @endif>All users</a>

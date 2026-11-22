@@ -1,9 +1,14 @@
 (() => {
     const panel = document.getElementById('booking-map-panel');
     if (!panel || !window.L) return;
-    panel.hidden = false;
     const form = panel.closest('form');
-    const map = L.map('booking-map').setView([31.9539, 35.9106], 12);
+    const mapCard = panel.closest('.move-location-map-card');
+    const hint = mapCard.querySelector('[data-map-hint]');
+    const targets = panel.querySelectorAll('input[name="map_target"]');
+    panel.hidden = false;
+    mapCard.querySelector('[data-map-unavailable]').hidden = true;
+    hint.hidden = false;
+    const map = L.map('booking-map', { scrollWheelZoom: false }).setView([31.9539, 35.9106], 12);
     L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
@@ -11,10 +16,23 @@
 
     const markers = {};
 
-    const routeInfo = document.createElement('p');
-    routeInfo.className = 'small fw-semibold mb-0 mt-2';
-    routeInfo.setAttribute('role', 'status');
-    document.getElementById('booking-map').after(routeInfo);
+    const routeInfo = panel.querySelector('[data-route-info]');
+
+    function updatePinStatus() {
+        const target = form.elements.map_target.value;
+        const title = target === 'pickup' ? 'pickup' : 'destination';
+        hint.textContent = markers[target]
+            ? 'Tap the map or use its center to move the ' + title + ' pin.'
+            : 'Tap the map or use its center to place the ' + title + ' pin.';
+
+        for (const status of form.querySelectorAll('[data-pin-status]')) {
+            const placed = Boolean(markers[status.dataset.pinStatus]);
+            status.textContent = placed ? 'Pin placed' : 'Pin needed';
+            status.classList.toggle('is-placed', placed);
+        }
+    }
+
+    for (const target of targets) target.addEventListener('change', updatePinStatus);
 
     let routeLine = null;
     let routeRequest = 0;
@@ -24,9 +42,13 @@
             routeLine.remove();
             routeLine = null;
         }
-        routeInfo.textContent = '';
+        const thisRequest = ++routeRequest;
+        routeInfo.hidden = !markers.pickup || !markers.destination;
 
-        if (!markers.pickup || !markers.destination) return;
+        if (routeInfo.hidden) {
+            routeInfo.textContent = '';
+            return;
+        }
 
         const from = markers.pickup.getLatLng();
         const to = markers.destination.getLatLng();
@@ -37,9 +59,6 @@
             + '?overview=full&geometries=geojson';
 
         routeInfo.textContent = 'Calculating route…';
-
-        routeRequest = routeRequest + 1;
-        const thisRequest = routeRequest;
 
         fetch(url)
             .then(function (response) {
@@ -81,33 +100,45 @@
             const lat = Number(latitude.value);
             const lng = Number(longitude.value);
             if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return;
-            markers[stop] = L.circleMarker([lat, lng], { radius: 8, color: '#fff', weight: 2, fillColor: stop === 'pickup' ? '#c9343d' : '#123342', fillOpacity: 1 }).addTo(map).bindTooltip(title);
+            const icon = L.divIcon({
+                className: stop === 'pickup' ? 'move-location-pin is-pickup' : 'move-location-pin',
+                html: stop === 'pickup' ? 'A' : 'B',
+                iconSize: [30, 30],
+                iconAnchor: [15, 15],
+            });
+            markers[stop] = L.marker([lat, lng], { icon, title, alt: title }).addTo(map).bindTooltip(title, { direction: 'top' });
         };
-        latitude.addEventListener('change', () => { refresh(); updateRoute(); });
-        longitude.addEventListener('change', () => { refresh(); updateRoute(); });
+        const updateStop = () => {
+            refresh();
+            updatePinStatus();
+            updateRoute();
+        };
+        latitude.addEventListener('change', updateStop);
+        longitude.addEventListener('change', updateStop);
         refresh();
     }
 
     const existing = Object.values(markers);
     if (existing.length) map.fitBounds(L.featureGroup(existing).getBounds(), { padding: [25, 25], maxZoom: 14 });
 
+    if (markers.pickup && !markers.destination) form.elements.map_target.value = 'destination';
+    updatePinStatus();
     updateRoute();
 
     function setLocation(stop, lat, lng) {
         const latitude = form.elements[`${stop}_latitude`];
         form.elements[`${stop}_longitude`].value = lng.toFixed(7);
         latitude.value = lat.toFixed(7);
+        if (stop === 'pickup' && !markers.destination) form.elements.map_target.value = 'destination';
         latitude.dispatchEvent(new Event('change'));
     }
 
-    map.on('click', ({ latlng }) => {
-        const target = form.elements.map_target.value;
-        setLocation(target, latlng.lat, latlng.lng);
+    function placePin({ lat, lng }) {
+        setLocation(form.elements.map_target.value, lat, lng);
+    }
 
-        if (target === 'pickup' && !form.elements.destination_latitude.value) {
-            document.getElementById('map-destination').checked = true;
-        }
-    });
+    map.on('click', ({ latlng }) => placePin(latlng));
+    panel.querySelector('[data-pin-center]').addEventListener('click', () => placePin(map.getCenter()));
 
     const locationButton = panel.querySelector('[data-current-location]');
     const locationStatus = panel.querySelector('[data-location-status]');

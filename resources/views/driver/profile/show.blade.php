@@ -14,8 +14,8 @@
     @endphp
 
     <div class="driver-profile-page">
-        <header class="driver-profile-heading">
-            <h1>Driver profile</h1>
+        <header class="driver-profile-heading product-operator-heading">
+            <h1 class="product-title">Driver profile</h1>
             <a class="driver-button driver-fleet-add" href="{{ route('driver.profile.edit') }}">
                 <i class="fa-solid fa-pen" aria-hidden="true"></i> Edit profile
             </a>

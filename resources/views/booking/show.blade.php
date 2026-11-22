@@ -1,9 +1,7 @@
 @extends('layouts.dashboard')
 
 @section('title', 'Booking ' . $booking->id)
-@section('page-title', 'Booking ' . $booking->id)
 @section('page-icon', 'fa-clipboard-list')
-@section('page-description', 'Track your move, furniture inventory, and payment status.')
 
 @php
     $user = auth()->user();
@@ -21,7 +19,16 @@
     };
     $showReview = $draft && (!$booking->booking_method || $wizardStep === 'review');
     $checkoutReady = $showReview && \App\Models\PlatformSetting::bookingConfigured();
+    $wizardReview = $showReview && $booking->booking_method;
+    $servicesAnchor = $wizardReview ? 'moving-services' : 'services';
+    $selectedTypes = $showReview ? $booking->bookingServices->pluck('service.type') : collect();
 @endphp
+
+@section('page-title', $wizardReview ? 'Review your move' : 'Booking ' . $booking->id)
+@if ($wizardReview)
+    @section('page-anchor', 'services')
+@endif
+@section('page-description', $wizardReview ? 'Check the details and your quote before paying the deposit.' : 'Track your move, furniture inventory, and payment status.')
 
 @section('actions')
     <a class="btn btn-outline-secondary" href="{{ route($user->role === 'driver' ? 'driver.bookings.index' : 'booking.index') }}">Back to bookings</a>
@@ -38,20 +45,18 @@
             'review' => '#services',
         ]])
     @endif
-    @if ($owner)
+    @if ($owner && !$wizardReview)
         @include('booking._journey')
     @endif
 
-
-    <div @class(['row g-4', 'booking-draft-detail' => $draft])>
+    <div @class(['row g-4', 'booking-draft-detail' => $draft, 'booking-review-layout' => $wizardReview])>
         <div class="col-lg-8">
-            @if ($draft && $booking->needsInventory())
+            @if ($draft && !$wizardReview && $booking->needsInventory())
                 @include('booking._inventory')
-
             @endif
-    <section class="card mb-3" id="locations">
+    <section class="card mb-3 product-booking-section" id="locations" aria-labelledby="move-details-heading">
         <div class="card-body">
-            <h2 class="h5 workspace-heading"><i class="fa-solid fa-route me-1" aria-hidden="true"></i> Move details</h2>
+            <h2 class="h5 workspace-heading" id="move-details-heading"><i class="fa-solid fa-route me-1" aria-hidden="true"></i> Move details</h2>
             <p class="text-body-secondary mb-3">
                 <i class="fa-regular fa-calendar-days me-1" aria-hidden="true"></i>
                 @if ($booking->scheduled_start_at)
@@ -65,7 +70,9 @@
                 @foreach (['pickup' => 'Pickup', 'destination' => 'Destination'] as $stop => $stopLabel)
                     <div class="col-sm-6">
                         <div class="h-100 border rounded-3 p-3">
-                            <h3 class="h6 workspace-heading mb-1"><i class="fa-solid {{ $stop === 'pickup' ? 'fa-circle-dot' : 'fa-location-dot' }} me-1" aria-hidden="true"></i> {{ $stopLabel }}</h3>
+                            <h3 class="h6 workspace-heading mb-1">
+                                <span class="move-stop-letter move-stop-{{ $stop }} me-1" aria-hidden="true">{{ $loop->first ? 'A' : 'B' }}</span>{{ $stopLabel }}
+                            </h3>
                             @if ($booking->{$stop.'_latitude'} !== null && $booking->{$stop.'_longitude'} !== null)
                                 <p class="small text-body-secondary mb-1">Floor {{ $booking->{$stop.'_floor'} }} · {{ $booking->{$stop.'_has_elevator'} ? 'Elevator available' : 'No elevator' }}</p>
                                 <a class="link-secondary small d-inline-flex align-items-center py-2" target="_blank" rel="noopener"
@@ -80,7 +87,16 @@
             @if ($booking->notes)<p class="mt-2">{{ $booking->notes }}</p>@endif
             @if ($booking->rejection_reason)<p>{{ $booking->rejection_reason }}</p>@endif
             @if ($draft)
-                <a class="btn btn-outline-secondary" href="{{ route('booking.edit', $booking->booking_method ? ['booking' => $booking, 'step' => 'route'] : $booking) }}">Edit locations and appointment</a>
+                <div class="d-flex flex-wrap gap-2">
+                    <a class="btn btn-outline-secondary product-action" href="{{ route('booking.edit', $booking->booking_method ? ['booking' => $booking, 'step' => 'route'] : $booking) }}">
+                        <i class="fa-solid fa-location-dot" aria-hidden="true"></i> {{ $booking->booking_method ? 'Edit locations' : 'Edit locations and appointment' }}
+                    </a>
+                    @if ($wizardReview)
+                        <a class="btn btn-outline-secondary product-action" href="{{ route('booking.edit', ['booking' => $booking, 'step' => 'time']) }}">
+                            <i class="fa-regular fa-calendar-days" aria-hidden="true"></i> Edit date and time
+                        </a>
+                    @endif
+                </div>
             @endif
         </div>
     </section>
@@ -122,22 +138,27 @@
     @endif
 
     @if ($showReview)
-        <section class="card mb-3">
+        <section class="card mb-3 product-booking-section product-service-panel" id="{{ $servicesAnchor }}" aria-labelledby="moving-services-heading"
+            data-workflow-scope data-workflow-return="{{ $servicesAnchor }}">
             <div class="card-body">
-                <h2 class="h5 workspace-heading" id="services">Services</h2>
+                <h2 class="h5 workspace-heading" id="moving-services-heading">Moving services</h2>
+                <p class="small text-body-secondary">Review your selected services or add help for your move.</p>
+                <p class="booking-workflow-message" data-workflow-status role="status"></p>
                 @foreach ($booking->bookingServices as $line)
-                    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-                        <span>{{ $line->service_name }}</span>
+                    <div class="product-service-row d-flex flex-wrap align-items-center gap-2 mb-2">
+                        <div class="product-service-name">
+                            <span class="product-service-icon"><x-service-icon :type="$line->service?->type" /></span>
+                            <strong>{{ $line->service_name }}</strong>
+                        </div>
                         @if ($line->unit !== 'fixed')
-                            <form class="d-flex gap-2" data-workflow-form method="POST" action="{{ route('booking-services.update', $line, false) }}">
+                            <form data-workflow-form data-auto-quantity method="POST" action="{{ route('booking-services.update', $line, false) }}">
                                 @csrf @method('PUT')
-                                <input class="form-control form-control-sm" style="max-width:6rem" name="quantity" aria-label="{{ $line->service_name }} quantity" type="number" min="1" max="1000" value="{{ $line->quantity }}" required>
-                                <button class="btn btn-outline-primary btn-sm">Update</button>
+                                <x-service-quantity :label="$line->service_name . ' quantity'" :value="$line->quantity" />
                             </form>
                         @endif
                         <form data-workflow-form method="POST" action="{{ route('booking-services.destroy', $line, false) }}">
                             @csrf @method('DELETE')
-                            <button class="btn btn-outline-danger btn-sm">Remove</button>
+                            <button class="btn btn-outline-danger btn-sm product-action" aria-label="Remove {{ $line->service_name }}"><i class="fa-solid fa-trash-can" aria-hidden="true"></i> Remove</button>
                         </form>
                     </div>
                 @endforeach
@@ -147,54 +168,25 @@
                     <div class="col-sm">
                         <label class="form-label" for="service_id">Service</label>
                         <select class="form-select" name="service_id" id="service_id" required>
-                            <option value="">Choose a service</option>
+                            <option value="">Choose an additional service</option>
                             @foreach ($services->whereNotIn('id', $booking->bookingServices->pluck('service_id')) as $service)
-                                <option value="{{ $service->id }}">{{ $service->name }} · {{ $service->price }} JOD</option>
+                                @php($needsWorkers = $service->type === \App\Models\Service::TYPE_ASSEMBLY && !$selectedTypes->contains(\App\Models\Service::TYPE_WORKERS))
+                                @continue($service->type === \App\Models\Service::TYPE_TRANSPORT && $selectedTypes->contains(\App\Models\Service::TYPE_TRANSPORT))
+                                <option value="{{ $service->id }}" @disabled($needsWorkers)>{{ $service->name }} · {{ $service->price }} JOD{{ $needsWorkers ? ' (add workers first)' : '' }}</option>
                             @endforeach
                         </select>
                     </div>
-                    <div class="col-sm-3">
+                    <div class="col-sm-auto">
                         <label class="form-label" for="service_quantity">Quantity</label>
-                        <input class="form-control" id="service_quantity" name="quantity" type="number" min="1" max="1000" value="1" required>
+                        <x-service-quantity id="service_quantity" label="New service quantity" />
                     </div>
-                    <div class="col-auto"><button class="btn btn-outline-primary">Add service</button></div>
+                    <div class="col-auto"><button class="btn btn-outline-primary product-action"><i class="fa-solid fa-plus" aria-hidden="true"></i> Add service</button></div>
                 </form>
             </div>
         </section>
-    <section class="card mb-3" data-workflow-scope>
-            <div class="card-body">
-                <h2 class="h5 workspace-heading" id="review">Review and send</h2>
-                @if (!\App\Models\PlatformSetting::quoteConfigured())
-                    <p class="alert alert-warning mb-0">Route pricing is temporarily unavailable. Your draft is saved. <a href="{{ route('info.contact') }}">Contact support</a> for help.</p>
-                @else
-
-                @if ($checkoutReady)
-                    <p class="small text-body-secondary">Calculate your quote to see the total and deposit. We will look for a driver once your full deposit is verified.</p>
-                @else
-                    <p class="alert alert-warning">You can calculate the moving price now. CliQ checkout is temporarily unavailable, and your draft is saved.</p>
-                @endif
-                <p class="booking-workflow-message" data-workflow-status role="status"></p>
-                <div class="booking-quote mb-3" data-booking-quote hidden aria-live="polite">
-                    <div><span>Road distance</span><strong data-quote-distance></strong></div>
-                    <div><span>Total</span><strong data-quote-total></strong></div>
-                    <div><span>Deposit</span><strong data-quote-deposit></strong></div>
-                </div>
-                <div class="d-flex flex-wrap gap-2">
-                    <form data-workflow-form="quote" method="POST" action="{{ route('bookings.quote', $booking, false) }}">
-                        @csrf
-                        <button class="btn btn-outline-primary">Calculate quote</button>
-                    </form>
-                    @if ($checkoutReady)
-                        <form id="submit-booking" data-workflow-form method="POST" action="{{ route('bookings.submit', $booking, false) }}" hidden>
-                            @csrf
-                            <input type="hidden" name="expected_total">
-                            <button class="btn btn-primary">Continue to CliQ payment</button>
-                        </form>
-                    @endif
-                </div>
-                @endif
-            </div>
-        </section>
+        @unless ($wizardReview)
+            @include('booking._quote')
+        @endunless
     @elseif (!$draft)
         <section class="card card-body mb-3">
             <h2 class="h5">{{ $booking->needsInventory() ? 'Furniture and services' : 'Moving services' }}</h2>
@@ -215,6 +207,24 @@
 
         </div>
         <aside class="col-lg-4 d-grid gap-3 align-content-start">
+            <div class="card card-body booking-detail-summary product-booking-summary" data-booking-summary>
+                <h2 class="h5 workspace-heading"><i class="fa-solid fa-receipt me-1" aria-hidden="true"></i> Booking summary</h2>
+                <p>@include('booking._status', ['state' => $booking->status])</p>
+                <dl class="row mb-0" @if ($wizardReview) aria-live="polite" @endif>
+                    @if ($owner && ($booking->preferredVehicleType || $booking->vehicle?->vehicleType))
+                        <dt class="col-6">Vehicle type</dt>
+                        <dd class="col-6">{{ $booking->preferredVehicleType?->name ?? $booking->vehicle->vehicleType?->name }}</dd>
+                    @endif
+
+                    <dt class="col-6">Distance</dt><dd class="col-6" data-summary-distance>{{ $booking->distance_km !== null ? $booking->distance_km . ' km' : ($wizardReview ? 'After quote' : '—') }}</dd>
+                    <dt class="col-6">Total</dt><dd class="col-6" data-summary-total>{{ $booking->total_price !== null ? $booking->total_price . ' JOD' : ($wizardReview ? 'After quote' : '—') }}</dd>
+                    <dt class="col-6">Deposit</dt><dd class="col-6" data-summary-deposit>{{ $booking->deposit_amount !== null ? $booking->deposit_amount . ' JOD' : ($wizardReview ? 'After quote' : '—') }}</dd>
+                </dl>
+                @if ($wizardReview)
+                    @include('booking._quote')
+                @endif
+            </div>
+
             @if ($draft)
                 <nav class="card card-body booking-detail-links" aria-label="On this booking">
                     <h2 class="h6 workspace-heading">On this booking</h2>
@@ -226,25 +236,11 @@
                     @endif
                     <a href="#locations"><i class="fa-solid fa-route" aria-hidden="true"></i> Move details</a>
                     @if (!$booking->booking_method || $wizardStep === 'review')
-                        <a href="#services"><i class="fa-solid fa-screwdriver-wrench" aria-hidden="true"></i> Services</a>
+                        <a href="#{{ $servicesAnchor }}"><i class="fa-solid fa-screwdriver-wrench" aria-hidden="true"></i> Services</a>
                         <a href="#review"><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i> Review and send</a>
                     @endif
                 </nav>
             @endif
-            <div class="card card-body booking-detail-summary" data-booking-summary>
-                <h2 class="h5 workspace-heading"><i class="fa-solid fa-receipt me-1" aria-hidden="true"></i> Booking summary</h2>
-                <p>@include('booking._status', ['state' => $booking->status])</p>
-                <dl class="row mb-0">
-                    @if ($owner && ($booking->preferredVehicleType || $booking->vehicle?->vehicleType))
-                        <dt class="col-6">Vehicle type</dt>
-                        <dd class="col-6">{{ $booking->preferredVehicleType?->name ?? $booking->vehicle->vehicleType?->name }}</dd>
-                    @endif
-
-                    <dt class="col-6">Distance</dt><dd class="col-6" data-summary-distance>{{ $booking->distance_km !== null ? $booking->distance_km . ' km' : '—' }}</dd>
-                    <dt class="col-6">Total</dt><dd class="col-6" data-summary-total>{{ $booking->total_price !== null ? $booking->total_price . ' JOD' : '—' }}</dd>
-                    <dt class="col-6">Deposit</dt><dd class="col-6" data-summary-deposit>{{ $booking->deposit_amount !== null ? $booking->deposit_amount . ' JOD' : '—' }}</dd>
-                </dl>
-            </div>
 
     @if ($cancellationRequiresReview)
         <p class="alert alert-info">Contact <a href="{{ route('info.contact') }}">support</a> if you need to cancel. Your payment proof requires a review before cancellation.</p>
@@ -274,6 +270,11 @@
         @include('driver._booking-actions')
     @endif
         </aside>
+        @if ($wizardReview && $booking->needsInventory())
+            <div class="col-lg-8">
+                @include('booking._inventory')
+            </div>
+        @endif
     </div>
     <script src="{{ asset('js/booking-workflow.js') }}" defer></script>
 @endsection

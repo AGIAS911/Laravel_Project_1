@@ -4,16 +4,19 @@
 
 @section('content')
     <section class="panel">
-        <h1>{{ $vehicleType->name }}</h1>
+        <header class="product-page-header">
+            <h1 class="product-title">{{ $vehicleType->name }}</h1>
+            @include('booking._status', ['state' => $vehicleType->is_active ? 'active' : 'inactive'])
+        </header>
         <p><strong>Status:</strong> {{ $vehicleType->is_active ? 'Active' : 'Inactive' }}</p>
         <p><strong>Description:</strong> {{ $vehicleType->description ?: 'No description.' }}</p>
         <p><strong>Linked vehicles:</strong> {{ $vehicleType->vehicles_count }}</p>
-        @if ($vehicleType->image)
-            <p><img src="{{ asset($vehicleType->image) }}" alt="Image of {{ $vehicleType->name }}" style="max-width: 320px; max-height: 240px"></p>
-        @endif
+        <p><x-vehicle-illustration :name="$vehicleType->name" :photo="$vehicleType->image" class="product-vehicle-preview" /></p>
         <div class="actions">
-            <a class="button" href="{{ route('vehicle-types.edit', $vehicleType) }}">Edit</a>
-            <a class="button secondary" href="{{ route('vehicle-types.index') }}">Back to Vehicle Types</a>
+            @if (auth()->user()?->role === 'admin')
+                <a class="btn btn-primary product-action" href="{{ route('vehicle-types.edit', $vehicleType) }}"><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit</a>
+            @endif
+            <a class="btn btn-outline-secondary product-action" href="{{ route('vehicle-types.index') }}"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Back to vehicle types</a>
         </div>
     </section>
 @endsection

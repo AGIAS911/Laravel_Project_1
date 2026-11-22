@@ -1,6 +1,7 @@
 @extends('layouts.dashboard')
 
 @section('page-title', 'Driver approvals')
+@section('page-description', 'Review submitted licenses and update driver access.')
 @section('page-description', 'Review licenses and update driver status.')
 
 @section('content')

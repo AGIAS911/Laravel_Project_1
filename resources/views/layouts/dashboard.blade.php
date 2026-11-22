@@ -10,26 +10,26 @@
                 </aside>
             @endif
 
-            <section class="col">
-                <header class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+            <section class="col product-page">
+                <header class="product-page-header" @hasSection('page-anchor') id="@yield('page-anchor')" @endif>
                     <div>
-                        <h1 class="h3 workspace-heading mb-0">
-                            @if (auth()->user()?->role === 'customer' && View::hasSection('page-icon'))
-                                <span class="customer-page-icon" aria-hidden="true"><i class="fa-solid @yield('page-icon')"></i></span>
-                            @endif
-                            @yield('page-title', __('Dashboard'))
-                        </h1>
+                        <h1 class="workspace-heading">@yield('page-title', __('Dashboard'))</h1>
                         @hasSection('page-description')
                             <p class="text-body-secondary mb-0 mt-1">@yield('page-description')</p>
                         @endif
                     </div>
-                    @yield('actions')
+                    @hasSection('actions')
+                        <div class="product-page-actions">@yield('actions')</div>
+                    @endif
                 </header>
 
                 @if (session('success'))
                     <div class="alert alert-success" role="status">{{ session('success') }}</div>
                 @endif
 
+                @if (session('error'))
+                    <div class="alert alert-danger" role="alert">{{ session('error') }}</div>
+                @endif
                 @yield('content')
             </section>
         </div>

@@ -2,10 +2,10 @@
 
 @section('content')
 <div class="container">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1 class="h4 mb-0">{{ __('booking_services.add') }}</h1>
+    <header class="product-page-header">
+        <h1 class="product-title">{{ __('booking_services.add') }}</h1>
         <a class="btn btn-outline-secondary" href="{{ route('booking-services.index') }}">{{ __('booking_services.back') }}</a>
-    </div>
+    </header>
 
     @if ($errors->any())
         <div class="alert alert-danger" role="alert">
@@ -19,7 +19,7 @@
     @endif
 
     <form method="POST" action="{{ route('booking-services.store') }}"
-        class="border rounded bg-white p-3 p-md-4">
+        class="card card-body product-editor">
         @csrf
 
         <div class="row g-3">

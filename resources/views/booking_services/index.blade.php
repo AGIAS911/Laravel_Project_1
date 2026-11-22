@@ -3,12 +3,12 @@
 @section('content')
 @php $canEdit = in_array(auth()->user()->role, ['admin', 'customer']); @endphp
 <div class="container">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1 class="h4 mb-0">{{ __('booking_services.title') }}</h1>
+    <header class="product-page-header">
+        <h1 class="product-title">{{ __('booking_services.title') }}</h1>
         @if ($canEdit)
             <a class="btn btn-primary" href="{{ route('booking-services.create') }}">{{ __('booking_services.add') }}</a>
         @endif
-    </div>
+    </header>
 
     @if (session('success'))
         <div class="alert alert-success" role="alert">{{ session('success') }}</div>
@@ -18,7 +18,7 @@
         <div class="alert alert-danger" role="alert">{{ $message }}</div>
     @enderror
 
-    <div class="table-responsive border rounded bg-white">
+    <div class="table-responsive card">
         <table class="table table-hover align-middle mb-0">
             <thead>
                 <tr>
@@ -49,7 +49,7 @@
                                 <a class="btn btn-outline-primary btn-sm"
                                     href="{{ route('booking-services.edit', $bookingService->id) }}">{{ __('booking_services.edit') }}</a>
                                 <form method="POST" action="{{ route('booking-services.destroy', $bookingService->id) }}"
-                                    class="d-inline" onsubmit="return confirm('{{ __('booking_services.confirm_delete') }}');">
+                                    class="d-inline" data-popup-title="Remove this service?" data-popup-action="Remove service" data-popup-danger>
                                     @csrf
                                     @method('DELETE')
                                     <button class="btn btn-outline-danger btn-sm" type="submit">{{ __('booking_services.delete') }}</button>

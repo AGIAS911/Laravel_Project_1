@@ -102,7 +102,7 @@
                                 <a class="btn btn-link" href="{{ route('bookings.inventory.image', [$booking, $item]) }}" target="_blank" rel="noopener">View photo <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
                             @endif
                             @if ($item->source === 'manual')
-                                <form data-workflow-form data-workflow-confirm="Remove this item from the booking?" method="POST" action="{{ route('bookings.inventory.destroy', [$booking, $item], false) }}">
+                                <form data-workflow-form data-popup-title="Remove this item from the booking?" data-popup-action="Remove item" data-popup-danger method="POST" action="{{ route('bookings.inventory.destroy', [$booking, $item], false) }}">
                                     @csrf @method('DELETE')
                                     <button class="btn btn-link text-danger" type="submit">Remove item</button>
                                 </form>

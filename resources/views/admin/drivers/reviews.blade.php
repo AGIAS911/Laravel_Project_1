@@ -1,16 +1,13 @@
-@extends('layouts.app')
+@extends('layouts.dashboard')
+
+@section('page-title', 'Ratings for '.$driverProfile->user->name)
+@section('page-description', 'Customer ratings and report comments for this driver.')
+@section('actions')
+    <a class="btn btn-outline-secondary" href="{{ route('admin.driver-reviews.index') }}">Back to reviews</a>
+@endsection
 
 @section('content')
-    <div class="container py-4">
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
-            <div>
-                <h1 class="h3 mb-1">Ratings for {{ $driverProfile->user->name }}</h1>
-                <p class="text-muted mb-0">Customer ratings and report comments for this driver.</p>
-            </div>
-            <a class="btn btn-outline-secondary" href="{{ route('admin.driver-reviews.index') }}">
-                All drivers
-            </a>
-        </div>
+    <div>
 
         <div class="card">
             <div class="table-responsive">

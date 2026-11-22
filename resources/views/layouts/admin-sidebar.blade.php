@@ -3,7 +3,7 @@
     $adminPendingReceipts = $adminPendingReceipts ?? \App\Models\Payment::where('status', \App\Models\Payment::STATUS_PENDING)->count();
 @endphp
 <aside class="admin-sidebar" id="admin-sidebar">
-    <a class="moveit-brand" href="{{ url('/') }}" aria-label="MoveIt home">MOVE<span>IT</span></a>
+    <a class="moveit-brand" href="{{ route('admin.dashboard') }}" aria-label="MoveIt admin dashboard">MOVE<span>IT</span></a>
     <p class="admin-role"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> Admin</p>
     <nav aria-label="Admin workspace">
         <a href="{{ route('admin.dashboard') }}" @if (request()->routeIs('admin.dashboard')) aria-current="page" @endif>

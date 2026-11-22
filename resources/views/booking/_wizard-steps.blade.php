@@ -19,7 +19,7 @@
                 default => route('booking.edit', ['booking' => $booking, 'step' => $key]),
             };
         @endphp
-        <li @class(['is-current' => $current === $key]) @if ($current === $key) aria-current="step" @endif>
+        <li @class(['is-current' => $current === $key, 'is-completed' => $loop->index < $currentIndex]) @if ($current === $key) aria-current="step" @endif>
             <span aria-hidden="true">{{ $loop->iteration }}</span>
             @if ($loop->index < $currentIndex)
                 <a href="{{ $link }}">{{ $title }}</a>

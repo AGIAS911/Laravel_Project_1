@@ -4,14 +4,20 @@
         @method($method)
     @endif
 
-    <label for="name">Vehicle Name</label>
+    <fieldset class="product-form-section">
+        <legend>Vehicle details</legend>
+        <div class="product-form-grid">
+            <div>
+    <label for="name">Vehicle name</label>
     <input id="name" name="name" type="text" maxlength="150" required value="{{ old('name', $vehicle?->name) }}">
     @error('name') <p class="field-error">{{ $message }}</p> @enderror
 
+            </div><div>
     <label for="plate_number">License Plate</label>
     <input id="plate_number" name="plate_number" type="text" maxlength="30" required value="{{ old('plate_number', $vehicle?->plate_number) }}">
     @error('plate_number') <p class="field-error">{{ $message }}</p> @enderror
 
+            </div><div>
     <label for="vehicle_type_id">Vehicle Type</label>
     <select id="vehicle_type_id" name="vehicle_type_id" required>
         <option value="">Select a vehicle type</option>
@@ -23,17 +29,24 @@
     </select>
     @error('vehicle_type_id') <p class="field-error">{{ $message }}</p> @enderror
 
+            </div><div>
     <label for="driver_id">Driver</label>
     <select id="driver_id" name="driver_id" required>
         <option value="">Select a driver</option>
         @foreach ($drivers as $driver)
             <option value="{{ $driver->id }}" @selected((string) old('driver_id', $vehicle?->driver_id) === (string) $driver->id)>
-                {{ $driver->license_number }} ({{ $driver->user_id }})
+                {{ $driver->user?->name ?? $driver->license_number }}
             </option>
         @endforeach
     </select>
     @error('driver_id') <p class="field-error">{{ $message }}</p> @enderror
 
+            </div>
+        </div>
+    </fieldset>
+
+    <fieldset class="product-form-section">
+        <legend>Photo and capacity</legend>
     @if ($vehicle?->image)
         <p>Current image:</p>
         <img class="thumbnail" src="{{ asset($vehicle->image) }}" alt="Image of {{ $vehicle->name }}">
@@ -43,7 +56,9 @@
     @error('image') <p class="field-error">{{ $message }}</p> @enderror
 
     @php($capacities = ['small' => 'Small', 'medium' => 'Medium', 'large' => 'Large'])
-    @foreach (['capacity_kg' => 'Weight Capacity', 'capacity_m3' => 'Volume Capacity'] as $field => $label)
+        <div class="product-form-grid mt-2">
+    @foreach (['capacity_kg' => 'Weight capacity', 'capacity_m3' => 'Volume capacity'] as $field => $label)
+        <div>
         <label for="{{ $field }}">{{ $label }}</label>
         <select id="{{ $field }}" name="{{ $field }}" required>
             @foreach ($capacities as $value => $capacityLabel)
@@ -51,16 +66,26 @@
             @endforeach
         </select>
         @error($field) <p class="field-error">{{ $message }}</p> @enderror
+        </div>
     @endforeach
+        </div>
+    </fieldset>
 
-    <label for="base_price">Base Price</label>
+    <fieldset class="product-form-section">
+        <legend>Pricing and availability</legend>
+        <div class="product-form-grid">
+            <div>
+    <label for="base_price">Base price (JOD)</label>
     <input id="base_price" name="base_price" type="number" min="0" step="0.001" required value="{{ old('base_price', $vehicle?->base_price) }}">
     @error('base_price') <p class="field-error">{{ $message }}</p> @enderror
 
-    <label for="price_per_km">Price per Kilometer</label>
+            </div><div>
+    <label for="price_per_km">Price per kilometre (JOD)</label>
     <input id="price_per_km" name="price_per_km" type="number" min="0" step="0.001" required value="{{ old('price_per_km', $vehicle?->price_per_km) }}">
     @error('price_per_km') <p class="field-error">{{ $message }}</p> @enderror
 
+            </div>
+        </div>
     <label for="status">Status</label>
     <select id="status" name="status" required>
         <option value="active" @selected(old('status', $vehicle?->status ?? 'active') === 'active')>Active</option>
@@ -69,7 +94,9 @@
     </select>
     @error('status') <p class="field-error">{{ $message }}</p> @enderror
 
-    <div class="actions" style="margin-top: 20px">
+    </fieldset>
+
+    <div class="actions mt-4">
         <button class="button" type="submit">{{ $method === 'POST' ? 'Add Vehicle' : 'Save Changes' }}</button>
         <a class="button secondary" href="{{ route('vehicles.index') }}">Cancel</a>
     </div>

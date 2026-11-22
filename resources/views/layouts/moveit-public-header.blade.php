@@ -1,3 +1,4 @@
+<a class="product-skip" href="#info-main">Skip to content</a>
 <header class="site-header">
   <div class="container">
     <a class="logo" href="{{ url('/') }}" aria-label="MoveIt"><span class="moveit-brand" aria-label="MoveIt">MOVE<span>IT</span></span></a>

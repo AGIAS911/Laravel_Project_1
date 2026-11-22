@@ -1,15 +1,13 @@
 @extends('layouts.moveit-public')
 
-@section('title', 'Account')
-
 @section('page')
     <div class="auth">
-        <aside class="auth-side">
-            <video autoplay muted loop playsinline aria-hidden="true" poster="{{ asset('landing/img/hero.jpg') }}">
-                <source src="{{ asset('landing/video/hero.mp4') }}" type="video/mp4">
-            </video>
-            <h2>@yield('auth-heading', 'Move your furniture with confidence and clarity')</h2>
-            <p style="color:#cbd5e1;margin-top:10px">Smart inventory, clear pricing and an approved driver.</p>
+        <aside class="auth-side" aria-label="About MoveIt">
+            <img src="{{ asset('landing/img/room.jpg') }}" alt="" width="800" height="600">
+            <div class="product-auth-cover">
+                <h2>Plan your move.</h2>
+                <p>See your moving price, pay your deposit and keep up with your booking from one place.</p>
+            </div>
         </aside>
         <main class="auth-main">
             <div class="auth-box">

@@ -11,13 +11,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
-use Illuminate\Support\Str;
-use App\Models\ScanSession;
-use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Auth;
-use App\Models\PlatformSetting;
-use App\Models\User;
-use Illuminate\Support\Facades\Storage;
+
+
 /**
  * Admin review of CliQ payment proofs.
  */

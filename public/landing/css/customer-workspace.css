@@ -403,16 +403,7 @@
 }
 
 /* New booking paths and draft progress */
-.booking-methods, .booking-type-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
-.booking-method-card { min-width: 0; display: flex; flex-direction: column; background: #fff; border: 1px solid var(--line); border-radius: 18px; overflow: hidden; }
-.booking-method-card > img { width: 100%; height: auto; aspect-ratio: 2 / 1; object-fit: cover; background: var(--soft); }
-.booking-method-card.has-vehicle-art > img { object-fit: contain; padding: 18px 27px; background: #eaf2f5; }
-.booking-method-card > div { display: flex; flex-direction: column; align-items: flex-start; flex: 1; padding: clamp(18px, 3vw, 25px); }
-.booking-method-icon { display: inline-grid; place-items: center; width: 42px; height: 42px; margin-bottom: 12px; border-radius: 12px; color: #a62530; background: #fce9e9; }
-.booking-method-card h2 { margin: 0 0 8px; color: var(--navy); font-size: 1.16rem; font-weight: 850; }
-.booking-method-card p { margin: 0 0 16px; color: var(--muted); }
-.booking-method-card form { margin-top: auto; width: 100%; }
-.booking-method-card .btn { min-height: 46px; text-align: start; }
+.booking-type-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .booking-wizard-steps { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 24px; }
 .booking-wizard-steps li { display: inline-flex; align-items: center; gap: 6px; padding: 7px 10px; border-radius: 9px; color: var(--muted); background: #fff; font-size: .82rem; font-weight: 700; border: 1px solid var(--line); }
 .booking-wizard-steps li > span { display: inline-grid; place-items: center; width: 22px; height: 22px; flex-shrink: 0; border-radius: 50%; background: #eaf0f3; color: var(--navy); }
@@ -433,9 +424,8 @@
 .inventory-estimates summary { color: var(--navy); font-size: .85rem; font-weight: 700; cursor: pointer; }
 .inventory-estimates summary:focus-visible { outline: 2px solid #315f93; outline-offset: 2px; }
 @media (max-width: 850px) {
-    .booking-methods, .booking-type-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .booking-type-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 560px) {
-    .booking-methods, .booking-type-grid { grid-template-columns: minmax(0, 1fr); }
-    .booking-method-card .btn { width: 100%; }
+    .booking-type-grid { grid-template-columns: minmax(0, 1fr); }
 }

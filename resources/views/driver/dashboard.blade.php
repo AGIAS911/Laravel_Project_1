@@ -4,10 +4,10 @@
 
 @section('content')
     <div class="driver-dashboard">
-        <header class="driver-intro">
+        <header class="driver-intro product-operator-heading">
             <div>
                 <h1>Manage your moves</h1>
-                <p>Welcome, {{ auth()->user()->name }}</p>
+                <p>Check your schedule and respond to booking requests.</p>
             </div>
             <a class="driver-button driver-button-outline driver-profile-link" href="{{ route('driver.profile.show') }}">
                 <i class="fa-regular fa-id-card" aria-hidden="true"></i> Driver profile
