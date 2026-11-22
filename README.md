@@ -1,72 +1,121 @@
+# MoveIt
 
+MoveIt is a moving-service platform for customers, drivers, and administrators. Customers build a booking, review a quote, and submit a CliQ deposit receipt. Once an administrator verifies the full deposit, MoveIt looks for an available driver and shares the assignment after the driver accepts.
 
-## MoveIt Blade layouts
+## What you can do
 
-- Use `layouts.app` for public pages and `layouts.auth` for authentication pages.
-- Use `layouts.customer`, `layouts.driver`, or `layouts.admin` for dashboard pages. The dashboard layouts share the same sidebar and page header.
-- Place each feature's views in its own folder, such as `resources/views/customer/bookings`, `resources/views/driver/vehicles`, or `resources/views/admin/payments`. Protect each feature's routes with the appropriate authentication and role authorization.
-- Shared styles live in `public/css/moveit.css`. Use `@push('styles')` and `@push('scripts')` for page-specific assets, and flash `success` or `error` for shared alerts.
+| Workspace | Main features |
+| --- | --- |
+| Customer | Start with a vehicle size, a manual furniture inventory, or a phone scan. Set pickup and destination, choose one appointment time, and review the automatically calculated quote. |
+| Driver | Apply for approval, manage vehicles and availability, and respond to booking offers. |
+| Admin | Review driver applications and CliQ receipts, manage the vehicle and service catalog, and monitor bookings, pricing, and commissions. |
 
-```blade
-@extends('layouts.customer')
+The web application uses Laravel 12, Blade, Bootstrap, and Vite. Leaflet displays maps, OSRM calculates road distances for quotes, and SweetAlert2 handles confirmations and receipt previews. Furniture scanning is an optional FastAPI service that runs YOLO separately from Laravel.
 
-@section('title', __('Bookings'))
-@section('page-title', __('Bookings'))
+## Local setup
 
-@section('content')
-    {{-- Add feature markup here. --}}
-@endsection
+### Prerequisites
+
+- PHP 8.2 or later with PDO SQLite, or PDO MySQL for a MySQL database
+- Composer 2
+- Node.js 22.12 or later and npm
+- Python 3.12 only if you are running the furniture scanner
+
+### Install and start
+
+Run these commands from the repository root. The PowerShell commands preserve an existing environment file and SQLite database.
+
+```powershell
+composer install
+if (!(Test-Path .env)) { Copy-Item .env.example .env }
+if (!(Test-Path database/database.sqlite)) { New-Item -ItemType File database/database.sqlite }
+npm ci
 ```
 
-Add feature links in the `sidebar` section once their named routes exist. Use `moveit-sidebar-link` on each link and set `aria-current="page"` for the active route. Use the `actions` section for buttons beside the page title.
+For a fresh setup, set the following values in `.env`. The example file already defaults to SQLite. For MySQL, create a local database and configure the `DB_*` settings before running the migrations.
 
-## About Laravel
+```dotenv
+APP_NAME=MoveIt
+APP_URL=http://127.0.0.1:8000
+DB_CONNECTION=sqlite
+```
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+Generate the application key once for a new environment. Keep the existing key if the application is already configured.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+```powershell
+php artisan key:generate
+php artisan migrate
+composer dev
+```
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+Open [http://127.0.0.1:8000](http://127.0.0.1:8000). The `composer dev` script runs Laravel, Vite, the queue listener, and the scheduler. For a standalone Laravel server, build the frontend with `npm run build` and start it with `php artisan serve`.
 
-## Learning Laravel
+### Demo data
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+On a local database, run:
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+```powershell
+php artisan db:seed --class=MoveItDemoSeeder
+```
 
-## Laravel Sponsors
+The seeder adds a sample catalog, bookings, payment receipts, and role-based accounts such as `customer@moveit.test`, `driver@moveit.test`, and `admin@moveit.test`. It prints the generated password when it creates or updates demo credentials. Use the sign-in page to enter the appropriate workspace.
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+## Configuration
 
-### Premium Partners
+Set local configuration in `.env`. Keep environment files, real banking details, and account credentials out of source control.
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+| Setting | Purpose |
+| --- | --- |
+| `OSRM_BASE_URL` | OSRM endpoint used to calculate the road distance for a quote |
+| `BOOKING_DEPOSIT_PERCENT` | Share of the booking total due as a deposit |
+| `BOOKING_COMMISSION_PERCENT` | Platform commission rate |
+| `BOOKING_DEPOSIT_MINUTES` | Time allowed to submit the deposit |
+| `CLIK_BENEFICIARY_NAME`, `CLIK_ID` | Beneficiary name and CliQ alias shown at checkout |
+| `SCAN_BASE_URL` | HTTPS address for the scanner experience |
+| `OLLAMA_URL`, `OLLAMA_MODEL`, `OLLAMA_TIMEOUT` | Optional chatbot configuration |
 
-## Contributing
+Saved admin settings take precedence over the booking and CliQ defaults in `.env`. Customers make the CliQ transfer in their banking app and upload a receipt for manual review. Booking appointments and payment deadlines are displayed in Amman time. When checkout settings are incomplete, customers can still get a quote if route pricing is available.
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+The scheduler checks for expired deposit holds and retries driver matching. If you start Laravel separately, run `php artisan schedule:work` in another terminal for local testing. For deployment, follow the [Laravel scheduler setup](https://laravel.com/docs/12.x/scheduling#running-the-scheduler).
 
-## Code of Conduct
+## Optional furniture scanner
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+The Laravel app supports manual inventory entry without the scanner. To run detection locally, place the `yolo26s.pt` weights in `ai-service/`. Model weights are excluded from Git.
 
-## Security Vulnerabilities
+```powershell
+cd ai-service
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8001
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+The committed requirements pin CUDA 12.8 builds of PyTorch and TorchVision. On a CPU-only machine, use matching CPU builds in a local copy of the requirements. [PyTorch installation guide](https://pytorch.org/get-started/locally/)
 
-## License
+- Check the service at [http://127.0.0.1:8001](http://127.0.0.1:8001). Its response confirms FastAPI is running. The detector loads the weights when a valid scan session connects.
+- The scanner calls Laravel at `http://127.0.0.1:8000/api/scanner` by default. Set `SCANNER_API_URL` in the scanner process environment if Laravel is running elsewhere.
+- The included `Caddyfile` demonstrates local routing on port `8080`. It forwards `/ws/*` to FastAPI on `8001` and other requests to Laravel on `8000`. For phone pairing, serve that same routing through an HTTPS address reachable from the phone and set `SCAN_BASE_URL` to that address.
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## Project structure
+
+| Path | Responsibility |
+| --- | --- |
+| `app/Http/Controllers/`, `app/Services/` | Booking, payments, matching, and application workflows |
+| `routes/` | Web and API routes, plus scheduled commands |
+| `resources/views/` | Blade views organized by feature |
+| `public/landing/css/`, `public/js/` | Shared UI styles and browser interactions |
+| `database/` | Migrations, factories, and local seed data |
+| `ai-service/` | Scanner API, detection, tracking, and inventory catalog |
+| `tests/` | Application tests |
+
+Workspace pages use `layouts.dashboard` or `layouts.app`. Public information pages use `layouts.info`, and sign-in and registration use `layouts.auth`. Reuse named routes and existing Blade components when adding screens.
+
+## Development checks
+
+```powershell
+php artisan test
+npm run build
+php artisan route:list
+php artisan schedule:list
+```
+
+The test suite uses an in-memory SQLite database. If a configuration change is still showing old values locally, run `php artisan config:clear`.
