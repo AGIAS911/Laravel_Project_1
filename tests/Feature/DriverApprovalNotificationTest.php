@@ -53,6 +53,30 @@ class DriverApprovalNotificationTest extends TestCase
             ->assertOk();
     }
 
+    public function test_driver_dashboard_keeps_identity_and_links_in_sidebar_without_topbar(): void
+    {
+        $driver = User::factory()->create(['role' => 'driver']);
+        DriverProfile::factory()->for($driver, 'user')->create(['status' => 'approved']);
+
+        $this->actingAs($driver)
+            ->get(route('driver.dashboard'))
+            ->assertOk()
+            ->assertDontSee('moveit-topbar', false)
+            ->assertSee('workspace-menu', false)
+            ->assertSee('MOVE<span>IT</span>', false)
+            ->assertSee($driver->name)
+            ->assertSee(route('driver.dashboard'))
+            ->assertSee(route('driver.bookings.index'))
+            ->assertSee(route('driver.schedule'))
+            ->assertSee(route('vehicles.index'))
+            ->assertSee(route('services.index'))
+            ->assertSee(route('driver.profile.show'))
+            ->assertSee(route('driver.bookings.index', ['view' => 'requests']))
+            ->assertSee(route('notifications.index'))
+            ->assertSee(route('profile.edit'))
+            ->assertSee('Log out');
+    }
+
     public function test_users_can_only_mark_their_own_notifications_as_read(): void
     {
         $driver = User::factory()->create(['role' => 'driver']);
@@ -61,13 +85,23 @@ class DriverApprovalNotificationTest extends TestCase
         $notification = $driver->notifications()->firstOrFail();
 
         $this->actingAs($driver)
-            ->get(route('home'))
+            ->get(route('notifications.index'))
             ->assertOk()
-            ->assertSee('Your account as a driver has been approved');
+            ->assertSee('Your account as a driver has been approved')
+            ->assertSee(route('notifications.open', $notification->id));
 
         $this->actingAs($otherUser)
             ->post(route('notifications.read', $notification->id))
             ->assertNotFound();
+
+        $this->get(route('notifications.open', $notification->id))
+            ->assertNotFound();
+
+        $this->actingAs($driver)
+            ->get(route('notifications.open', $notification->id))
+            ->assertRedirect(route('home'));
+
+        $this->assertNotNull($notification->fresh()->read_at);
 
         $this->actingAs($driver)
             ->post(route('notifications.read', $notification->id))

@@ -10,7 +10,8 @@ class OllamaService
     public function getResponse(
         string $message,
         array $history = [],
-        array $serviceCatalog = []
+        array $serviceCatalog 
+        = []
     ): string
     {
         $url = config('services.ollama.url');

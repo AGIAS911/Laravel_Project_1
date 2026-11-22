@@ -103,7 +103,7 @@
                                         <time class="small text-body-secondary" datetime="{{ $notification->created_at->toISOString() }}">{{ $notification->created_at->diffForHumans() }}</time>
                                     </div>
                                     @if ($notification->url)
-                                        <a class="btn btn-outline-secondary btn-sm flex-shrink-0" href="{{ $notification->url }}">Open</a>
+                                        <a class="btn btn-outline-secondary btn-sm flex-shrink-0" href="{{ route('notifications.open', $notification->id) }}">Open</a>
                                     @endif
                                 </div>
                             </li>

@@ -72,6 +72,7 @@ class Booking extends Model
         return $this->belongsTo(User::class);
     }
 
+    // بنحسب نهاية الموعد 
     public static function slotEnd(Carbon $appointment): Carbon
     {
         return $appointment->copy()->addMinutes(config('booking.slot_minutes'));
