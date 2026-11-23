@@ -10,7 +10,9 @@
                 <p>Check your schedule and respond to booking requests.</p>
             </div>
             <div class="d-flex flex-wrap gap-2">
-                @php($pendingRequests = $counts['pending'] ?? 0)
+                @php
+                    $pendingRequests = $counts['pending'] ?? 0;
+                @endphp
                 <a class="btn btn-primary" href="{{ route('driver.bookings.index', ['view' => 'requests']) }}"
                     aria-label="New requests: {{ $pendingRequests }}">
                     New requests
@@ -19,9 +21,10 @@
                     @endif
                 </a>
                 <a class="btn btn-outline-light" href="{{ route('driver.schedule') }}">Schedule</a>
-            <a class="driver-button driver-button-outline driver-profile-link" href="{{ route('driver.profile.show') }}">
-                <i class="fa-regular fa-id-card" aria-hidden="true"></i> Driver profile
-            </a>
+                <a class="driver-button driver-button-outline driver-profile-link" href="{{ route('driver.profile.show') }}">
+                    <i class="fa-regular fa-id-card" aria-hidden="true"></i> Driver profile
+                </a>
+            </div>
         </header>
 
         @if (session('success'))

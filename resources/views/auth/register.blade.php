@@ -1,12 +1,13 @@
 @extends('layouts.auth')
 
 @section('title', 'Create your account')
+@section('auth-screen', 'register')
 
 
 @section('content')
     @php($accountType = old('account_type', request()->query('type') === 'driver' ? 'driver' : 'customer'))
     <h1>Create your account</h1>
-    <p class="muted">Book a move as a customer or apply to drive with MoveIt.</p>
+    <p class="muted">Choose how you’ll use MoveIt, then enter your account details.</p>
 
     @if ($errors->any())
         <ul class="alert err" role="alert">
@@ -18,10 +19,20 @@
     <form method="POST" action="{{ route('register', absolute: false) }}" enctype="multipart/form-data">
         @csrf
         <fieldset class="field">
-            <legend class="sm b">Account type</legend>
-            <div class="seg">
-                <label><input type="radio" name="account_type" value="customer" @checked($accountType === 'customer')> <i class="fa-solid fa-user" aria-hidden="true"></i> Customer</label>
-                <label><input type="radio" name="account_type" value="driver" @checked($accountType === 'driver')> <i class="fa-solid fa-truck" aria-hidden="true"></i> Driver</label>
+            <legend class="auth-field-heading">Account type</legend>
+            <div class="auth-account-options">
+                @foreach ([
+                    ['customer', 'Customer', 'Book and track a move.', 'fa-box'],
+                    ['driver', 'Driver', 'Apply to accept moving jobs.', 'fa-truck'],
+                ] as [$type, $title, $description, $icon])
+                    <label class="auth-account-card">
+                        <i class="fa-solid {{ $icon }} auth-role-icon" aria-hidden="true"></i>
+                        <span><strong id="account-{{ $type }}">{{ $title }}</strong><small id="account-{{ $type }}-hint">{{ $description }}</small></span>
+                        <input type="radio" name="account_type" value="{{ $type }}" required
+                            aria-labelledby="account-{{ $type }}" aria-describedby="account-{{ $type }}-hint"
+                            @checked($accountType === $type)>
+                    </label>
+                @endforeach
             </div>
         </fieldset>
 
@@ -45,48 +56,44 @@
         <div class="form-row">
             <div class="field">
                 <label for="password">Password</label>
-                <input id="password" type="password" name="password" required minlength="8" autocomplete="new-password" @error('password') aria-describedby="register-password-error" @enderror @error('password') aria-invalid="true" @enderror>
+                <div class="auth-password-field">
+                    <input id="password" type="password" name="password" required minlength="8" autocomplete="new-password" aria-describedby="register-password-hint{{ $errors->has('password') ? ' register-password-error' : '' }}" @error('password') aria-invalid="true" @enderror>
+                    <button class="auth-password-reveal" type="button" data-password-reveal="password" aria-controls="password" aria-label="Show password" hidden>
+                        <i class="fa-regular fa-eye" aria-hidden="true"></i> <span data-password-label>Show</span>
+                    </button>
+                </div>
+                <p class="hint" id="register-password-hint">Use at least 8 characters.</p>
                 @error('password') <p id="register-password-error" class="field-error">{{ $message }}</p> @enderror
             </div>
             <div class="field">
                 <label for="password_confirmation">Confirm password</label>
-                <input id="password_confirmation" type="password" name="password_confirmation" required minlength="8" autocomplete="new-password" @error('password_confirmation') aria-describedby="register-password_confirmation-error" @enderror @error('password_confirmation') aria-invalid="true" @enderror>
+                <div class="auth-password-field">
+                    <input id="password_confirmation" type="password" name="password_confirmation" required minlength="8" autocomplete="new-password" @error('password_confirmation') aria-describedby="register-password_confirmation-error" @enderror @error('password_confirmation') aria-invalid="true" @enderror>
+                    <button class="auth-password-reveal" type="button" data-password-reveal="password confirmation" aria-controls="password_confirmation" aria-label="Show password confirmation" hidden>
+                        <i class="fa-regular fa-eye" aria-hidden="true"></i> <span data-password-label>Show</span>
+                    </button>
+                </div>
                 @error('password_confirmation') <p id="register-password_confirmation-error" class="field-error">{{ $message }}</p> @enderror
             </div>
         </div>
 
-        <fieldset class="product-license-fields" id="driver-fields" @if ($accountType !== 'driver') hidden @endif>
-            <legend>Driver license</legend>
+        <fieldset class="product-license-fields" id="driver-fields" @if ($accountType !== 'driver') hidden disabled @endif>
+            <legend><i class="fa-regular fa-id-card" aria-hidden="true"></i> Driver license</legend>
+            <p class="auth-license-summary">Your application goes to the MoveIt team for approval after you register.</p>
             <div class="field">
                 <label for="license_number">License number</label>
-                <input id="license_number" name="license_number" value="{{ old('license_number') }}" @error('license_number') aria-describedby="register-license_number-error" @enderror @error('license_number') aria-invalid="true" @enderror>
+                <input id="license_number" name="license_number" maxlength="100" required value="{{ old('license_number') }}" @error('license_number') aria-describedby="register-license_number-error" @enderror @error('license_number') aria-invalid="true" @enderror>
                 @error('license_number') <p id="register-license_number-error" class="field-error">{{ $message }}</p> @enderror
             </div>
             <div class="field">
                 <label for="license_image">License image</label>
-                <input id="license_image" type="file" name="license_image" accept="image/jpeg,image/png" aria-describedby="license-image-hint @error('license_image') register-license_image-error @enderror" @error('license_image') aria-invalid="true" @enderror>
+                <input id="license_image" type="file" name="license_image" required accept="image/jpeg,image/png" aria-describedby="license-image-hint @error('license_image') register-license_image-error @enderror" @error('license_image') aria-invalid="true" @enderror>
                 @error('license_image') <p id="register-license_image-error" class="field-error">{{ $message }}</p> @enderror
-                <p class="hint" id="license-image-hint">JPEG or PNG, up to 2 MB. Driver accounts are reviewed after registration.</p>
+                <p class="hint" id="license-image-hint">Upload a clear JPEG or PNG, up to 2 MB.</p>
             </div>
         </fieldset>
-        <button type="submit" class="btn btn-primary btn-block">Create account <span class="dot"></span></button>
+        <button type="submit" class="btn btn-primary btn-block"><span data-auth-submit-label>{{ $accountType === 'driver' ? 'Submit driver application' : 'Create account' }}</span> <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
     </form>
-    <p class="center muted sm mt">Already have an account? <a class="link" href="{{ route('login') }}">Log in</a></p>
+    <p class="auth-form-footer muted">Already have an account? <a class="link" href="{{ route('login') }}">Log in</a></p>
 
-    <script>
-        const driverFields = document.getElementById('driver-fields');
-        const accountTypes = document.querySelectorAll('[name="account_type"]');
-
-        function syncDriverFields() {
-            const isDriver = document.querySelector('[name="account_type"]:checked')?.value === 'driver';
-            driverFields.hidden = !isDriver;
-            driverFields.querySelectorAll('input').forEach(input => {
-                input.required = isDriver;
-                input.disabled = !isDriver;
-            });
-        }
-
-        accountTypes.forEach(input => input.addEventListener('change', syncDriverFields));
-        syncDriverFields();
-    </script>
 @endsection

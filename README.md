@@ -2,15 +2,46 @@
 
 MoveIt is a moving-service platform for customers, drivers, and administrators. Customers build a booking, review a quote, and submit a CliQ deposit receipt. Once an administrator verifies the full deposit, MoveIt looks for an available driver and shares the assignment after the driver accepts.
 
-## What you can do
+![MoveIt landing page introducing furniture moves, room scans, and upfront quotes](docs/screenshots/landing.jpg)
 
-| Workspace | Main features |
-| --- | --- |
-| Customer | Start with a vehicle size, a manual furniture inventory, or a phone scan. Set pickup and destination, choose one appointment time, and review the automatically calculated quote. |
-| Driver | Apply for approval, manage vehicles and availability, and respond to booking offers. |
-| Admin | Review driver applications and CliQ receipts, manage the vehicle and service catalog, and monitor bookings, pricing, and commissions. |
+Screenshots in this guide use demo data.
 
-The web application uses Laravel 12, Blade, Bootstrap, and Vite. Leaflet displays maps, OSRM calculates road distances for quotes, and SweetAlert2 handles confirmations and receipt previews. Furniture scanning is an optional FastAPI service that runs YOLO separately from Laravel.
+## Features
+
+### Customer booking
+
+![New booking screen with options for choosing a vehicle size, listing furniture, or scanning with a phone](docs/screenshots/customer-booking.jpg)
+
+- Start with a vehicle size, a manual inventory, or a phone scan. A confirmed inventory helps MoveIt recommend a vehicle size.
+- Pin pickup and destination on the map, record floor and elevator access, and choose a single pickup appointment in Amman time.
+- Review the road distance, total, and deposit. Add services such as loading workers, packing, boxes, or assembly. Quantity changes save and refresh the quote automatically.
+- Track the move and get updates about receipts, driver assignment, and booking status.
+
+### CliQ deposits and receipts
+
+![Deposit page showing copyable CliQ transfer details and a receipt upload form](docs/screenshots/customer-deposit.jpg)
+
+Customers transfer the deposit through their banking app and upload a receipt with the amount and an optional reference. Payment history tracks the review status and provides a receipt preview. MoveIt starts looking for a driver after an administrator verifies the full deposit. The assigned driver and vehicle appear after the driver accepts.
+
+### Driver workspace
+
+![Driver fleet page listing vehicle type, license plate, capacity, price, and status](docs/screenshots/driver-vehicles.jpg)
+
+Drivers apply for approval before accessing their workspace. Approved drivers can manage vehicles and availability, respond to offers, and track assigned moves. Fleet entries show vehicle capacity, operating status, and base and per-kilometer rates.
+
+### Administration
+
+![Admin dashboard with booking activity, receipt review, driver approvals, and recorded commissions](docs/screenshots/admin-dashboard.jpg)
+
+Administrators review driver applications and receipts, search bookings, and monitor outstanding actions. They also manage the vehicle and service catalog, time-based pricing rules, and deposit and commission settings.
+
+### AI furniture scanning
+
+Customers pair their phone with a booking using a temporary QR code. The scanner detects supported furniture categories and sends suggestions to the draft. Customers can correct item types and quantities before confirming the inventory. See [Optional furniture scanner](#optional-furniture-scanner) for setup.
+
+## Technology
+
+The web application uses Laravel 12, Blade, Bootstrap, and Vite. Leaflet displays maps, OSRM calculates road distances for quotes, and SweetAlert2 handles confirmations and receipt previews. The optional scanner runs YOLO in a separate FastAPI service.
 
 ## Local setup
 
