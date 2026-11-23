@@ -675,6 +675,89 @@
 .moveit-product .product-auth-cover { position: relative; max-width: 46ch; }
 .moveit-product .product-auth-cover p { color: #e5edf0; margin-top: 16px; }
 .moveit-product .auth-remember { margin-bottom: 20px; }
+.moveit-product-public .auth[data-auth-screen="login"] .auth-main { align-items: center; padding-block: 0; }
+.moveit-product-public .auth[data-auth-screen="register"] .auth-main { padding-top: 0; }
+.moveit-product-public .auth[data-auth-screen="register"] .auth-box { max-width: 620px; }
+.moveit-product-public .auth:is([data-auth-screen="login"], [data-auth-screen="register"]) .auth-box h1 {
+    font-size: clamp(1.8rem, 1.45rem + 1.3vw, 2.6rem);
+}
+.moveit-product-public .auth-password-field { position: relative; }
+.moveit-product-public .auth-password-field input { padding-inline-end: 90px; }
+.moveit-product-public .auth-password-reveal {
+    position: absolute;
+    inset-inline-end: 5px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    min-height: 36px;
+    padding: 4px 8px;
+    border: 0;
+    border-radius: var(--ui-field-radius);
+    background: var(--ui-soft);
+    color: var(--ui-ink);
+    font: inherit;
+    font-size: .8rem;
+    font-weight: 650;
+    cursor: pointer;
+}
+.moveit-product-public .auth-password-field:has(.auth-password-reveal[hidden]) input { padding-inline-end: 16px; }
+.moveit-product-public .auth-password-reveal:hover { background: var(--ui-line); }
+.moveit-product-public .auth-form-footer {
+    border-top: 1px solid var(--ui-line);
+    padding-top: 16px;
+    margin-top: 20px;
+    font-size: .9rem;
+    text-align: center;
+}
+.moveit-product-public .auth-remember {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    font-size: .88rem;
+}
+.moveit-product-public .auth-remember label, .moveit-product-public .auth-remember a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    gap: 8px;
+}
+.moveit-product-public .auth-remember input { accent-color: var(--ui-brand); width: 16px; height: 16px; }
+.moveit-product-public .auth-field-heading { font-size: .9rem; font-weight: 750; }
+.moveit-product-public .auth-account-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.moveit-product-public .auth-account-options .auth-account-card {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    min-height: 70px;
+    padding: 9px;
+    border: 1px solid var(--ui-control);
+    border-radius: var(--ui-field-radius);
+    cursor: pointer;
+}
+.moveit-product-public .auth-account-card:hover { border-color: var(--ui-ink); }
+.moveit-product-public .auth-account-card:has(input:checked) { border-color: var(--ui-brand); background: #fff8f8; }
+.moveit-product-public .auth-account-card small { display: block; color: var(--ui-muted); font-size: .75rem; font-weight: 500; }
+.moveit-product-public .auth-account-card input { accent-color: var(--ui-brand); width: 16px; height: 16px; }
+.moveit-product-public .auth-role-icon {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border-radius: var(--ui-field-radius);
+    color: var(--ui-brand);
+    background: var(--ui-soft);
+}
+.moveit-product-public .auth-license-summary { color: var(--ui-muted); font-size: .86rem; margin-bottom: 12px; }
+@media (max-width: 480px) {
+    .moveit-product-public .auth-account-options { grid-template-columns: minmax(0, 1fr); }
+    .moveit-product-public .auth-account-options .auth-account-card { min-height: 58px; }
+}
 .moveit-product .product-license-fields { border-top: 1px solid var(--ui-line) !important; padding-top: 14px; margin-bottom: 16px; }
 .moveit-product .product-license-fields legend { padding-inline-end: 8px; font-size: .9rem; font-weight: 750; }
 .moveit-product .booking-wizard-steps .is-completed > span { color: var(--ui-success); background: var(--ui-success-bg); }

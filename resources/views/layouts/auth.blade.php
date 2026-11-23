@@ -1,12 +1,17 @@
 @extends('layouts.moveit-public')
 
 @section('page')
-    <div class="auth">
+    <div class="auth" data-auth-screen="@yield('auth-screen')">
         <aside class="auth-side" aria-label="About MoveIt">
             <img src="{{ asset('landing/img/room.jpg') }}" alt="" width="800" height="600">
             <div class="product-auth-cover">
-                <h2>Plan your move.</h2>
-                <p>See your moving price, pay your deposit and keep up with your booking from one place.</p>
+                @if (trim($__env->yieldContent('auth-screen')) === 'register')
+                    <h2>Move with MoveIt.</h2>
+                    <p>Book furniture transport or apply to join as a driver.</p>
+                @else
+                    <h2>Your move, in one place.</h2>
+                    <p>See your quote, pay your deposit, and follow your booking as it progresses.</p>
+                @endif
             </div>
         </aside>
         <main class="auth-main">
@@ -16,4 +21,7 @@
             </div>
         </main>
     </div>
+    @hasSection('auth-screen')
+        <script src="{{ asset('js/auth-form.js') }}" defer></script>
+    @endif
 @endsection
